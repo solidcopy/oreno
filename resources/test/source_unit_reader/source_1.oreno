@@ -1,0 +1,13 @@
+﻿firstline
+trailng spaces   
+
+blank line
+    
+マルチバイト
+indent0
+    indent1
+        indent2
+          keep indent
+    unindent
+
+    keep   indent

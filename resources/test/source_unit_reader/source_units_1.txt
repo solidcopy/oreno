@@ -1,0 +1,28 @@
+Char:firstline
+NewLine
+Char:trailng spaces
+NewLine
+NewLine
+Char:blank line
+NewLine
+NewLine
+Char:マルチバイト
+NewLine
+Char:indent0
+NewLine
+Indent
+Char:indent1
+NewLine
+Indent
+Char:indent2
+NewLine
+Char:  keep indent
+NewLine
+Unindent
+Char:unindent
+NewLine
+NewLine
+Char:keep   indent
+NewLine
+Unindent
+Eof
