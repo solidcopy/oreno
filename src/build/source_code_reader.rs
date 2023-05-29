@@ -1,12 +1,12 @@
-pub struct SourceCodeReader {
-    pub source_code: String,
+pub struct SourceCodeReader<'a> {
+    pub source_code: &'a str,
     pub pointer: usize,
 }
 
 const BOM: &[u8] = b"\xEF\xBB\xBF";
 
-impl SourceCodeReader {
-    pub fn new(s: String) -> Self {
+impl<'a> SourceCodeReader<'a> {
+    pub fn new(s: &'a str) -> Self {
         let pointer = if s.len() >= BOM.len() && s[0..3].as_bytes() == BOM {
             BOM.len()
         } else {
@@ -65,8 +65,8 @@ mod test {
 
     #[test]
     fn test_read_with_bom() {
-        let mut r =
-            SourceCodeReader::new(String::from_utf8(Vec::from(&b"\xEF\xBB\xBFabc"[..])).unwrap());
+        let s = String::from_utf8(Vec::from(&b"\xEF\xBB\xBFabc"[..])).unwrap();
+        let mut r = SourceCodeReader::new(&s);
 
         assert_eq!(Some(b'a'), r.read());
         assert_eq!(Some(b'b'), r.read());
