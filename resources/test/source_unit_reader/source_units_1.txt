@@ -18,11 +18,11 @@ Char:indent2
 NewLine
 Char:  keep indent
 NewLine
-Unindent
+UnIndent
 Char:unindent
 NewLine
 NewLine
 Char:keep   indent
 NewLine
-Unindent
+UnIndent
 Eof
