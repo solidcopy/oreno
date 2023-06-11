@@ -14,7 +14,7 @@ pub enum Unit {
     Eof,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Position {
     line_number: u64,
     column_number: u64,
@@ -255,7 +255,7 @@ mod test {
     #[test]
     fn test_read_unit() -> Result<(), Box<dyn Error>> {
         let filepath = PathBuf::from("resources/test/source_unit_reader/source_1.oreno");
-        let data = fs::read(filepath).unwrap();
+        let data = fs::read(&filepath).unwrap();
         let mut us = UnitStream::new(filepath, CharStream::new(data)?);
         let mut units = vec![];
         loop {

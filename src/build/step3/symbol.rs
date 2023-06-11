@@ -1,6 +1,7 @@
 use super::ParseResult;
 use crate::build::step2::Unit;
 use crate::build::step2::UnitStream;
+use crate::build::step3;
 
 /// シンボルをパースする。
 /// シンボルはタグ名、属性名。
@@ -24,7 +25,7 @@ pub fn parse_symbol(unit_stream: &mut UnitStream) -> ParseResult<String> {
                 break;
             }
             Unit::BlockBeginning | Unit::BlockEnd => {
-                return ParseResult::error(
+                return step3::error(
                     unit_stream.get_filepath(),
                     unit_stream.read().1,
                     "Unexpected block beginning or end.".to_owned(),
@@ -35,8 +36,8 @@ pub fn parse_symbol(unit_stream: &mut UnitStream) -> ParseResult<String> {
 
     // 1文字もなければ不適合
     if symbol.is_empty() {
-        return ParseResult::Mismatched;
+        return step3::mismatched();
     }
 
-    ParseResult::Parsed(symbol)
+    step3::parsed(symbol)
 }

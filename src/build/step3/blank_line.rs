@@ -1,5 +1,6 @@
 use super::ParseResult;
 use crate::build::step2::{Unit, UnitStream};
+use crate::build::step3;
 
 pub struct BlankLine {}
 
@@ -10,8 +11,8 @@ pub struct BlankLine {}
 /// 読み込み位置に改行があればパース成功、それ以外なら不適合。
 fn parse_blank_line(unit_stream: &mut UnitStream) -> ParseResult<BlankLine> {
     if Unit::NewLine == unit_stream.read().0 {
-        ParseResult::Parsed(BlankLine {})
+        step3::parsed(BlankLine {})
     } else {
-        ParseResult::Mismatched
+        step3::mismatched()
     }
 }

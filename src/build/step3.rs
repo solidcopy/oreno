@@ -4,7 +4,6 @@ mod block;
 mod block_tag;
 mod block_tag_header;
 mod inline_tag;
-mod inline_tag_contents;
 mod paragraph;
 mod symbol;
 mod tag;
@@ -18,44 +17,30 @@ type BlockContents = Vec<Box<dyn BlockContent>>;
 impl BlockContent for block::Block {}
 impl BlockContent for block_tag::BlockTag {}
 impl BlockContent for paragraph::Paragraph {}
-impl BlockContent for blank_line::BlankLine {}
+impl BlockContent for block::BlankLine {}
 
 trait InlineContent {}
 type InlineContents = Vec<Box<dyn InlineContent>>;
 impl InlineContent for inline_tag::InlineTag {}
 impl InlineContent for String {}
 
-#[derive(PartialEq)]
-enum ParseResult<S> {
-    Parsed(S),
-    Mismatched,
-    Warning(Box<ErrorInfo>),
-    Error(Box<ErrorInfo>),
-}
+type ParseResult<S> = Result<(Option<S>, Vec<ParseError>), ParseError>;
 
-impl<S> ParseResult<S> {
-    pub fn warn(filename: PathBuf, position: Option<Position>, message: String) -> ParseResult<S> {
-        ParseResult::Warning(Box::new(ErrorInfo {
-            filename,
-            position,
-            message,
-        }))
-    }
-
-    pub fn error(filename: PathBuf, position: Option<Position>, message: String) -> ParseResult<S> {
-        ParseResult::Error(Box::new(ErrorInfo {
-            filename,
-            position,
-            message,
-        }))
-    }
-}
-
-#[derive(PartialEq)]
-struct ErrorInfo {
+#[derive(Debug, PartialEq)]
+struct ParseError {
     filename: PathBuf,
     position: Option<Position>,
     message: String,
+}
+
+impl ParseError {
+    pub fn new(filename: PathBuf, position: Option<Position>, message: String) -> ParseError {
+        ParseError {
+            filename,
+            position,
+            message,
+        }
+    }
 }
 
 type ParseFunc<S> = fn(&mut UnitStream) -> ParseResult<S>;
@@ -67,16 +52,44 @@ fn try_parse<S>(parse_func: ParseFunc<S>, unit_stream: &mut UnitStream) -> Parse
 
     let result = parse_func(unit_stream);
 
-    // パース成功でなければ読み込み位置を戻す
-    match result {
-        ParseResult::Parsed(_) => {}
-        _ => {
-            unit_stream.reset(mark);
-        }
-    }
-
     // インデントチェックが無効にされていても有効に戻す
     unit_stream.set_indent_check_mode(true);
 
+    // 不適合なら読み込み位置を戻す
+    // ビルドエラーだと実行されないがビルドを中止するので必要ない
+    if let Ok((None, _)) = result {
+        unit_stream.reset(mark);
+    }
+
     result
+}
+
+fn parsed<S>(model: S) -> ParseResult<S> {
+    Ok((Some(model), Vec::with_capacity(0)))
+}
+
+fn mismatched<S>() -> ParseResult<S> {
+    Ok((None, Vec::with_capacity(0)))
+}
+
+fn error<S>(filename: PathBuf, position: Option<Position>, message: String) -> ParseResult<S> {
+    let error = ParseError {
+        filename,
+        position,
+        message,
+    };
+    Ok((None, vec![error]))
+}
+
+fn fatal_error<S>(
+    filename: PathBuf,
+    position: Option<Position>,
+    message: String,
+) -> ParseResult<S> {
+    let error = ParseError {
+        filename,
+        position,
+        message,
+    };
+    Err(error)
 }
