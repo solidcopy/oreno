@@ -1,0 +1,115 @@
+標準タグのJS実装を仮定で書いてみる。
+それにより必要なRust/JS間インタフェースを割り出す。
+
+グローバルオブジェクトORENOがRustの機能を呼び出す。
+
+ORENO.writeText("a < b")
+HTMLにテキストを出力する。エスケープする。
+
+ORENO.writeHTML("<p>")
+HTMLを出力する。エスケープしない。
+
+タグ名がxxxの時、oreno_xxx_tag関数がハンドラになる。
+引数は属性attributesと内容contents。
+
+attributes.attrで属性を取得。
+attributes._で無名属性。
+
+contentsは他のモデルの配列。
+ブロックタグならブロック1つ。
+
+ORENO.find_handlerにタグ名を渡すことでハンドラ関数を探して返す。
+見つからなかったらORENO.errorにエラー情報を渡す。
+ハンドラ関数にはラッパーが付いている。
+本体を呼ぶ前後にコールスタックを操作する。
+
+class Model {
+    type: string,
+    raw: string
+    source_position: (row: number, column: number)
+
+    function yield() {
+        // override
+    }
+}
+
+class Text < Model {
+    value: string
+
+    function yield() {
+        ORENO.writeText(this.value)
+    }
+}
+
+class BlankLine < Model {
+    raw = "\n"
+}
+
+class Tag < Model {
+    name: string,
+    attributes: Map<string, string>,
+    contents: Array<Model>
+
+    function yield() {
+        // `oreno_#{this.name}_tag`関数を探して呼び出す。
+        let handler = ORENO.find_handler(this.name)
+        handler(this.attributes, this.contents)
+    }
+}
+
+class Contents {
+    models: Array<Model>,
+
+    function yield() {
+        this.models.each (model) => {model.yield()}
+    }
+}
+
+// テキスト修飾
+function oreno_b_tag(attributes, contents) {
+    ORENO.writeHTML("<b>")
+    contents.yield()
+    ORENO.writeHTML("</b>")
+}
+
+// コードブロック
+function oreno_codeblack_tag() {
+    let lang = attributes._
+    ORENO.writeHTML(`<pre code="#{lang}">`)
+    let colored_code = add_syntax_color(contents.raw)
+    ORENO.writeText()
+    ORENO.writeHTML("</pre>")
+    contents.raw
+}
+
+// リンク
+function oreno_link_tag(attributes, contents) {
+    contents.yield()
+}
+
+// :table内にある:columnのハンドラ
+function oreno_table_column_tag(..) {..}
+// :columnのハンドラ
+function oreno_column_tag(..) {..}
+
+
+root = {
+    type: "block"
+    , contents: [
+        {
+            type: "Paragraph",
+            contents: [
+                {type: "Text", value: "abc "},
+                {type: "Tag", name: "b", attributes: {}, contents: [{type: "string", value: "xyz"}]},
+                {type: "Text", value: " 123"}
+            ]
+        },
+        {type: "BlankLine"},
+        {
+            type: "Tag",
+            name: "headline",
+            attributes: {"_": "this is headline"},
+            contents: [..]
+        }
+    ]
+}

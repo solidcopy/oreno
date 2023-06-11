@@ -1,3 +1,4 @@
+Begin
 Char:firstline
 NewLine
 Char:trailng spaces
@@ -10,19 +11,20 @@ Char:マルチバイト
 NewLine
 Char:indent0
 NewLine
-Indent
+Begin
 Char:indent1
 NewLine
-Indent
+Begin
 Char:indent2
 NewLine
 Char:  keep indent
 NewLine
-UnIndent
+End
 Char:unindent
 NewLine
 NewLine
 Char:keep   indent
 NewLine
-UnIndent
+End
+End
 Eof
