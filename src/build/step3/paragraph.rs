@@ -22,7 +22,7 @@ pub fn parse_paragraph(unit_stream: &mut UnitStream) -> ParseResult<Paragraph> {
     loop {
         match unit_stream.peek() {
             Unit::Char(c) => {
-                if *c == ':' {
+                if c == ':' {
                     if let (Some(inline_tag), mut errors) =
                         try_parse(parse_inline_tag, unit_stream)?
                     {
@@ -38,7 +38,7 @@ pub fn parse_paragraph(unit_stream: &mut UnitStream) -> ParseResult<Paragraph> {
                     }
                 }
 
-                text.push(*c);
+                text.push(c);
                 unit_stream.read();
             }
             Unit::NewLine => {

@@ -11,22 +11,22 @@ use crate::build::step2::Position;
 use crate::build::step2::UnitStream;
 use std::path::PathBuf;
 
-trait BlockContent {}
-type BlockContents = Vec<Box<dyn BlockContent>>;
+pub trait BlockContent {}
+pub type BlockContents = Vec<Box<dyn BlockContent>>;
 impl BlockContent for block::Block {}
 impl BlockContent for block_tag::BlockTag {}
 impl BlockContent for paragraph::Paragraph {}
 impl BlockContent for block::BlankLine {}
 
-trait InlineContent {}
-type InlineContents = Vec<Box<dyn InlineContent>>;
+pub trait InlineContent {}
+pub type InlineContents = Vec<Box<dyn InlineContent>>;
 impl InlineContent for inline_tag::InlineTag {}
 impl InlineContent for String {}
 
-type ParseResult<S> = Result<(Option<S>, Vec<ParseError>), ParseError>;
+pub type ParseResult<S> = Result<(Option<S>, Vec<ParseError>), ParseError>;
 
 #[derive(Debug, PartialEq)]
-struct ParseError {
+pub struct ParseError {
     filename: PathBuf,
     position: Option<Position>,
     message: String,

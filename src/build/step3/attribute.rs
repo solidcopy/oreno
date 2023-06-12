@@ -12,7 +12,7 @@ pub fn parse_attributes(
     unit_stream: &mut UnitStream,
 ) -> ParseResult<HashMap<Option<String>, String>> {
     // 開始が"["でなければ不適合
-    if unit_stream.peek() != &Unit::Char('[') {
+    if unit_stream.peek() != Unit::Char('[') {
         return step3::mismatched();
     }
     unit_stream.read();
@@ -29,7 +29,7 @@ pub fn parse_attributes(
 
     loop {
         match unit_stream.peek() {
-            Unit::Char(c) => match *c {
+            Unit::Char(c) => match c {
                 ']' => break,
                 ',' => {
                     if !need_separator {
@@ -114,7 +114,7 @@ fn parse_attribute(unit_stream: &mut UnitStream) -> ParseResult<(Option<String>,
     };
 
     // 次が"="でなければ不適合
-    if unit_stream.peek() != &Unit::Char('=') {
+    if unit_stream.peek() != Unit::Char('=') {
         return Ok((None, all_errors));
     }
     unit_stream.read();
@@ -139,7 +139,7 @@ fn parse_attribute(unit_stream: &mut UnitStream) -> ParseResult<(Option<String>,
 /// 引用符付き属性値をパースする。
 fn parse_quoted_attribute_value(unit_stream: &mut UnitStream) -> ParseResult<String> {
     // 開始が引用符でなければ不適合
-    if unit_stream.peek() != &Unit::Char('"') {
+    if unit_stream.peek() != Unit::Char('"') {
         return step3::mismatched();
     }
     unit_stream.read();
@@ -150,7 +150,7 @@ fn parse_quoted_attribute_value(unit_stream: &mut UnitStream) -> ParseResult<Str
     loop {
         match unit_stream.peek() {
             Unit::Char(c) => {
-                if *c == '"' {
+                if c == '"' {
                     if quotation_found {
                         attribute_value.push('"');
                         quotation_found = false;
@@ -161,7 +161,7 @@ fn parse_quoted_attribute_value(unit_stream: &mut UnitStream) -> ParseResult<Str
                 } else if quotation_found {
                     break;
                 } else {
-                    attribute_value.push(*c);
+                    attribute_value.push(c);
                     unit_stream.read();
                 }
             }
@@ -191,9 +191,9 @@ fn parse_simple_attribute_value(unit_stream: &mut UnitStream) -> ParseResult<Str
 
     loop {
         match unit_stream.peek() {
-            Unit::Char(c) => match *c {
+            Unit::Char(c) => match c {
                 '"' | '=' => {
-                    let invalid_char_name = if *c == '"' { "Quotes" } else { "Equal Signs" };
+                    let invalid_char_name = if c == '"' { "Quotes" } else { "Equal Signs" };
                     return step3::error(
                         unit_stream.get_filepath(),
                         unit_stream.read().1,
@@ -207,7 +207,7 @@ fn parse_simple_attribute_value(unit_stream: &mut UnitStream) -> ParseResult<Str
                     break;
                 }
                 _ => {
-                    attribute_value.push(*c);
+                    attribute_value.push(c);
                     unit_stream.read();
                 }
             },

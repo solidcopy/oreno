@@ -31,7 +31,7 @@ pub fn parse_block_tag(unit_stream: &mut UnitStream) -> ParseResult<BlockTag> {
     match unit_stream.peek() {
         Unit::Char(' ') | Unit::NewLine | Unit::Eof => {}
         Unit::Char(c) => {
-            if *c == ':' {
+            if c == ':' {
                 let (block_tag, mut errors) = try_parse(parse_block_tag, unit_stream)?;
                 all_errors.append(&mut errors);
                 if block_tag.is_some() {
@@ -40,9 +40,7 @@ pub fn parse_block_tag(unit_stream: &mut UnitStream) -> ParseResult<BlockTag> {
                             name: tag_name,
                             attributes,
                             header: None,
-                            contents: Some(Block {
-                                contents: vec![Box::new(block_tag.unwrap())],
-                            }),
+                            contents: Some(Block::new(vec![Box::new(block_tag.unwrap())])),
                         }),
                         all_errors,
                     ));
@@ -53,7 +51,7 @@ pub fn parse_block_tag(unit_stream: &mut UnitStream) -> ParseResult<BlockTag> {
             all_errors.push(ParseError {
                 filename: unit_stream.get_filepath(),
                 position,
-                message: format!("There is an illegal character. '{}'", *c),
+                message: format!("There is an illegal character. '{}'", c),
             });
             return Ok((None, all_errors));
         }
@@ -66,7 +64,7 @@ pub fn parse_block_tag(unit_stream: &mut UnitStream) -> ParseResult<BlockTag> {
         }
     }
 
-    let header = if unit_stream.peek() == &Unit::Char(' ') {
+    let header = if unit_stream.peek() == Unit::Char(' ') {
         unit_stream.read();
         let (header, mut errors) = try_parse(parse_block_tag_header, unit_stream)?;
         all_errors.append(&mut errors);
@@ -75,7 +73,7 @@ pub fn parse_block_tag(unit_stream: &mut UnitStream) -> ParseResult<BlockTag> {
         None
     };
 
-    let contents = if unit_stream.peek() == &Unit::NewLine {
+    let contents = if unit_stream.peek() == Unit::NewLine {
         unit_stream.read();
         let (block, mut errors) = try_parse(parse_block, unit_stream)?;
         all_errors.append(&mut errors);

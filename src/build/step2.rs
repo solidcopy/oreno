@@ -49,19 +49,19 @@ impl UnitStream {
     }
 
     pub fn read(&mut self) -> (Unit, Option<Position>) {
-        if self.peek() == &Unit::Eof {
+        if self.peek() == Unit::Eof {
             return self.status.unit_queue.back().unwrap().clone();
         }
 
         self.status.unit_queue.pop_back().unwrap()
     }
 
-    pub fn peek(&mut self) -> &Unit {
+    pub fn peek(&mut self) -> Unit {
         if self.status.unit_queue.is_empty() {
             self.read_line();
         }
 
-        &self.status.unit_queue.back().unwrap().0
+        self.status.unit_queue.back().unwrap().0.clone()
     }
 
     fn read_line(&mut self) {

@@ -14,8 +14,8 @@ pub fn parse_symbol(unit_stream: &mut UnitStream) -> ParseResult<String> {
     loop {
         match unit_stream.peek() {
             Unit::Char(c) => {
-                if c.is_ascii_alphanumeric() || *c == '-' {
-                    symbol.push(*c);
+                if c.is_ascii_alphanumeric() || c == '-' {
+                    symbol.push(c);
                     unit_stream.read();
                 } else {
                     break;

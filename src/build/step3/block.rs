@@ -11,13 +11,19 @@ pub struct Block {
     contents: BlockContents,
 }
 
+impl Block {
+    pub fn new(contents: BlockContents) -> Block {
+        Block { contents }
+    }
+}
+
 pub enum BlankLine {
     INSTANCE,
 }
 
 pub fn parse_block(unit_stream: &mut UnitStream) -> ParseResult<Block> {
     // 開始位置がブロック開始でなければ不適合
-    if unit_stream.peek() != &Unit::BlockBeginning {
+    if unit_stream.peek() != Unit::BlockBeginning {
         return step3::mismatched();
     }
 
@@ -27,7 +33,7 @@ pub fn parse_block(unit_stream: &mut UnitStream) -> ParseResult<Block> {
     loop {
         match unit_stream.peek() {
             Unit::Char(c) => {
-                if *c == ':' {
+                if c == ':' {
                     let (block_tag, mut errors) = step3::try_parse(parse_block_tag, unit_stream)?;
                     all_errors.append(&mut errors);
                     if block_tag.is_some() {

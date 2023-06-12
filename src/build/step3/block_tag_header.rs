@@ -21,7 +21,7 @@ pub fn parse_block_tag_header(unit_stream: &mut UnitStream) -> ParseResult<Block
 
     loop {
         match unit_stream.peek() {
-            Unit::Char(c) => match *c {
+            Unit::Char(c) => match c {
                 ':' => {
                     if let (Some(inline_tag), mut errors) =
                         try_parse(parse_inline_tag, unit_stream)?
@@ -33,11 +33,11 @@ pub fn parse_block_tag_header(unit_stream: &mut UnitStream) -> ParseResult<Block
                         }
                         contents.push(Box::new(inline_tag));
                     } else {
-                        text.push(*c);
+                        text.push(c);
                     }
                 }
                 _ => {
-                    text.push(*c);
+                    text.push(c);
                 }
             },
             Unit::NewLine | Unit::Eof => {
