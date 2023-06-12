@@ -1,5 +1,4 @@
 mod attribute;
-mod blank_line;
 mod block;
 mod block_tag;
 mod block_tag_header;
