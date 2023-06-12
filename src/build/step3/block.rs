@@ -38,17 +38,15 @@ pub fn parse_block(unit_stream: &mut UnitStream) -> ParseResult<Block> {
 
                 let (paragraph, mut errors) = step3::try_parse(parse_paragraph, unit_stream)?;
                 all_errors.append(&mut errors);
-                if paragraph.is_some() {
-                    contents.push(Box::new(paragraph.unwrap()));
-                    continue;
-                }
+                contents.push(Box::new(paragraph.unwrap()));
             }
             Unit::NewLine => {
                 contents.push(Box::new(BlankLine::INSTANCE));
                 unit_stream.read();
             }
             Unit::BlockBeginning => {
-                if let (Some(block), errors) = step3::try_parse(parse_block, unit_stream)? {
+                if let (Some(block), mut errors) = step3::try_parse(parse_block, unit_stream)? {
+                    all_errors.append(&mut errors);
                     contents.push(Box::new(block));
                 }
                 // ブロック開始があった以上はその後に文字があるので空ではあり得ない
