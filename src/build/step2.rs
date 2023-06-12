@@ -20,6 +20,12 @@ pub struct Position {
     column_number: u64,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct FilePosition {
+    filepath: PathBuf,
+    position: Option<Position>,
+}
+
 impl Position {
     pub fn new(line_number: u64, column_number: u64) -> Position {
         Position {
@@ -44,8 +50,19 @@ impl UnitStream {
         }
     }
 
-    pub fn get_filepath(&self) -> PathBuf {
-        self.filepath.clone()
+    pub fn file_position(&mut self) -> FilePosition {
+        FilePosition {
+            filepath: self.filepath.clone(),
+            position: self.position(),
+        }
+    }
+
+    fn position(&mut self) -> Option<Position> {
+        if self.status.unit_queue.is_empty() {
+            self.read_line();
+        }
+
+        self.status.unit_queue.back().unwrap().1.clone()
     }
 
     pub fn read(&mut self) -> (Unit, Option<Position>) {

@@ -1,11 +1,12 @@
-use super::ParseResult;
 use crate::build::step2::Unit;
 use crate::build::step2::UnitStream;
-use crate::build::step3;
+use crate::build::step3::ParseError;
+use crate::build::step3::ParseResult;
+use crate::build::step3::Warnings;
 
 /// シンボルをパースする。
 /// シンボルはタグ名、属性名。
-pub fn parse_symbol(unit_stream: &mut UnitStream) -> ParseResult<String> {
+pub fn parse_symbol(unit_stream: &mut UnitStream, warnings: &mut Warnings) -> ParseResult<String> {
     let mut symbol = String::new();
 
     // 英数字とハイフンが続く限りバッファに追加していく。
@@ -25,19 +26,18 @@ pub fn parse_symbol(unit_stream: &mut UnitStream) -> ParseResult<String> {
                 break;
             }
             Unit::BlockBeginning | Unit::BlockEnd => {
-                return step3::error(
-                    unit_stream.get_filepath(),
-                    unit_stream.read().1,
+                return Err(ParseError::new(
+                    unit_stream.file_position(),
                     "Unexpected block beginning or end.".to_owned(),
-                );
+                ));
             }
         }
     }
 
     // 1文字もなければ不適合
-    if symbol.is_empty() {
-        return step3::mismatched();
+    if !symbol.is_empty() {
+        Ok(Some(symbol))
+    } else {
+        Ok(None)
     }
-
-    step3::parsed(symbol)
 }

@@ -7,9 +7,8 @@ mod paragraph;
 mod symbol;
 mod tag;
 
-use crate::build::step2::Position;
+use crate::build::step2::FilePosition;
 use crate::build::step2::UnitStream;
-use std::path::PathBuf;
 
 pub trait BlockContent {}
 pub type BlockContents = Vec<Box<dyn BlockContent>>;
@@ -23,86 +22,60 @@ pub type InlineContents = Vec<Box<dyn InlineContent>>;
 impl InlineContent for inline_tag::InlineTag {}
 impl InlineContent for String {}
 
-pub type ParseResult<S> = Result<(Option<S>, Vec<ParseError>), ParseError>;
+pub type ParseResult<S> = Result<Option<S>, ParseError>;
 
 #[derive(Debug, PartialEq)]
 pub struct ParseError {
-    filename: PathBuf,
-    position: Option<Position>,
+    file_position: FilePosition,
     message: String,
 }
 
 impl ParseError {
-    pub fn new(filename: PathBuf, position: Option<Position>, message: String) -> ParseError {
+    pub fn new(file_position: FilePosition, message: String) -> ParseError {
         ParseError {
-            filename,
-            position,
+            file_position,
             message,
         }
     }
 }
 
-type ParseFunc<S> = fn(&mut UnitStream) -> ParseResult<S>;
+pub struct Warnings {
+    warnings: Vec<ParseError>,
+}
+
+impl Warnings {
+    pub fn new() -> Warnings {
+        Warnings {
+            warnings: Vec::with_capacity(0),
+        }
+    }
+
+    pub fn push(&mut self, file_position: FilePosition, message: String) {
+        self.warnings.push(ParseError::new(file_position, message));
+    }
+}
+
+type ParseFunc<S> = fn(&mut UnitStream, &mut Warnings) -> ParseResult<S>;
 
 /// 指定されたパース関数でパースを試みる。
 /// パースの結果が成功以外だったらユニットストリームの状態を元に戻す。
-fn try_parse<S>(parse_func: ParseFunc<S>, unit_stream: &mut UnitStream) -> ParseResult<S> {
+fn try_parse<S>(
+    parse_func: ParseFunc<S>,
+    unit_stream: &mut UnitStream,
+    warnings: &mut Warnings,
+) -> ParseResult<S> {
     let mark = unit_stream.mark();
 
-    let result = parse_func(unit_stream);
+    let result = parse_func(unit_stream, warnings);
 
     // インデントチェックが無効にされていても有効に戻す
     unit_stream.set_indent_check_mode(true);
 
     // 不適合なら読み込み位置を戻す
     // ビルドエラーだと実行されないがビルドを中止するので必要ない
-    if let Ok((None, _)) = result {
+    if let Ok(None) = result {
         unit_stream.reset(mark);
     }
 
     result
-}
-
-fn parsed<S>(model: S) -> ParseResult<S> {
-    Ok((Some(model), Vec::with_capacity(0)))
-}
-
-fn mismatched<S>() -> ParseResult<S> {
-    Ok((None, Vec::with_capacity(0)))
-}
-
-fn error<S>(filename: PathBuf, position: Option<Position>, message: String) -> ParseResult<S> {
-    let error = ParseError::new(filename, position, message);
-    Ok((None, vec![error]))
-}
-
-fn fatal_error<S>(
-    filename: PathBuf,
-    position: Option<Position>,
-    message: String,
-) -> ParseResult<S> {
-    let error = ParseError::new(filename, position, message);
-    Err(error)
-}
-
-#[cfg(test)]
-mod test_parse_error {
-    use std::path::PathBuf;
-
-    use crate::build::step2::Position;
-
-    use super::ParseError;
-
-    #[test]
-    fn test_new() {
-        let subject = ParseError::new(
-            PathBuf::from("a/b.c"),
-            Some(Position::new(10, 21)),
-            "!error!".to_owned(),
-        );
-
-        assert_eq!(&subject.filename, &PathBuf::from("a/b.c"));
-        assert_eq!(&subject.position, &Some(Position::new(10, 21)));
-        assert_eq!(&subject.message, "!error!");
-    }
 }
