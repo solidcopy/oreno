@@ -21,7 +21,7 @@ pub struct Position {
 }
 
 impl Position {
-    fn new(line_number: u64, column_number: u64) -> Position {
+    pub fn new(line_number: u64, column_number: u64) -> Position {
         Position {
             line_number,
             column_number,

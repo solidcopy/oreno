@@ -84,3 +84,25 @@ fn fatal_error<S>(
     let error = ParseError::new(filename, position, message);
     Err(error)
 }
+
+#[cfg(test)]
+mod test_parse_error {
+    use std::path::PathBuf;
+
+    use crate::build::step2::Position;
+
+    use super::ParseError;
+
+    #[test]
+    fn test_new() {
+        let subject = ParseError::new(
+            PathBuf::from("a/b.c"),
+            Some(Position::new(10, 21)),
+            "!error!".to_owned(),
+        );
+
+        assert_eq!(&subject.filename, &PathBuf::from("a/b.c"));
+        assert_eq!(&subject.position, &Some(Position::new(10, 21)));
+        assert_eq!(&subject.message, "!error!");
+    }
+}
