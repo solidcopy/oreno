@@ -31,11 +31,11 @@ pub fn parse_inline_tag(unit_stream: &mut UnitStream) -> ParseResult<InlineTag> 
     let (contents, mut errors) = parse_inline_tag_contents(unit_stream, parse_tags)?;
     all_errors.append(&mut errors);
     if contents.is_none() {
-        all_errors.push(ParseError {
-            filename: unit_stream.get_filepath(),
-            position: unit_stream.read().1,
-            message: "There is no tag's contents.".to_owned(),
-        });
+        all_errors.push(ParseError::new(
+            unit_stream.get_filepath(),
+            unit_stream.read().1,
+            "There is no tag's contents.".to_owned(),
+        ));
         return Ok((None, all_errors));
     }
     let contents = contents.unwrap();
@@ -98,11 +98,11 @@ fn parse_inline_tag_contents(
                 text.push('\n');
             }
             Unit::Eof => {
-                all_errors.push(step3::ParseError {
-                    filename: unit_stream.get_filepath(),
-                    position: unit_stream.read().1,
-                    message: "} is required.".to_owned(),
-                });
+                all_errors.push(step3::ParseError::new(
+                    unit_stream.get_filepath(),
+                    unit_stream.read().1,
+                    "} is required.".to_owned(),
+                ));
                 return Ok((None, all_errors));
             }
             Unit::BlockBeginning | Unit::BlockEnd => {

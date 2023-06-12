@@ -59,11 +59,11 @@ pub fn parse_attributes(
                         }
                         (_, mut errors) => {
                             all_errors.append(&mut errors);
-                            all_errors.push(step3::ParseError {
-                                filename: unit_stream.get_filepath(),
-                                position: unit_stream.read().1,
-                                message: "The attribute is malformed.".to_owned(),
-                            });
+                            all_errors.push(step3::ParseError::new(
+                                unit_stream.get_filepath(),
+                                unit_stream.read().1,
+                                "The attribute is malformed.".to_owned(),
+                            ));
                             return Ok((None, all_errors));
                         }
                     }
@@ -78,11 +78,11 @@ pub fn parse_attributes(
                 );
             }
             Unit::Eof => {
-                all_errors.push(step3::ParseError {
-                    filename: unit_stream.get_filepath(),
-                    position: unit_stream.read().1,
-                    message: "] is required.".to_owned(),
-                });
+                all_errors.push(step3::ParseError::new(
+                    unit_stream.get_filepath(),
+                    unit_stream.read().1,
+                    "] is required.".to_owned(),
+                ));
                 return Ok((None, all_errors));
             }
         }

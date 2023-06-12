@@ -49,11 +49,11 @@ pub fn parse_block_tag(unit_stream: &mut UnitStream) -> ParseResult<BlockTag> {
             }
 
             let (_, position) = unit_stream.read();
-            all_errors.push(ParseError {
-                filename: unit_stream.get_filepath(),
+            all_errors.push(ParseError::new(
+                unit_stream.get_filepath(),
                 position,
-                message: format!("There is an illegal character. '{}'", c),
-            });
+                format!("There is an illegal character. '{}'", c),
+            ));
             return Ok((None, all_errors));
         }
         Unit::BlockBeginning | Unit::BlockEnd => {

@@ -72,11 +72,7 @@ fn mismatched<S>() -> ParseResult<S> {
 }
 
 fn error<S>(filename: PathBuf, position: Option<Position>, message: String) -> ParseResult<S> {
-    let error = ParseError {
-        filename,
-        position,
-        message,
-    };
+    let error = ParseError::new(filename, position, message);
     Ok((None, vec![error]))
 }
 
@@ -85,10 +81,6 @@ fn fatal_error<S>(
     position: Option<Position>,
     message: String,
 ) -> ParseResult<S> {
-    let error = ParseError {
-        filename,
-        position,
-        message,
-    };
+    let error = ParseError::new(filename, position, message);
     Err(error)
 }
