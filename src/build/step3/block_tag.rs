@@ -6,6 +6,7 @@ use crate::build::step3::block::Block;
 use crate::build::step3::block_tag_header::BlockTagHeader;
 
 use super::block::parse_block;
+use super::block::parse_raw_block;
 use super::{
     block_tag_header::parse_block_tag_header, tag::parse_tag_and_attributes, try_parse, ParseError,
     ParseResult,
@@ -75,7 +76,11 @@ pub fn parse_block_tag(unit_stream: &mut UnitStream) -> ParseResult<BlockTag> {
 
     let contents = if unit_stream.peek() == Unit::NewLine {
         unit_stream.read();
-        let (block, mut errors) = try_parse(parse_block, unit_stream)?;
+        let block_parser = match tag_name.as_str() {
+            "code-block" | "raw-html" => parse_raw_block,
+            _ => parse_block,
+        };
+        let (block, mut errors) = try_parse(block_parser, unit_stream)?;
         all_errors.append(&mut errors);
         block
     } else {

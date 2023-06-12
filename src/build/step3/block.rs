@@ -22,6 +22,14 @@ pub enum BlankLine {
 }
 
 pub fn parse_block(unit_stream: &mut UnitStream) -> ParseResult<Block> {
+    abstract_parse_block(unit_stream, true)
+}
+
+pub fn parse_raw_block(unit_stream: &mut UnitStream) -> ParseResult<Block> {
+    abstract_parse_block(unit_stream, false)
+}
+
+fn abstract_parse_block(unit_stream: &mut UnitStream, parse_tags: bool) -> ParseResult<Block> {
     // 開始位置がブロック開始でなければ不適合
     if unit_stream.peek() != Unit::BlockBeginning {
         return step3::mismatched();
@@ -33,7 +41,7 @@ pub fn parse_block(unit_stream: &mut UnitStream) -> ParseResult<Block> {
     loop {
         match unit_stream.peek() {
             Unit::Char(c) => {
-                if c == ':' {
+                if parse_tags && c == ':' {
                     let (block_tag, mut errors) = step3::try_parse(parse_block_tag, unit_stream)?;
                     all_errors.append(&mut errors);
                     if block_tag.is_some() {

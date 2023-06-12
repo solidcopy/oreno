@@ -24,7 +24,11 @@ pub fn parse_inline_tag(unit_stream: &mut UnitStream) -> ParseResult<InlineTag> 
 
     let (tag_name, attributes) = tag_and_attributes.unwrap();
 
-    let (contents, mut errors) = parse_inline_tag_contents(unit_stream)?;
+    let parse_tags = match tag_name.as_str() {
+        "code" | "raw-html" => false,
+        _ => true,
+    };
+    let (contents, mut errors) = parse_inline_tag_contents(unit_stream, parse_tags)?;
     all_errors.append(&mut errors);
     if contents.is_none() {
         all_errors.push(ParseError {
@@ -43,7 +47,10 @@ pub fn parse_inline_tag(unit_stream: &mut UnitStream) -> ParseResult<InlineTag> 
     })
 }
 
-pub fn parse_inline_tag_contents(unit_stream: &mut UnitStream) -> ParseResult<InlineContents> {
+fn parse_inline_tag_contents(
+    unit_stream: &mut UnitStream,
+    parse_tags: bool,
+) -> ParseResult<InlineContents> {
     // 開始が"{"でなければ不適合
     if unit_stream.peek() != Unit::Char('{') {
         return step3::mismatched();
@@ -62,7 +69,7 @@ pub fn parse_inline_tag_contents(unit_stream: &mut UnitStream) -> ParseResult<In
     loop {
         match unit_stream.peek() {
             Unit::Char(c) => match c {
-                ':' => {
+                ':' if parse_tags => {
                     if let (Some(inline_tag), mut errors) =
                         try_parse(parse_inline_tag, unit_stream)?
                     {
