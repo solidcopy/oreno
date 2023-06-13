@@ -16,14 +16,14 @@ pub enum Unit {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Position {
-    line_number: u64,
-    column_number: u64,
+    pub line_number: u64,
+    pub column_number: u64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct FilePosition {
-    filepath: PathBuf,
-    position: Option<Position>,
+    pub filepath: PathBuf,
+    pub position: Option<Position>,
 }
 
 impl Position {
@@ -85,16 +85,13 @@ impl UnitStream {
         let line_number = self.status.next_line_number;
 
         // 冒頭にブロック開始を挿入する
-        if line_number == 0 {
+        if self.status.block_depth == 0 {
             self.move_block_depth(1);
-
-            self.status.next_line_number += 1;
 
             return;
         }
 
         let mut column_number = 1;
-
         // 行頭の空白
         let mut space_count = 0;
 
@@ -111,6 +108,7 @@ impl UnitStream {
                             Some(Position::new(line_number, column_number)),
                         ));
                         self.status.next_line_number += 1;
+
                         return;
                     }
                     _ => {
@@ -120,7 +118,7 @@ impl UnitStream {
                             let block_depth = space_count / INDENT_SIZE + 1;
                             self.move_block_depth(block_depth);
 
-                            column_number = INDENT_SIZE * block_depth + 1;
+                            column_number = INDENT_SIZE * (block_depth - 1) + 1;
 
                             // あまった空白を文字とする
                             for _ in 0..space_count - (block_depth - 1) * INDENT_SIZE {
@@ -193,6 +191,7 @@ impl UnitStream {
                             Unit::Char(c),
                             Some(Position::new(line_number, column_number)),
                         ));
+                        column_number += 1;
                     }
                 }
             } else {
@@ -230,6 +229,10 @@ impl UnitStream {
         self.status = mark.status;
     }
 
+    pub fn get_indent_check_mode(&self) -> bool {
+        self.status.indent_check_mode
+    }
+
     pub fn set_indent_check_mode(&mut self, indent_check_mode: bool) {
         self.status.indent_check_mode = indent_check_mode;
     }
@@ -248,7 +251,7 @@ impl Status {
         Status {
             unit_queue: VecDeque::new(),
             block_depth: 0,
-            next_line_number: 0,
+            next_line_number: 1,
             indent_check_mode: true,
         }
     }
@@ -262,7 +265,9 @@ pub struct Mark {
 #[cfg(test)]
 mod test {
     use crate::build::step1::CharStream;
-    use crate::build::step2::source_unit;
+    use crate::build::step2::test_utils;
+    use crate::build::step2::test_utils::unit_stream;
+    use crate::build::step2::Position;
     use crate::build::step2::Unit;
     use crate::build::step2::UnitStream;
     use std::error::Error;
@@ -283,7 +288,7 @@ mod test {
                 break;
             }
         }
-        let actual_tokens = source_unit::to_tokens(&units);
+        let actual_tokens = test_utils::to_tokens(&units);
 
         let expected_tokens =
             fs::read_to_string("resources/test/source_unit_reader/source_units_1.txt").unwrap();
@@ -291,11 +296,46 @@ mod test {
 
         Ok(())
     }
+
+    #[test]
+    fn test_mark_reset() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("abc\n    xyz\n123")?;
+        assert_eq!(&us.read().1, &None); // block beginning
+        assert_eq!(&us.read().1, &Some(Position::new(1, 1)));
+        assert_eq!(&us.read().1, &Some(Position::new(1, 2)));
+        assert_eq!(&us.read().1, &Some(Position::new(1, 3)));
+        assert_eq!(&us.read().1, &Some(Position::new(1, 4)));
+        assert_eq!(&us.read().1, &None); // block beginning
+        assert_eq!(&us.read().1, &Some(Position::new(2, 5)));
+        let mark = us.mark();
+        assert_eq!(&us.read().1, &Some(Position::new(2, 6)));
+        assert_eq!(&us.read().1, &Some(Position::new(2, 7)));
+        assert_eq!(&us.read().1, &Some(Position::new(2, 8)));
+        assert_eq!(&us.read().1, &None); // block end
+        assert_eq!(&us.read().1, &Some(Position::new(3, 1)));
+        assert_eq!(&us.read().1, &Some(Position::new(3, 2)));
+        us.reset(mark);
+        assert_eq!(&us.read().1, &Some(Position::new(2, 6)));
+        assert_eq!(&us.read().1, &Some(Position::new(2, 7)));
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
-pub mod source_unit {
-    use crate::build::step2::Unit;
+pub mod test_utils {
+    use std::error::Error;
+    use std::path::PathBuf;
+
+    use super::Unit;
+    use super::UnitStream;
+    use crate::build::step1::CharStream;
+
+    pub fn unit_stream(data: &str) -> Result<UnitStream, Box<dyn Error>> {
+        let char_stream = CharStream::new(data.as_bytes().to_vec())?;
+        let unit_stream = UnitStream::new(PathBuf::from("a/b.c"), char_stream);
+        Ok(unit_stream)
+    }
 
     pub fn to_tokens(units: &Vec<Unit>) -> String {
         let mut result = String::new();

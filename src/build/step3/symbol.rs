@@ -1,6 +1,5 @@
 use crate::build::step2::Unit;
 use crate::build::step2::UnitStream;
-use crate::build::step3::ParseError;
 use crate::build::step3::ParseResult;
 use crate::build::step3::Warnings;
 
@@ -22,15 +21,7 @@ pub fn parse_symbol(unit_stream: &mut UnitStream, warnings: &mut Warnings) -> Pa
                     break;
                 }
             }
-            Unit::NewLine | Unit::Eof => {
-                break;
-            }
-            Unit::BlockBeginning | Unit::BlockEnd => {
-                return Err(ParseError::new(
-                    unit_stream.file_position(),
-                    "Unexpected block beginning or end.".to_owned(),
-                ));
-            }
+            _ => break,
         }
     }
 
@@ -39,5 +30,64 @@ pub fn parse_symbol(unit_stream: &mut UnitStream, warnings: &mut Warnings) -> Pa
         Ok(Some(symbol))
     } else {
         Ok(None)
+    }
+}
+
+#[cfg(test)]
+mod test_parse_symbol {
+    use std::error::Error;
+
+    use super::parse_symbol;
+    use crate::build::step2::test_utils::unit_stream;
+    use crate::build::step3::Warnings;
+
+    #[test]
+    fn test_end_by_char() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("code-block???")?;
+        us.read();
+        let mut warnings = Warnings::new();
+        let symbol = parse_symbol(&mut us, &mut warnings).unwrap().unwrap();
+        assert_eq!(&symbol, "code-block");
+        Ok(())
+    }
+
+    #[test]
+    fn test_end_by_new_line() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("code\nblock")?;
+        us.read();
+        let mut warnings = Warnings::new();
+        let symbol = parse_symbol(&mut us, &mut warnings).unwrap().unwrap();
+        assert_eq!(&symbol, "code");
+        Ok(())
+    }
+
+    #[test]
+    fn test_end_by_block_beginning() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("x")?;
+        let mut warnings = Warnings::new();
+        let symbol = parse_symbol(&mut us, &mut warnings).unwrap();
+        assert_eq!(&symbol, &None);
+        Ok(())
+    }
+
+    #[test]
+    fn test_end_by_block_end() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("code-block")?;
+        us.read();
+        let mut warnings = Warnings::new();
+        let symbol = parse_symbol(&mut us, &mut warnings).unwrap().unwrap();
+        assert_eq!(&symbol, "code-block");
+        Ok(())
+    }
+
+    #[test]
+    fn test_end_by_eof() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("")?;
+        us.read();
+        us.read();
+        let mut warnings = Warnings::new();
+        let symbol = parse_symbol(&mut us, &mut warnings).unwrap();
+        assert_eq!(&symbol, &None);
+        Ok(())
     }
 }

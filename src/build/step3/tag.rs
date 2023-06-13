@@ -55,3 +55,100 @@ pub fn parse_tag_and_attributes(
 
     Ok(Some((tag_name, attributes)))
 }
+
+#[cfg(test)]
+mod test_parse_tag {
+    use std::error::Error;
+
+    use super::parse_tag;
+    use crate::build::step2::test_utils::unit_stream;
+    use crate::build::step3::Warnings;
+
+    #[test]
+    fn test_normal() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream(":mytag{}")?;
+        us.read();
+        let mut warnings = Warnings::new();
+        assert_eq!(
+            parse_tag(&mut us, &mut warnings).unwrap(),
+            Some("mytag".to_owned())
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_abbreviation() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("&[a]")?;
+        us.read();
+        let mut warnings = Warnings::new();
+        assert_eq!(
+            parse_tag(&mut us, &mut warnings).unwrap(),
+            Some("link".to_owned())
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_mismatched() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("<{}")?;
+        us.read();
+        let mut warnings = Warnings::new();
+        assert_eq!(parse_tag(&mut us, &mut warnings).unwrap(), None);
+        Ok(())
+    }
+
+    #[test]
+    fn test_not_a_char() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("\nabc")?;
+        us.read();
+        let mut warnings = Warnings::new();
+        assert_eq!(parse_tag(&mut us, &mut warnings).unwrap(), None);
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test_parse_tag_and_attributes {
+    use std::error::Error;
+
+    use super::parse_tag_and_attributes;
+    use crate::build::step2::test_utils::unit_stream;
+    use crate::build::step3::Warnings;
+
+    #[test]
+    fn test_with_attributes() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream(":font[gothic]{text}")?;
+        us.read();
+        let mut warnings = Warnings::new();
+        let (tag_name, attributes) = parse_tag_and_attributes(&mut us, &mut warnings)
+            .unwrap()
+            .unwrap();
+        assert_eq!(&tag_name, "font");
+        assert_eq!(attributes.len(), 1);
+        assert_eq!(attributes[&None].as_str(), "gothic");
+        Ok(())
+    }
+
+    #[test]
+    fn test_without_attributes() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream(":i{text}")?;
+        us.read();
+        let mut warnings = Warnings::new();
+        let (tag_name, attributes) = parse_tag_and_attributes(&mut us, &mut warnings)
+            .unwrap()
+            .unwrap();
+        assert_eq!(&tag_name, "i");
+        assert!(attributes.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn test_not_a_tag() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("i{text}")?;
+        us.read();
+        let mut warnings = Warnings::new();
+        let result = parse_tag_and_attributes(&mut us, &mut warnings).unwrap();
+        assert_eq!(&result, &None);
+        Ok(())
+    }
+}
