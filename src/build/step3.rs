@@ -85,8 +85,8 @@ fn try_parse<S>(
 mod test_parse_error {
     use std::path::PathBuf;
 
+    use crate::build::step1::Position;
     use crate::build::step2::FilePosition;
-    use crate::build::step2::Position;
 
     use super::ParseError;
 
@@ -129,8 +129,8 @@ mod test_warnings {
     use std::path::PathBuf;
 
     use super::Warnings;
+    use crate::build::step1::Position;
     use crate::build::step2::FilePosition;
-    use crate::build::step2::Position;
 
     #[test]
     fn test_new() {
@@ -165,8 +165,8 @@ mod test_try_parse {
     use super::ParseError;
     use super::ParseResult;
     use super::Warnings;
+    use crate::build::step1::Position;
     use crate::build::step2::test_utils::unit_stream;
-    use crate::build::step2::Position;
     use crate::build::step2::UnitStream;
 
     #[test]

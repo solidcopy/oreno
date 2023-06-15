@@ -286,13 +286,13 @@ mod test_parse_attributes {
     /// 多分ブロック終了がキャッシュされているせいでダメ
     #[test]
     fn test_eof() -> Result<(), Box<dyn Error>> {
-        // let mut us = unit_stream("[a=x,b=y")?;
-        // us.read();
-        // let mut warnings = Warnings::new();
-        // let result = parse_attributes(&mut us, &mut warnings).unwrap();
-        // assert_eq!(&result, &None);
-        // assert_eq!(&warnings.warnings.len(), &1);
-        // assert_eq!(&warnings.warnings[0].message, "] is required.");
+        let mut us = unit_stream("[a=x,b=y")?;
+        us.read();
+        let mut warnings = Warnings::new();
+        let result = parse_attributes(&mut us, &mut warnings).unwrap();
+        assert_eq!(&result, &None);
+        assert_eq!(&warnings.warnings.len(), &1);
+        assert_eq!(&warnings.warnings[0].message, "] is required.");
         Ok(())
     }
 }

@@ -1,6 +1,6 @@
 use crate::build::step1::CharStream;
 use crate::build::step1::Mark as Step1Mark;
-use std::collections::VecDeque;
+use crate::build::step1::Position;
 use std::path::PathBuf;
 
 const INDENT_SIZE: u64 = 4;
@@ -15,24 +15,9 @@ pub enum Unit {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Position {
-    pub line_number: u64,
-    pub column_number: u64,
-}
-
-#[derive(Clone, Debug, PartialEq)]
 pub struct FilePosition {
     pub filepath: PathBuf,
     pub position: Option<Position>,
-}
-
-impl Position {
-    pub fn new(line_number: u64, column_number: u64) -> Position {
-        Position {
-            line_number,
-            column_number,
-        }
-    }
 }
 
 pub struct UnitStream {
@@ -58,163 +43,97 @@ impl UnitStream {
     }
 
     fn position(&mut self) -> Option<Position> {
-        if self.status.unit_queue.is_empty() {
-            self.read_line();
-        }
-
-        self.status.unit_queue.back().unwrap().1.clone()
+        let mark = self.mark();
+        let (_, position) = self.read();
+        self.reset(mark);
+        position
     }
 
     pub fn read(&mut self) -> (Unit, Option<Position>) {
-        if self.peek() == Unit::Eof {
-            return self.status.unit_queue.back().unwrap().clone();
-        }
+        match self.status.reading_mode {
+            ReadingMode::HeadOfLine => {
+                if self.status.indent_check_mode {
+                    match self.scan_indent_depth() {
+                        Some(indent_depth) => {
+                            self.status.indent_depth = indent_depth;
+                            self.status.reading_mode = ReadingMode::UpdatingBlockDepth;
+                            self.read()
+                        }
+                        None => {
+                            self.status.reading_mode = ReadingMode::ReadingText;
+                            self.read()
+                        }
+                    }
+                } else {
+                    self.status.reading_mode = ReadingMode::ReadingText;
+                    self.read()
+                }
+            }
+            ReadingMode::UpdatingBlockDepth => {
+                if self.status.indent_depth > self.status.block_depth {
+                    self.status.block_depth += 1;
+                    (Unit::BlockBeginning, None)
+                } else if self.status.indent_depth < self.status.block_depth {
+                    self.status.block_depth -= 1;
+                    (Unit::BlockEnd, None)
+                } else if self.status.block_depth == 0 {
+                    self.status.reading_mode = ReadingMode::Eof;
+                    self.read()
+                } else {
+                    self.status.reading_mode = ReadingMode::ReadingText;
+                    self.read()
+                }
+            }
+            ReadingMode::ReadingText => {
+                let (c, position) = self.char_stream.read();
+                if let Some(c) = c {
+                    match c {
+                        ' ' => {
+                            let mark = self.char_stream.mark();
 
-        self.status.unit_queue.pop_back().unwrap()
+                            loop {
+                                match self.char_stream.read() {
+                                    (Some(' '), _) => {}
+                                    (Some('\n'), position) => {
+                                        self.status.reading_mode = ReadingMode::HeadOfLine;
+                                        return (Unit::NewLine, Some(position));
+                                    }
+                                    (None, _) => {
+                                        // 再実行でEOFが読み込まれるのでEOFモードになる
+                                        return self.read();
+                                    }
+                                    (Some(_), position) => {
+                                        self.char_stream.reset(mark);
+                                        return (Unit::Char(' '), Some(position));
+                                    }
+                                }
+                            }
+                        }
+                        '\n' => {
+                            self.status.reading_mode = ReadingMode::HeadOfLine;
+                            (Unit::NewLine, Some(position))
+                        }
+                        _ => (Unit::Char(c), Some(position)),
+                    }
+                } else {
+                    if self.status.indent_check_mode {
+                        self.status.indent_depth = 0;
+                        self.status.reading_mode = ReadingMode::UpdatingBlockDepth;
+                    } else {
+                        self.status.reading_mode = ReadingMode::Eof;
+                    }
+                    self.read()
+                }
+            }
+            ReadingMode::Eof => (Unit::Eof, Some(self.char_stream.get_position())),
+        }
     }
 
     pub fn peek(&mut self) -> Unit {
-        if self.status.unit_queue.is_empty() {
-            self.read_line();
-        }
-
-        self.status.unit_queue.back().unwrap().0.clone()
-    }
-
-    fn read_line(&mut self) {
-        let line_number = self.status.next_line_number;
-
-        // 冒頭にブロック開始を挿入する
-        if self.status.block_depth == 0 {
-            self.move_block_depth(1);
-
-            return;
-        }
-
-        let mut column_number = 1;
-        // 行頭の空白
-        let mut space_count = 0;
-
-        loop {
-            if let Some(c) = self.char_stream.read() {
-                match c {
-                    ' ' => {
-                        space_count += 1;
-                        column_number += 1;
-                    }
-                    '\n' => {
-                        self.status.unit_queue.push_front((
-                            Unit::NewLine,
-                            Some(Position::new(line_number, column_number)),
-                        ));
-                        self.status.next_line_number += 1;
-
-                        return;
-                    }
-                    _ => {
-                        // インデントチェックが有効ならブロックの深さを検出して、
-                        // 変わっていたら必要な数のブロック開始/終了をキューに追加する
-                        if self.status.indent_check_mode {
-                            let block_depth = space_count / INDENT_SIZE + 1;
-                            self.move_block_depth(block_depth);
-
-                            column_number = INDENT_SIZE * (block_depth - 1) + 1;
-
-                            // あまった空白を文字とする
-                            for _ in 0..space_count - (block_depth - 1) * INDENT_SIZE {
-                                self.status.unit_queue.push_front((
-                                    Unit::Char(' '),
-                                    Some(Position::new(line_number, column_number)),
-                                ));
-                                column_number += 1;
-                            }
-                        }
-                        // インデントチェックが無効ならインデント分の空白は文字としてキューに追加する
-                        else {
-                            column_number = 1;
-
-                            for _ in 0..space_count {
-                                self.status.unit_queue.push_front((
-                                    Unit::Char(' '),
-                                    Some(Position::new(line_number, column_number)),
-                                ));
-                                column_number += 1;
-                            }
-                        }
-
-                        self.status.unit_queue.push_front((
-                            Unit::Char(c),
-                            Some(Position::new(line_number, column_number)),
-                        ));
-                        column_number += 1;
-
-                        break;
-                    }
-                }
-            } else {
-                self.move_block_depth(0);
-                self.status
-                    .unit_queue
-                    .push_front((Unit::Eof, Some(Position::new(line_number, column_number))));
-                return;
-            }
-        }
-
-        // 行末の空白は削除するので、空白はカウントしておいて他の文字が出現したらキューに追加する
-        let mut trailing_spaces_count = 0;
-
-        loop {
-            if let Some(c) = self.char_stream.read() {
-                match c {
-                    '\n' => {
-                        self.status.unit_queue.push_front((
-                            Unit::NewLine,
-                            Some(Position::new(line_number, column_number)),
-                        ));
-                        self.status.next_line_number += 1;
-                        break;
-                    }
-                    ' ' => {
-                        trailing_spaces_count += 1;
-                    }
-                    _ => {
-                        for _ in 0..trailing_spaces_count {
-                            self.status.unit_queue.push_front((
-                                Unit::Char(' '),
-                                Some(Position::new(line_number, column_number)),
-                            ));
-                            column_number += 1;
-                        }
-                        trailing_spaces_count = 0;
-
-                        self.status.unit_queue.push_front((
-                            Unit::Char(c),
-                            Some(Position::new(line_number, column_number)),
-                        ));
-                        column_number += 1;
-                    }
-                }
-            } else {
-                self.move_block_depth(0);
-                self.status
-                    .unit_queue
-                    .push_front((Unit::Eof, Some(Position::new(line_number, column_number))));
-                break;
-            }
-        }
-    }
-
-    fn move_block_depth(&mut self, indent_depth: u64) {
-        while self.status.block_depth < indent_depth {
-            self.status
-                .unit_queue
-                .push_front((Unit::BlockBeginning, None));
-            self.status.block_depth += 1;
-        }
-        while self.status.block_depth > indent_depth {
-            self.status.unit_queue.push_front((Unit::BlockEnd, None));
-            self.status.block_depth -= 1;
-        }
+        let mark = self.mark();
+        let (unit, _) = self.read();
+        self.reset(mark);
+        unit
     }
 
     pub fn mark(&self) -> Mark {
@@ -236,25 +155,64 @@ impl UnitStream {
     pub fn set_indent_check_mode(&mut self, indent_check_mode: bool) {
         self.status.indent_check_mode = indent_check_mode;
     }
+
+    fn scan_indent_depth(&mut self) -> Option<u64> {
+        let mut result = 1;
+
+        'l: loop {
+            let indent_mark = self.char_stream.mark();
+            for _ in 0..INDENT_SIZE {
+                let mark = self.char_stream.mark();
+                let (c, _) = self.char_stream.read();
+                match c {
+                    Some(' ') => {}
+                    // 空白しかない行ならインデント深度なし
+                    Some('\n') => {
+                        self.char_stream.reset(mark);
+                        return None;
+                    }
+                    None => {
+                        self.char_stream.reset(mark);
+                        return Some(0);
+                    }
+                    _ => {
+                        self.char_stream.reset(indent_mark);
+                        break 'l;
+                    }
+                }
+            }
+            result += 1;
+        }
+
+        Some(result)
+    }
 }
 
 #[derive(Clone)]
 pub struct Status {
-    unit_queue: VecDeque<(Unit, Option<Position>)>,
+    reading_mode: ReadingMode,
     block_depth: u64,
-    next_line_number: u64,
+    indent_depth: u64,
     indent_check_mode: bool,
 }
 
 impl Status {
     pub fn new() -> Status {
         Status {
-            unit_queue: VecDeque::new(),
+            reading_mode: ReadingMode::HeadOfLine,
             block_depth: 0,
-            next_line_number: 1,
+            indent_depth: 0,
             indent_check_mode: true,
         }
     }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum ReadingMode {
+    HeadOfLine,
+    UpdatingBlockDepth,
+    ReadingText,
+    Eof,
 }
 
 pub struct Mark {
@@ -265,9 +223,9 @@ pub struct Mark {
 #[cfg(test)]
 mod test {
     use crate::build::step1::CharStream;
+    use crate::build::step1::Position;
     use crate::build::step2::test_utils;
     use crate::build::step2::test_utils::unit_stream;
-    use crate::build::step2::Position;
     use crate::build::step2::Unit;
     use crate::build::step2::UnitStream;
     use std::error::Error;
