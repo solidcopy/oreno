@@ -10,11 +10,6 @@
 ・step2 ユニット（改行（行列）、インデント、アンインデント、文字（行列）、EOF（行列））
     Vec<Char> -> Vec<Unit>
 
-    SourceUnitStream
-        fn read() -> Unit
-        fn mark() -> Mark(u64, indent_level?)
-        fn reset()
-
     行末の空白を除去する。
     
 ・step3 構造化ソース（ブロック、ブロックタグ、ブロックタグヘッダー、インラインタグ、空白行、段落、テキスト）

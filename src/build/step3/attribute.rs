@@ -1,3 +1,4 @@
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
 use crate::build::step2::Unit;
@@ -55,7 +56,15 @@ pub fn parse_attributes(
 
                     match try_parse(parse_attribute, unit_stream, warnings)? {
                         Some((attribute_name, attribute_value)) => {
-                            attributes.insert(attribute_name, attribute_value);
+                            match attributes.entry(attribute_name) {
+                                Entry::Occupied(_) => warnings.push(
+                                    unit_stream.file_position(),
+                                    "The attributes are duplicated.".to_owned(),
+                                ),
+                                Entry::Vacant(entry) => {
+                                    entry.insert(attribute_value);
+                                }
+                            }
                             need_separator = true;
                         }
                         None => {
@@ -108,7 +117,13 @@ fn parse_attribute(
     // 属性名をパースする
     let attribute_name = match try_parse(symbol::parse_symbol, unit_stream, warnings)? {
         Some(attribute_name) => attribute_name,
-        None => return Ok(None),
+        None => {
+            warnings.push(
+                unit_stream.file_position(),
+                "There is no attribute name.".to_owned(),
+            );
+            return Ok(None);
+        }
     };
 
     // 次が"="でなければ不適合
@@ -163,11 +178,15 @@ fn parse_quoted_attribute_value(
                 }
             }
             Unit::NewLine | Unit::Eof => {
-                warnings.push(
-                    unit_stream.file_position(),
-                    "A quoted attribute value is not closed.".to_owned(),
-                );
-                return Ok(None);
+                if quotation_found {
+                    break;
+                } else {
+                    warnings.push(
+                        unit_stream.file_position(),
+                        "A quoted attribute value is not closed.".to_owned(),
+                    );
+                    return Ok(None);
+                }
             }
             Unit::BlockBeginning | Unit::BlockEnd => {
                 return Err(ParseError::new(
@@ -237,6 +256,23 @@ mod test_parse_attributes {
         assert_eq!(attributes[&Some("a".to_owned())], "xxx");
         assert_eq!(attributes[&Some("b".to_owned())], "y,y\"y");
         assert_eq!(attributes[&None], "zzz");
+        assert_eq!(&warnings.warnings.len(), &0);
+        Ok(())
+    }
+
+    /// 同じ属性名があったら警告
+    #[test]
+    fn test_duplicated_key() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("[a=xxx,a=yyy]")?;
+        us.read();
+        let mut warnings = Warnings::new();
+        let attributes = parse_attributes(&mut us, &mut warnings).unwrap().unwrap();
+        assert_eq!(attributes[&Some("a".to_owned())], "xxx");
+        assert_eq!(&warnings.warnings.len(), &1);
+        assert_eq!(
+            &warnings.warnings[0].message,
+            "The attributes are duplicated."
+        );
         Ok(())
     }
 
@@ -248,6 +284,7 @@ mod test_parse_attributes {
         let mut warnings = Warnings::new();
         let result = parse_attributes(&mut us, &mut warnings).unwrap();
         assert_eq!(&result, &None);
+        assert_eq!(&warnings.warnings.len(), &0);
         Ok(())
     }
 
@@ -280,10 +317,21 @@ mod test_parse_attributes {
         Ok(())
     }
 
-    // 文字があるのに属性としてパースできない状況はある？
+    // 属性の形式が不正なら不適合
+    #[test]
+    fn test_malformed_attribute() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("[?=a]")?;
+        us.read();
+        let mut warnings = Warnings::new();
+        let result = parse_attributes(&mut us, &mut warnings).unwrap();
+        assert_eq!(&result, &None);
+        assert_eq!(&warnings.warnings.len(), &2);
+        assert_eq!(&warnings.warnings[0].message, "There is no attribute name.");
+        assert_eq!(&warnings.warnings[1].message, "The attribute is malformed.");
+        Ok(())
+    }
 
     /// EOFが出現したら不適合
-    /// 多分ブロック終了がキャッシュされているせいでダメ
     #[test]
     fn test_eof() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("[a=x,b=y")?;
@@ -293,6 +341,331 @@ mod test_parse_attributes {
         assert_eq!(&result, &None);
         assert_eq!(&warnings.warnings.len(), &1);
         assert_eq!(&warnings.warnings[0].message, "] is required.");
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test_parse_attribute {
+    use super::parse_attribute;
+    use crate::build::step2::test_utils::unit_stream;
+    use crate::build::step3::Warnings;
+    use std::error::Error;
+
+    #[test]
+    fn test_simple_value() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("a=xxx,")?;
+        us.read();
+        us.set_indent_check_mode(false);
+        let mut warnings = Warnings::new();
+        let (k, v) = parse_attribute(&mut us, &mut warnings).unwrap().unwrap();
+        assert_eq!(&k, &Some("a".to_owned()));
+        assert_eq!(&v, "xxx");
+        assert_eq!(&warnings.warnings.len(), &0);
+        Ok(())
+    }
+
+    #[test]
+    fn test_quoted_value() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("a=\"xxx\"]")?;
+        us.read();
+        us.set_indent_check_mode(false);
+        let mut warnings = Warnings::new();
+        let (k, v) = parse_attribute(&mut us, &mut warnings).unwrap().unwrap();
+        assert_eq!(&k, &Some("a".to_owned()));
+        assert_eq!(&v, "xxx");
+        assert_eq!(&warnings.warnings.len(), &0);
+        Ok(())
+    }
+
+    #[test]
+    fn test_nameless_simple_value() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("xxx]")?;
+        us.read();
+        us.set_indent_check_mode(false);
+        let mut warnings = Warnings::new();
+        let (k, v) = parse_attribute(&mut us, &mut warnings).unwrap().unwrap();
+        assert_eq!(&k, &None);
+        assert_eq!(&v, "xxx");
+        assert_eq!(&warnings.warnings.len(), &0);
+        Ok(())
+    }
+
+    #[test]
+    fn test_nameless_quoted_value() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("\"xxx\"\n  ,")?;
+        us.read();
+        us.set_indent_check_mode(false);
+        let mut warnings = Warnings::new();
+        let (k, v) = parse_attribute(&mut us, &mut warnings).unwrap().unwrap();
+        assert_eq!(&k, &None);
+        assert_eq!(&v, "xxx");
+        assert_eq!(&warnings.warnings.len(), &0);
+        Ok(())
+    }
+
+    /// 属性名が不正なら不適合
+    #[test]
+    fn test_bad_name() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("$=xxx,")?;
+        us.read();
+        us.set_indent_check_mode(false);
+        let mut warnings = Warnings::new();
+        let result = parse_attribute(&mut us, &mut warnings).unwrap();
+        assert_eq!(&result, &None);
+        assert_eq!(&warnings.warnings.len(), &1);
+        assert_eq!(&warnings.warnings[0].message, "There is no attribute name.");
+        Ok(())
+    }
+
+    /// 属性名の後が"="でなければ不適合
+    #[test]
+    fn test_no_equal_sign() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("a\"xxx,")?;
+        us.read();
+        us.set_indent_check_mode(false);
+        let mut warnings = Warnings::new();
+        let result = parse_attribute(&mut us, &mut warnings).unwrap();
+        assert_eq!(&result, &None);
+        assert_eq!(&warnings.warnings.len(), &0);
+        Ok(())
+    }
+
+    /// 開始が"="なら不適合
+    #[test]
+    fn test_starts_with_equal_sign() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("=xxx,")?;
+        us.read();
+        us.set_indent_check_mode(false);
+        let mut warnings = Warnings::new();
+        let result = parse_attribute(&mut us, &mut warnings).unwrap();
+        assert_eq!(&result, &None);
+        assert_eq!(&warnings.warnings.len(), &1);
+        assert_eq!(&warnings.warnings[0].message, "There is no attribute name.");
+        Ok(())
+    }
+
+    /// 値が空
+    #[test]
+    fn test_empty_value() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("a=,")?;
+        us.read();
+        us.set_indent_check_mode(false);
+        let mut warnings = Warnings::new();
+        let (k, v) = parse_attribute(&mut us, &mut warnings).unwrap().unwrap();
+        assert_eq!(&k, &Some("a".to_owned()));
+        assert_eq!(&v, &"".to_owned());
+        assert_eq!(&warnings.warnings.len(), &0);
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test_parse_quoted_attribute_value {
+    use super::parse_quoted_attribute_value;
+    use crate::build::step1::Position;
+    use crate::build::step2::test_utils::unit_stream;
+    use crate::build::step3::Warnings;
+    use std::error::Error;
+
+    #[test]
+    fn test_normal() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("\"xxx\",")?;
+        us.read();
+        us.set_indent_check_mode(false);
+        let mut warnings = Warnings::new();
+        let result = parse_quoted_attribute_value(&mut us, &mut warnings).unwrap();
+        assert_eq!(&result, &Some("xxx".to_owned()));
+        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(us.file_position().position, Some(Position::new(1, 6)));
+        Ok(())
+    }
+
+    /// 引用符がなければ不適合
+    #[test]
+    fn test_no_quotations() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("xxx,")?;
+        us.read();
+        us.set_indent_check_mode(false);
+        let mut warnings = Warnings::new();
+        let result = parse_quoted_attribute_value(&mut us, &mut warnings).unwrap();
+        assert_eq!(&result, &None);
+        assert_eq!(&warnings.warnings.len(), &0);
+        Ok(())
+    }
+
+    /// 内容に引用符を含む
+    #[test]
+    fn test_has_quotations() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("\"xx\"\"zz\",")?;
+        us.read();
+        us.set_indent_check_mode(false);
+        let mut warnings = Warnings::new();
+        let result = parse_quoted_attribute_value(&mut us, &mut warnings).unwrap();
+        assert_eq!(&result, &Some("xx\"zz".to_owned()));
+        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(us.file_position().position, Some(Position::new(1, 9)));
+        Ok(())
+    }
+
+    /// 連続した引用符を含む
+    #[test]
+    fn test_has_two_quotations() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("\"xx\"\"\"\"zz\",")?;
+        us.read();
+        us.set_indent_check_mode(false);
+        let mut warnings = Warnings::new();
+        let result = parse_quoted_attribute_value(&mut us, &mut warnings).unwrap();
+        assert_eq!(&result, &Some("xx\"\"zz".to_owned()));
+        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(us.file_position().position, Some(Position::new(1, 11)));
+        Ok(())
+    }
+
+    /// 引用符の直後で終了
+    #[test]
+    fn test_quotation_and_end() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("\"xx\"\"\"\n")?;
+        us.read();
+        us.set_indent_check_mode(false);
+        let mut warnings = Warnings::new();
+        let result = parse_quoted_attribute_value(&mut us, &mut warnings).unwrap();
+        assert_eq!(&result, &Some("xx\"".to_owned()));
+        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(us.file_position().position, Some(Position::new(1, 7)));
+        Ok(())
+    }
+
+    /// 引用符の前で改行
+    #[test]
+    fn test_ends_with_new_line() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("\"xxx\n")?;
+        us.read();
+        us.set_indent_check_mode(false);
+        let mut warnings = Warnings::new();
+        let result = parse_quoted_attribute_value(&mut us, &mut warnings).unwrap();
+        assert_eq!(&result, &None);
+        assert_eq!(&warnings.warnings.len(), &1);
+        assert_eq!(
+            &warnings.warnings[0].message,
+            "A quoted attribute value is not closed."
+        );
+        Ok(())
+    }
+
+    /// 引用符の前でEOF
+    #[test]
+    fn test_ends_with_eof() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("\"xxx")?;
+        us.read();
+        us.set_indent_check_mode(false);
+        let mut warnings = Warnings::new();
+        let result = parse_quoted_attribute_value(&mut us, &mut warnings).unwrap();
+        assert_eq!(&result, &None);
+        assert_eq!(&warnings.warnings.len(), &1);
+        assert_eq!(
+            &warnings.warnings[0].message,
+            "A quoted attribute value is not closed."
+        );
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test_parse_simple_attribute_value {
+    use super::parse_simple_attribute_value;
+    use crate::build::step1::Position;
+    use crate::build::step2::test_utils::unit_stream;
+    use crate::build::step3::Warnings;
+    use std::error::Error;
+
+    /// カンマで終了
+    #[test]
+    fn test_ends_with_comma() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("xxx,")?;
+        us.read();
+        us.set_indent_check_mode(false);
+        let mut warnings = Warnings::new();
+        let result = parse_simple_attribute_value(&mut us, &mut warnings).unwrap();
+        assert_eq!(&result, &Some("xxx".to_owned()));
+        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(us.file_position().position, Some(Position::new(1, 4)));
+        Ok(())
+    }
+
+    /// "]"で終了
+    #[test]
+    fn test_ends_with_brace() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("xxx]")?;
+        us.read();
+        us.set_indent_check_mode(false);
+        let mut warnings = Warnings::new();
+        let result = parse_simple_attribute_value(&mut us, &mut warnings).unwrap();
+        assert_eq!(&result, &Some("xxx".to_owned()));
+        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(us.file_position().position, Some(Position::new(1, 4)));
+        Ok(())
+    }
+
+    /// 改行で終了
+    #[test]
+    fn test_ends_with_new_line() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("xxx\n")?;
+        us.read();
+        us.set_indent_check_mode(false);
+        let mut warnings = Warnings::new();
+        let result = parse_simple_attribute_value(&mut us, &mut warnings).unwrap();
+        assert_eq!(&result, &Some("xxx".to_owned()));
+        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(us.file_position().position, Some(Position::new(1, 4)));
+        Ok(())
+    }
+
+    /// EOFで終了
+    #[test]
+    fn test_ends_with_eof() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("xxx")?;
+        us.read();
+        us.set_indent_check_mode(false);
+        let mut warnings = Warnings::new();
+        let result = parse_simple_attribute_value(&mut us, &mut warnings).unwrap();
+        assert_eq!(&result, &Some("xxx".to_owned()));
+        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(us.file_position().position, Some(Position::new(1, 4)));
+        Ok(())
+    }
+
+    /// 引用符があれば不適合
+    #[test]
+    fn test_has_quotations() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("xx\",")?;
+        us.read();
+        us.set_indent_check_mode(false);
+        let mut warnings = Warnings::new();
+        let result = parse_simple_attribute_value(&mut us, &mut warnings).unwrap();
+        assert_eq!(&result, &None);
+        assert_eq!(&warnings.warnings.len(), &1);
+        assert_eq!(
+            &warnings.warnings[0].message,
+            "Quotes cannot be written in the middle of an attribute value."
+        );
+        Ok(())
+    }
+
+    /// 等号があれば不適合
+    #[test]
+    fn test_has_equal_signs() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("xx=,")?;
+        us.read();
+        us.set_indent_check_mode(false);
+        let mut warnings = Warnings::new();
+        let result = parse_simple_attribute_value(&mut us, &mut warnings).unwrap();
+        assert_eq!(&result, &None);
+        assert_eq!(&warnings.warnings.len(), &1);
+        assert_eq!(
+            &warnings.warnings[0].message,
+            "Equal Signs cannot be written in the middle of an attribute value."
+        );
         Ok(())
     }
 }
