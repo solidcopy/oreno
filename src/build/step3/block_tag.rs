@@ -1,7 +1,6 @@
-use std::collections::HashMap;
-
 use crate::build::step2::Unit;
 use crate::build::step2::UnitStream;
+use crate::build::step3::attribute::Attributes;
 use crate::build::step3::block::parse_block;
 use crate::build::step3::block::parse_raw_block;
 use crate::build::step3::block::Block;
@@ -9,16 +8,37 @@ use crate::build::step3::block_tag_header::parse_block_tag_header;
 use crate::build::step3::block_tag_header::BlockTagHeader;
 use crate::build::step3::tag::parse_tag_and_attributes;
 use crate::build::step3::try_parse;
+use crate::build::step3::BlockContent;
+use crate::build::step3::ContentModel;
 use crate::build::step3::ParseError;
 use crate::build::step3::ParseResult;
+use crate::build::step3::Reversing;
 use crate::build::step3::Warnings;
 
 pub struct BlockTag {
     name: String,
-    attributes: HashMap<Option<String>, String>,
+    attributes: Attributes,
     header: Option<BlockTagHeader>,
     contents: Option<Block>,
 }
+
+impl ContentModel for BlockTag {
+    fn reverse(&self, r: &mut Reversing) {
+        r.write(":");
+        r.write(&self.name);
+        self.attributes.reverse(r);
+        if self.header.is_some() {
+            r.write(" ");
+            self.header.as_ref().unwrap().reverse(r);
+        }
+        r.wrap();
+        if self.contents.is_some() {
+            self.contents.as_ref().unwrap().reverse(r);
+        }
+    }
+}
+
+impl BlockContent for BlockTag {}
 
 pub fn parse_block_tag(
     unit_stream: &mut UnitStream,

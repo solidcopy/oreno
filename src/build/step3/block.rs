@@ -3,9 +3,12 @@ use crate::build::step2::UnitStream;
 use crate::build::step3::block_tag::parse_block_tag;
 use crate::build::step3::paragraph::parse_paragraph;
 use crate::build::step3::try_parse;
+use crate::build::step3::BlockContent;
 use crate::build::step3::BlockContents;
+use crate::build::step3::ContentModel;
 use crate::build::step3::ParseError;
 use crate::build::step3::ParseResult;
+use crate::build::step3::Reversing;
 use crate::build::step3::Warnings;
 
 pub struct Block {
@@ -18,9 +21,29 @@ impl Block {
     }
 }
 
+impl ContentModel for Block {
+    fn reverse(&self, r: &mut Reversing) {
+        r.indent();
+        for content in &self.contents {
+            content.reverse(r);
+        }
+        r.unindent();
+    }
+}
+
+impl BlockContent for Block {}
+
 pub enum BlankLine {
     INSTANCE,
 }
+
+impl ContentModel for BlankLine {
+    fn reverse(&self, r: &mut Reversing) {
+        r.wrap();
+    }
+}
+
+impl BlockContent for BlankLine {}
 
 pub fn parse_block(unit_stream: &mut UnitStream, warnings: &mut Warnings) -> ParseResult<Block> {
     abstract_parse_block(unit_stream, warnings, true)

@@ -1,10 +1,8 @@
 pub mod build;
 
 fn main() {
-    let a = [1, 2, 3];
-
-    let mut iter = a.iter().skip(5);
-
-    // assert_eq!(iter.next(), Some(&3));
-    assert_eq!(iter.next(), None);
+    let a = "a".to_owned();
+    let b = "b".to_owned();
+    let o = a.partial_cmp(&b).unwrap();
+    println!("{:?}", &o);
 }

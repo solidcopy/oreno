@@ -2,13 +2,23 @@ use crate::build::step2::Unit;
 use crate::build::step2::UnitStream;
 use crate::build::step3::inline_tag::parse_inline_tag;
 use crate::build::step3::try_parse;
+use crate::build::step3::ContentModel;
 use crate::build::step3::InlineContents;
 use crate::build::step3::ParseError;
 use crate::build::step3::ParseResult;
+use crate::build::step3::Reversing;
 use crate::build::step3::Warnings;
 
 pub struct BlockTagHeader {
     contents: InlineContents,
+}
+
+impl ContentModel for BlockTagHeader {
+    fn reverse(&self, r: &mut Reversing) {
+        for content in &self.contents {
+            content.reverse(r);
+        }
+    }
 }
 
 /// タグと空白の後に読み込み位置がある状態で呼ぶ。

@@ -1,8 +1,7 @@
-use std::collections::HashMap;
-
 use crate::build::step2::Unit;
 use crate::build::step2::UnitStream;
 use crate::build::step3::attribute::parse_attributes;
+use crate::build::step3::attribute::Attributes;
 use crate::build::step3::symbol;
 use crate::build::step3::try_parse;
 use crate::build::step3::ParseResult;
@@ -42,7 +41,7 @@ pub fn parse_tag(unit_stream: &mut UnitStream, warnings: &mut Warnings) -> Parse
 pub fn parse_tag_and_attributes(
     unit_stream: &mut UnitStream,
     warnings: &mut Warnings,
-) -> ParseResult<(String, HashMap<Option<String>, String>)> {
+) -> ParseResult<(String, Attributes)> {
     let tag_name = match try_parse(parse_tag, unit_stream, warnings)? {
         Some(tag_name) => tag_name,
         None => return Ok(None),
@@ -50,7 +49,7 @@ pub fn parse_tag_and_attributes(
 
     let attributes = match try_parse(parse_attributes, unit_stream, warnings)? {
         Some(attributes) => attributes,
-        None => HashMap::with_capacity(0),
+        None => Attributes::with_capacity(0),
     };
 
     Ok(Some((tag_name, attributes)))

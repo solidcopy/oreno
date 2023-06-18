@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
@@ -5,14 +6,62 @@ use crate::build::step2::Unit;
 use crate::build::step2::UnitStream;
 use crate::build::step3::symbol;
 use crate::build::step3::try_parse;
+use crate::build::step3::ContentModel;
 use crate::build::step3::ParseError;
 use crate::build::step3::ParseResult;
+use crate::build::step3::Reversing;
 use crate::build::step3::Warnings;
+
+pub type Attributes = HashMap<Option<String>, String>;
+
+impl ContentModel for Attributes {
+    fn reverse(&self, r: &mut Reversing) {
+        if self.is_empty() {
+            return;
+        }
+
+        r.write("[");
+
+        let mut first = true;
+
+        for k in sort_keys(&self) {
+            let v = self.get(k).unwrap();
+
+            if !first {
+                r.write(",");
+            }
+            first = false;
+
+            if k.is_some() {
+                r.write(k.as_ref().unwrap().as_str());
+                r.write("=");
+            }
+
+            r.write(v.as_str());
+        }
+
+        r.write("]");
+    }
+}
+
+pub fn sort_keys(attributes: &Attributes) -> Vec<&Option<String>> {
+    let mut keys = attributes.keys().collect::<Vec<&Option<String>>>();
+    keys.sort_by({
+        |a, b| match (a, b) {
+            (Some(x), Some(y)) => x.partial_cmp(y).unwrap(),
+            (None, Some(_)) => Ordering::Less,
+            (Some(_), None) => Ordering::Greater,
+            (None, None) => Ordering::Equal,
+        }
+    });
+
+    keys
+}
 
 pub fn parse_attributes(
     unit_stream: &mut UnitStream,
     warnings: &mut Warnings,
-) -> ParseResult<HashMap<Option<String>, String>> {
+) -> ParseResult<Attributes> {
     // 開始が"["でなければ不適合
     if unit_stream.peek() != Unit::Char('[') {
         return Ok(None);
@@ -30,7 +79,10 @@ pub fn parse_attributes(
     loop {
         match unit_stream.peek() {
             Unit::Char(c) => match c {
-                ']' => break,
+                ']' => {
+                    unit_stream.read();
+                    break;
+                }
                 ',' => {
                     if !need_separator {
                         warnings.push(

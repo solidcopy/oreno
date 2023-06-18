@@ -1,20 +1,37 @@
-use std::collections::HashMap;
-
 use crate::build::step2::Unit;
 use crate::build::step2::UnitStream;
+use crate::build::step3::attribute::Attributes;
 use crate::build::step3::tag::parse_tag_and_attributes;
 use crate::build::step3::try_parse;
+use crate::build::step3::ContentModel;
+use crate::build::step3::InlineContent;
 use crate::build::step3::InlineContents;
 use crate::build::step3::ParseError;
 use crate::build::step3::ParseFunc;
 use crate::build::step3::ParseResult;
+use crate::build::step3::Reversing;
 use crate::build::step3::Warnings;
 
 pub struct InlineTag {
     name: String,
-    attributes: HashMap<Option<String>, String>,
+    attributes: Attributes,
     contents: InlineContents,
 }
+
+impl ContentModel for InlineTag {
+    fn reverse(&self, r: &mut Reversing) {
+        r.write(":");
+        r.write(&self.name);
+        self.attributes.reverse(r);
+        r.write("{");
+        for content in &self.contents {
+            content.reverse(r);
+        }
+        r.write("}");
+    }
+}
+
+impl InlineContent for InlineTag {}
 
 pub fn parse_inline_tag(
     unit_stream: &mut UnitStream,
@@ -72,6 +89,9 @@ fn abstract_parse_inline_tag_contents(
         return Ok(None);
     }
 
+    // いくつ"{"が出現したか、同時にいくつ"}"が出現したら終了するか
+    let mut bracket_depth = 1;
+
     // {}の中ではインデントの増減をブロック開始/終了と見なさない
     unit_stream.set_indent_check_mode(false);
 
@@ -89,21 +109,37 @@ fn abstract_parse_inline_tag_contents(
                         }
                         contents.push(Box::new(inline_tag));
                     }
-                    None => text.push(c),
-                },
-                '}' => {
-                    if !text.is_empty() {
-                        contents.push(Box::new(text));
+                    None => {
+                        text.push(c);
+                        unit_stream.read();
                     }
+                },
+                '{' => {
+                    bracket_depth += 1;
+                    text.push('{');
                     unit_stream.read();
-                    break;
+                }
+                '}' => {
+                    bracket_depth -= 1;
+                    if bracket_depth == 0 {
+                        if !text.is_empty() {
+                            contents.push(Box::new(text));
+                        }
+                        unit_stream.read();
+                        break;
+                    } else {
+                        text.push('}');
+                        unit_stream.read();
+                    }
                 }
                 _ => {
                     text.push(c);
+                    unit_stream.read();
                 }
             },
             Unit::NewLine => {
                 text.push('\n');
+                unit_stream.read();
             }
             Unit::Eof => {
                 warnings.push(unit_stream.file_position(), "} is required.".to_owned());
@@ -118,9 +154,219 @@ fn abstract_parse_inline_tag_contents(
         }
     }
 
-    if !contents.is_empty() {
-        Ok(Some(contents))
-    } else {
-        Ok(None)
+    Ok(Some(contents))
+}
+
+#[cfg(test)]
+mod test_parse_inline_tag {
+    use super::parse_inline_tag;
+    use crate::build::step2::test_utils::unit_stream;
+    use crate::build::step3::ContentModel;
+    use crate::build::step3::Reversing;
+    use crate::build::step3::Warnings;
+    use std::error::Error;
+
+    #[test]
+    fn test_normal() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream(":tag[a=x,b=\"yy\",123]{zzz:b{bold}???}")?;
+        us.read();
+        let mut warnings = Warnings::new();
+        let tag = parse_inline_tag(&mut us, &mut warnings).unwrap().unwrap();
+
+        assert_eq!(tag.contents.len(), 3);
+
+        let mut r = Reversing::new();
+        tag.reverse(&mut r);
+        assert_eq!(
+            r.to_string(),
+            ":tag[123,a=x,b=yy]{zzz:b{bold}???}".to_owned()
+        );
+
+        assert!(warnings.warnings.is_empty());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_raw() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream(":code[a=x,b=\"yy\",123]{zzz:b{bold}???}")?;
+        us.read();
+        let mut warnings = Warnings::new();
+        let tag = parse_inline_tag(&mut us, &mut warnings).unwrap().unwrap();
+
+        assert_eq!(tag.contents.len(), 1);
+
+        let mut r = Reversing::new();
+        tag.reverse(&mut r);
+        assert_eq!(
+            r.to_string(),
+            ":code[123,a=x,b=yy]{zzz:b{bold}???}".to_owned()
+        );
+
+        assert!(warnings.warnings.is_empty());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_no_contents() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream(":tag[a]")?;
+        us.read();
+        let mut warnings = Warnings::new();
+        let tag = parse_inline_tag(&mut us, &mut warnings).unwrap();
+
+        assert!(tag.is_none());
+
+        assert_eq!(warnings.warnings.len(), 1);
+        assert_eq!(warnings.warnings[0].message, "There is no tag's contents.");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_no_contents_without_attr() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream(":tag$")?;
+        us.read();
+        let mut warnings = Warnings::new();
+        let tag = parse_inline_tag(&mut us, &mut warnings).unwrap();
+
+        assert!(tag.is_none());
+
+        assert_eq!(warnings.warnings.len(), 1);
+        assert_eq!(warnings.warnings[0].message, "There is no tag's contents.");
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test_abstract_parse_inline_tag_contents {
+    use super::abstract_parse_inline_tag_contents;
+    use crate::build::step2::test_utils::unit_stream;
+    use crate::build::step3::InlineContent;
+    use crate::build::step3::Reversing;
+    use crate::build::step3::Warnings;
+    use std::error::Error;
+
+    #[test]
+    fn test_normal() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("{abc:tag{xxx}zzz}")?;
+        us.read();
+        let mut warnings = Warnings::new();
+        let result = abstract_parse_inline_tag_contents(&mut us, &mut warnings, true)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(result.len(), 3);
+        assert_eq!(reverse(&result), "abc:tag{xxx}zzz".to_owned());
+
+        assert_eq!(warnings.warnings.len(), 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_raw() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("{abc:tag{xxx}zzz}")?;
+        us.read();
+        let mut warnings = Warnings::new();
+        let result = abstract_parse_inline_tag_contents(&mut us, &mut warnings, false)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(reverse(&result), "abc:tag{xxx}zzz".to_owned());
+
+        assert_eq!(warnings.warnings.len(), 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_no_bracket() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("abc:tag{xxx}zzz}")?;
+        us.read();
+        let mut warnings = Warnings::new();
+        let result = abstract_parse_inline_tag_contents(&mut us, &mut warnings, true).unwrap();
+
+        assert!(result.is_none());
+
+        assert_eq!(warnings.warnings.len(), 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_count_brackets() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("{abc{{xxx}zzz}}??")?;
+        us.read();
+        let mut warnings = Warnings::new();
+        let result = abstract_parse_inline_tag_contents(&mut us, &mut warnings, true)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(reverse(&result), "abc{{xxx}zzz}".to_owned());
+
+        assert_eq!(warnings.warnings.len(), 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_new_line() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("{abc\nxxx}")?;
+        us.read();
+        let mut warnings = Warnings::new();
+        let result = abstract_parse_inline_tag_contents(&mut us, &mut warnings, true)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(reverse(&result), "abc\nxxx".to_owned());
+
+        assert_eq!(warnings.warnings.len(), 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_eof() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("{abc")?;
+        us.read();
+        let mut warnings = Warnings::new();
+        let result = abstract_parse_inline_tag_contents(&mut us, &mut warnings, true).unwrap();
+
+        assert!(result.is_none());
+
+        assert_eq!(warnings.warnings.len(), 1);
+        assert_eq!(warnings.warnings[0].message, "} is required.");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_empty() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("{}")?;
+        us.read();
+        let mut warnings = Warnings::new();
+        let result = abstract_parse_inline_tag_contents(&mut us, &mut warnings, true)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(result.len(), 0);
+        assert_eq!(reverse(&result), "".to_owned());
+
+        assert_eq!(warnings.warnings.len(), 0);
+
+        Ok(())
+    }
+
+    fn reverse(contents: &Vec<Box<dyn InlineContent>>) -> String {
+        let mut r = Reversing::new();
+        for content in contents {
+            content.reverse(&mut r);
+        }
+        r.to_string()
     }
 }

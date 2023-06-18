@@ -10,16 +10,22 @@ mod tag;
 use crate::build::step2::FilePosition;
 use crate::build::step2::UnitStream;
 
-pub trait BlockContent {}
-pub type BlockContents = Vec<Box<dyn BlockContent>>;
-impl BlockContent for block::Block {}
-impl BlockContent for block_tag::BlockTag {}
-impl BlockContent for paragraph::Paragraph {}
-impl BlockContent for block::BlankLine {}
+pub trait ContentModel {
+    fn reverse(&self, r: &mut Reversing);
+}
 
-pub trait InlineContent {}
+pub trait BlockContent: ContentModel {}
+pub type BlockContents = Vec<Box<dyn BlockContent>>;
+
+pub trait InlineContent: ContentModel {}
 pub type InlineContents = Vec<Box<dyn InlineContent>>;
-impl InlineContent for inline_tag::InlineTag {}
+
+impl ContentModel for String {
+    fn reverse(&self, r: &mut Reversing) {
+        r.write(self);
+    }
+}
+
 impl InlineContent for String {}
 
 pub type ParseResult<S> = Result<Option<S>, ParseError>;
@@ -79,6 +85,45 @@ fn try_parse<S>(
     }
 
     result
+}
+
+pub struct Reversing {
+    source: String,
+    indent_depth: u64,
+}
+
+impl Reversing {
+    pub fn new() -> Reversing {
+        Reversing {
+            source: String::new(),
+            indent_depth: 0,
+        }
+    }
+
+    pub fn write(&mut self, s: &str) {
+        self.source.push_str(s);
+    }
+
+    pub fn wrap(&mut self) {
+        self.source.push('\n');
+        for _ in 0..self.indent_depth {
+            self.source.push_str("    ");
+        }
+    }
+
+    pub fn indent(&mut self) {
+        self.source.push_str("    ");
+        self.indent_depth += 1;
+    }
+
+    pub fn unindent(&mut self) {
+        self.source.truncate(self.source.len() - 4);
+        self.indent_depth -= 1;
+    }
+
+    pub fn to_string(self) -> String {
+        self.source
+    }
 }
 
 #[cfg(test)]
