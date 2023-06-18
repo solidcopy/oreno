@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 const INDENT_SIZE: u64 = 4;
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Unit {
     Char(char),
     NewLine,
