@@ -12,8 +12,10 @@ use crate::build::step3::BlockContent;
 use crate::build::step3::ContentModel;
 use crate::build::step3::ParseError;
 use crate::build::step3::ParseResult;
-use crate::build::step3::Reversing;
 use crate::build::step3::Warnings;
+
+#[cfg(test)]
+use crate::build::step3::Reversing;
 
 pub struct BlockTag {
     name: String,
@@ -23,6 +25,7 @@ pub struct BlockTag {
 }
 
 impl ContentModel for BlockTag {
+    #[cfg(test)]
     fn reverse(&self, r: &mut Reversing) {
         r.write(":");
         r.write(&self.name);

@@ -6,14 +6,17 @@ use crate::build::step3::ContentModel;
 use crate::build::step3::InlineContents;
 use crate::build::step3::ParseError;
 use crate::build::step3::ParseResult;
-use crate::build::step3::Reversing;
 use crate::build::step3::Warnings;
+
+#[cfg(test)]
+use crate::build::step3::Reversing;
 
 pub struct Paragraph {
     contents: InlineContents,
 }
 
 impl ContentModel for Paragraph {
+    #[cfg(test)]
     fn reverse(&self, r: &mut Reversing) {
         for content in &self.contents {
             content.reverse(r);

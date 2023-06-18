@@ -1,8 +1,35 @@
 pub mod build;
 
+trait MyTrait {
+    fn a();
+
+    #[cfg(test)]
+    fn b();
+}
+
+struct MyStruct {}
+
+impl MyTrait for MyStruct {
+    fn a() {
+        println!("a");
+    }
+
+    #[cfg(test)]
+    fn b() {
+        println!("b");
+    }
+}
+
 fn main() {
-    let a = "a".to_owned();
-    let b = "b".to_owned();
-    let o = a.partial_cmp(&b).unwrap();
-    println!("{:?}", &o);
+    MyStruct::a();
+}
+
+#[cfg(test)]
+mod test {
+    use super::MyStruct;
+    use super::MyTrait;
+    #[test]
+    fn test() {
+        MyStruct::b();
+    }
 }

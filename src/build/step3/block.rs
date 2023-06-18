@@ -8,8 +8,10 @@ use crate::build::step3::BlockContents;
 use crate::build::step3::ContentModel;
 use crate::build::step3::ParseError;
 use crate::build::step3::ParseResult;
-use crate::build::step3::Reversing;
 use crate::build::step3::Warnings;
+
+#[cfg(test)]
+use crate::build::step3::Reversing;
 
 pub struct Block {
     contents: BlockContents,
@@ -22,6 +24,7 @@ impl Block {
 }
 
 impl ContentModel for Block {
+    #[cfg(test)]
     fn reverse(&self, r: &mut Reversing) {
         r.indent();
         for content in &self.contents {
@@ -38,6 +41,7 @@ pub enum BlankLine {
 }
 
 impl ContentModel for BlankLine {
+    #[cfg(test)]
     fn reverse(&self, r: &mut Reversing) {
         r.wrap();
     }

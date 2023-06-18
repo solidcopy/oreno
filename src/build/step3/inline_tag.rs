@@ -9,8 +9,10 @@ use crate::build::step3::InlineContents;
 use crate::build::step3::ParseError;
 use crate::build::step3::ParseFunc;
 use crate::build::step3::ParseResult;
-use crate::build::step3::Reversing;
 use crate::build::step3::Warnings;
+
+#[cfg(test)]
+use crate::build::step3::Reversing;
 
 pub struct InlineTag {
     name: String,
@@ -19,6 +21,7 @@ pub struct InlineTag {
 }
 
 impl ContentModel for InlineTag {
+    #[cfg(test)]
     fn reverse(&self, r: &mut Reversing) {
         r.write(":");
         r.write(&self.name);

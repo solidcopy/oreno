@@ -1,3 +1,4 @@
+#[cfg(test)]
 use std::cmp::Ordering;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -9,12 +10,15 @@ use crate::build::step3::try_parse;
 use crate::build::step3::ContentModel;
 use crate::build::step3::ParseError;
 use crate::build::step3::ParseResult;
-use crate::build::step3::Reversing;
 use crate::build::step3::Warnings;
+
+#[cfg(test)]
+use crate::build::step3::Reversing;
 
 pub type Attributes = HashMap<Option<String>, String>;
 
 impl ContentModel for Attributes {
+    #[cfg(test)]
     fn reverse(&self, r: &mut Reversing) {
         if self.is_empty() {
             return;
@@ -42,20 +46,6 @@ impl ContentModel for Attributes {
 
         r.write("]");
     }
-}
-
-pub fn sort_keys(attributes: &Attributes) -> Vec<&Option<String>> {
-    let mut keys = attributes.keys().collect::<Vec<&Option<String>>>();
-    keys.sort_by({
-        |a, b| match (a, b) {
-            (Some(x), Some(y)) => x.partial_cmp(y).unwrap(),
-            (None, Some(_)) => Ordering::Less,
-            (Some(_), None) => Ordering::Greater,
-            (None, None) => Ordering::Equal,
-        }
-    });
-
-    keys
 }
 
 pub fn parse_attributes(
@@ -290,6 +280,21 @@ fn parse_simple_attribute_value(
     }
 
     Ok(Some(attribute_value))
+}
+
+#[cfg(test)]
+pub fn sort_keys(attributes: &Attributes) -> Vec<&Option<String>> {
+    let mut keys = attributes.keys().collect::<Vec<&Option<String>>>();
+    keys.sort_by({
+        |a, b| match (a, b) {
+            (Some(x), Some(y)) => x.partial_cmp(y).unwrap(),
+            (None, Some(_)) => Ordering::Less,
+            (Some(_), None) => Ordering::Greater,
+            (None, None) => Ordering::Equal,
+        }
+    });
+
+    keys
 }
 
 #[cfg(test)]

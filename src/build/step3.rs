@@ -11,6 +11,7 @@ use crate::build::step2::FilePosition;
 use crate::build::step2::UnitStream;
 
 pub trait ContentModel {
+    #[cfg(test)]
     fn reverse(&self, r: &mut Reversing);
 }
 
@@ -21,6 +22,7 @@ pub trait InlineContent: ContentModel {}
 pub type InlineContents = Vec<Box<dyn InlineContent>>;
 
 impl ContentModel for String {
+    #[cfg(test)]
     fn reverse(&self, r: &mut Reversing) {
         r.write(self);
     }
@@ -87,11 +89,13 @@ fn try_parse<S>(
     result
 }
 
+#[cfg(test)]
 pub struct Reversing {
     source: String,
     indent_depth: u64,
 }
 
+#[cfg(test)]
 impl Reversing {
     pub fn new() -> Reversing {
         Reversing {
