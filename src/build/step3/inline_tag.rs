@@ -14,6 +14,7 @@ use crate::build::step3::Warnings;
 #[cfg(test)]
 use crate::build::step3::Reversing;
 
+#[derive(Debug)]
 pub struct InlineTag {
     name: String,
     attributes: Attributes,

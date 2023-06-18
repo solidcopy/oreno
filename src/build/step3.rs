@@ -18,7 +18,7 @@ pub trait ContentModel {
 pub trait BlockContent: ContentModel {}
 pub type BlockContents = Vec<Box<dyn BlockContent>>;
 
-pub trait InlineContent: ContentModel {}
+pub trait InlineContent: ContentModel + core::fmt::Debug {}
 pub type InlineContents = Vec<Box<dyn InlineContent>>;
 
 impl ContentModel for String {
