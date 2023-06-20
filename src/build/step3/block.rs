@@ -69,6 +69,7 @@ fn abstract_parse_block(
     if unit_stream.peek() != Unit::BlockBeginning {
         return Ok(None);
     }
+    unit_stream.read();
 
     let mut contents: BlockContents = vec![];
 
@@ -96,6 +97,7 @@ fn abstract_parse_block(
                 contents.push(Box::new(block));
             }
             Unit::BlockEnd => {
+                unit_stream.read();
                 break;
             }
             Unit::Eof => {
@@ -111,5 +113,88 @@ fn abstract_parse_block(
         Ok(Some(Block { contents }))
     } else {
         Ok(None)
+    }
+}
+
+#[cfg(test)]
+mod test_parse_block {
+    use super::parse_block;
+    use crate::build::step2::test_utils::unit_stream;
+    use crate::build::step3::Reversing;
+    use crate::build::step3::Warnings;
+    use std::error::Error;
+
+    #[test]
+    fn test_normal() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("    block\nabc\nxyz\n\n:tag[a=1]\n    contents\n")?;
+        let mut warnings = Warnings::new();
+        let block = parse_block(&mut us, &mut warnings).unwrap().unwrap();
+
+        assert_eq!(block.contents.len(), 4);
+        let mut r = Reversing::new();
+        for content in &block.contents {
+            content.reverse(&mut r);
+        }
+        assert_eq!(
+            r.to_string(),
+            "    block\nabc\nxyz\n\n:tag[a=1]\n    contents\n".to_owned()
+        );
+
+        assert_eq!(warnings.warnings.len(), 0);
+
+        Ok(())
+    }
+
+    /// 開始がブロック開始でなければ不適合
+    #[test]
+    fn test_no_block_beginning() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("abc")?;
+        us.read();
+        let mut warnings = Warnings::new();
+        let result = parse_block(&mut us, &mut warnings).unwrap();
+
+        assert!(result.is_none());
+
+        assert_eq!(warnings.warnings.len(), 0);
+
+        Ok(())
+    }
+
+    /// コロンから始まる段落があるがブロックタグではない
+    #[test]
+    fn test_not_block_tag() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream(":tag_[a=1]\n    contents\n")?;
+        let mut warnings = Warnings::new();
+        let block = parse_block(&mut us, &mut warnings).unwrap().unwrap();
+
+        assert_eq!(block.contents.len(), 2);
+        let mut r = Reversing::new();
+        for content in &block.contents {
+            content.reverse(&mut r);
+        }
+        assert_eq!(r.to_string(), ":tag_[a=1]\n    contents\n".to_owned());
+
+        assert_eq!(warnings.warnings.len(), 2);
+        assert_eq!(
+            warnings.warnings[0].message,
+            "There is an illegal character. '_'"
+        );
+        assert_eq!(warnings.warnings[1].message, "There is no tag's contents.");
+
+        Ok(())
+    }
+
+    /// 要素がなければ不適合
+    #[test]
+    fn test_empty() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream("")?;
+        let mut warnings = Warnings::new();
+        let result = parse_block(&mut us, &mut warnings).unwrap();
+
+        assert!(result.is_none());
+
+        assert_eq!(warnings.warnings.len(), 0);
+
+        Ok(())
     }
 }

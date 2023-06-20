@@ -121,7 +121,9 @@ impl Reversing {
     }
 
     pub fn unindent(&mut self) {
-        self.source.truncate(self.source.len() - 4);
+        if self.indent_depth > 1 {
+            self.source.truncate(self.source.len() - 4);
+        }
         self.indent_depth -= 1;
     }
 
