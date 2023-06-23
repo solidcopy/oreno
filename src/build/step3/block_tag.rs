@@ -30,13 +30,13 @@ impl ContentModel for BlockTag {
         r.write(":");
         r.write(&self.name);
         self.attributes.reverse(r);
-        if self.header.is_some() {
+        if let Some(header) = &self.header {
             r.write(" ");
-            self.header.as_ref().unwrap().reverse(r);
+            header.reverse(r);
         }
         r.wrap();
-        if self.contents.is_some() {
-            self.contents.as_ref().unwrap().reverse(r);
+        if let Some(contents) = &self.contents {
+            contents.reverse(r);
         }
     }
 }
@@ -105,3 +105,218 @@ pub fn parse_block_tag(
         contents,
     }))
 }
+
+#[cfg(test)]
+mod test_parse_block_tag {
+    use super::parse_block_tag;
+    use crate::build::step2::test_utils::unit_stream;
+    use crate::build::step3::ContentModel;
+    use crate::build::step3::Reversing;
+    use crate::build::step3::Warnings;
+    use std::error::Error;
+
+    #[test]
+    fn test_normal() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream(":tag[a=x,b=\"yy\",123]\n    zzz\n    :b{bold}\n\n???")?;
+        us.read();
+        let mut warnings = Warnings::new();
+        let tag = parse_block_tag(&mut us, &mut warnings).unwrap().unwrap();
+
+        assert!(tag.header.is_none());
+        assert!(tag.contents.is_some());
+
+        let mut r = Reversing::new();
+        tag.reverse(&mut r);
+        assert_eq!(
+            r.to_string(),
+            ":tag[123,a=x,b=yy]\n    zzz\n    :b{bold}\n}".to_owned()
+        );
+
+        assert!(warnings.warnings.is_empty());
+
+        Ok(())
+    }
+
+    //     #[test]
+    //     fn test_raw() -> Result<(), Box<dyn Error>> {
+    //         let mut us = unit_stream(":code[a=x,b=\"yy\",123]{zzz:b{bold}???}")?;
+    //         us.read();
+    //         let mut warnings = Warnings::new();
+    //         let tag = parse_block_tag(&mut us, &mut warnings).unwrap().unwrap();
+    //
+    //         assert_eq!(tag.contents.len(), 1);
+    //
+    //         let mut r = Reversing::new();
+    //         tag.reverse(&mut r);
+    //         assert_eq!(
+    //             r.to_string(),
+    //             ":code[123,a=x,b=yy]{zzz:b{bold}???}".to_owned()
+    //         );
+    //
+    //         assert!(warnings.warnings.is_empty());
+    //
+    //         Ok(())
+    //     }
+    //
+    //     #[test]
+    //     fn test_no_contents() -> Result<(), Box<dyn Error>> {
+    //         let mut us = unit_stream(":tag[a]")?;
+    //         us.read();
+    //         let mut warnings = Warnings::new();
+    //         let tag = parse_block_tag(&mut us, &mut warnings).unwrap();
+    //
+    //         assert!(tag.is_none());
+    //
+    //         assert_eq!(warnings.warnings.len(), 1);
+    //         assert_eq!(warnings.warnings[0].message, "There is no tag's contents.");
+    //
+    //         Ok(())
+    //     }
+    //
+    //     #[test]
+    //     fn test_no_contents_without_attr() -> Result<(), Box<dyn Error>> {
+    //         let mut us = unit_stream(":tag$")?;
+    //         us.read();
+    //         let mut warnings = Warnings::new();
+    //         let tag = parse_block_tag(&mut us, &mut warnings).unwrap();
+    //
+    //         assert!(tag.is_none());
+    //
+    //         assert_eq!(warnings.warnings.len(), 1);
+    //         assert_eq!(warnings.warnings[0].message, "There is no tag's contents.");
+    //
+    //         Ok(())
+    //     }
+}
+
+// #[cfg(test)]
+// mod test_abstract_parse_block_tag_contents {
+//     use super::abstract_parse_block_tag_contents;
+//     use crate::build::step2::test_utils::unit_stream;
+//     use crate::build::step3::InlineContent;
+//     use crate::build::step3::Reversing;
+//     use crate::build::step3::Warnings;
+//     use std::error::Error;
+//
+//     #[test]
+//     fn test_normal() -> Result<(), Box<dyn Error>> {
+//         let mut us = unit_stream("{abc:tag{xxx}zzz}")?;
+//         us.read();
+//         let mut warnings = Warnings::new();
+//         let result = abstract_parse_block_tag_contents(&mut us, &mut warnings, true)
+//             .unwrap()
+//             .unwrap();
+//
+//         assert_eq!(result.len(), 3);
+//         assert_eq!(reverse(&result), "abc:tag{xxx}zzz".to_owned());
+//
+//         assert_eq!(warnings.warnings.len(), 0);
+//
+//         Ok(())
+//     }
+//
+//     #[test]
+//     fn test_raw() -> Result<(), Box<dyn Error>> {
+//         let mut us = unit_stream("{abc:tag{xxx}zzz}")?;
+//         us.read();
+//         let mut warnings = Warnings::new();
+//         let result = abstract_parse_block_tag_contents(&mut us, &mut warnings, false)
+//             .unwrap()
+//             .unwrap();
+//
+//         assert_eq!(result.len(), 1);
+//         assert_eq!(reverse(&result), "abc:tag{xxx}zzz".to_owned());
+//
+//         assert_eq!(warnings.warnings.len(), 0);
+//
+//         Ok(())
+//     }
+//
+//     #[test]
+//     fn test_no_bracket() -> Result<(), Box<dyn Error>> {
+//         let mut us = unit_stream("abc:tag{xxx}zzz}")?;
+//         us.read();
+//         let mut warnings = Warnings::new();
+//         let result = abstract_parse_block_tag_contents(&mut us, &mut warnings, true).unwrap();
+//
+//         assert!(result.is_none());
+//
+//         assert_eq!(warnings.warnings.len(), 0);
+//
+//         Ok(())
+//     }
+//
+//     #[test]
+//     fn test_count_brackets() -> Result<(), Box<dyn Error>> {
+//         let mut us = unit_stream("{abc{{xxx}zzz}}??")?;
+//         us.read();
+//         let mut warnings = Warnings::new();
+//         let result = abstract_parse_block_tag_contents(&mut us, &mut warnings, true)
+//             .unwrap()
+//             .unwrap();
+//
+//         assert_eq!(result.len(), 1);
+//         assert_eq!(reverse(&result), "abc{{xxx}zzz}".to_owned());
+//
+//         assert_eq!(warnings.warnings.len(), 0);
+//
+//         Ok(())
+//     }
+//
+//     #[test]
+//     fn test_new_line() -> Result<(), Box<dyn Error>> {
+//         let mut us = unit_stream("{abc\nxxx}")?;
+//         us.read();
+//         let mut warnings = Warnings::new();
+//         let result = abstract_parse_block_tag_contents(&mut us, &mut warnings, true)
+//             .unwrap()
+//             .unwrap();
+//
+//         assert_eq!(result.len(), 1);
+//         assert_eq!(reverse(&result), "abc\nxxx".to_owned());
+//
+//         assert_eq!(warnings.warnings.len(), 0);
+//
+//         Ok(())
+//     }
+//
+//     #[test]
+//     fn test_eof() -> Result<(), Box<dyn Error>> {
+//         let mut us = unit_stream("{abc")?;
+//         us.read();
+//         let mut warnings = Warnings::new();
+//         let result = abstract_parse_block_tag_contents(&mut us, &mut warnings, true).unwrap();
+//
+//         assert!(result.is_none());
+//
+//         assert_eq!(warnings.warnings.len(), 1);
+//         assert_eq!(warnings.warnings[0].message, "} is required.");
+//
+//         Ok(())
+//     }
+//
+//     #[test]
+//     fn test_empty() -> Result<(), Box<dyn Error>> {
+//         let mut us = unit_stream("{}")?;
+//         us.read();
+//         let mut warnings = Warnings::new();
+//         let result = abstract_parse_block_tag_contents(&mut us, &mut warnings, true)
+//             .unwrap()
+//             .unwrap();
+//
+//         assert_eq!(result.len(), 0);
+//         assert_eq!(reverse(&result), "".to_owned());
+//
+//         assert_eq!(warnings.warnings.len(), 0);
+//
+//         Ok(())
+//     }
+//
+//     fn reverse(contents: &Vec<Box<dyn InlineContent>>) -> String {
+//         let mut r = Reversing::new();
+//         for content in contents {
+//             content.reverse(&mut r);
+//         }
+//         r.to_string()
+//     }
+// }
