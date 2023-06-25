@@ -1,7 +1,10 @@
+use crate::build::step2::Mark;
 use crate::build::step2::Unit;
 use crate::build::step2::UnitStream;
+use crate::build::step2::INDENT_SIZE;
 use crate::build::step3::block_tag::parse_block_tag;
 use crate::build::step3::paragraph::parse_paragraph;
+use crate::build::step3::paragraph::Paragraph;
 use crate::build::step3::try_parse;
 use crate::build::step3::BlockContent;
 use crate::build::step3::BlockContents;
@@ -9,9 +12,6 @@ use crate::build::step3::ContentModel;
 use crate::build::step3::ParseError;
 use crate::build::step3::ParseResult;
 use crate::build::step3::Warnings;
-
-#[cfg(test)]
-use crate::build::step3::Reversing;
 
 pub struct Block {
     contents: BlockContents,
@@ -25,12 +25,20 @@ impl Block {
 
 impl ContentModel for Block {
     #[cfg(test)]
-    fn reverse(&self, r: &mut Reversing) {
-        r.indent();
+    fn to_json(&self) -> String {
+        let mut contents = String::new();
+
+        let mut first = true;
         for content in &self.contents {
-            content.reverse(r);
+            if !first {
+                contents.push(',');
+            }
+            first = false;
+
+            contents.push_str(content.to_json().as_str());
         }
-        r.unindent();
+
+        format!("{{\"b\":[{}]}}", &contents)
     }
 }
 
@@ -42,29 +50,14 @@ pub enum BlankLine {
 
 impl ContentModel for BlankLine {
     #[cfg(test)]
-    fn reverse(&self, r: &mut Reversing) {
-        r.wrap();
+    fn to_json(&self) -> String {
+        "\"<bl>\"".to_owned()
     }
 }
 
 impl BlockContent for BlankLine {}
 
 pub fn parse_block(unit_stream: &mut UnitStream, warnings: &mut Warnings) -> ParseResult<Block> {
-    abstract_parse_block(unit_stream, warnings, true)
-}
-
-pub fn parse_raw_block(
-    unit_stream: &mut UnitStream,
-    warnings: &mut Warnings,
-) -> ParseResult<Block> {
-    abstract_parse_block(unit_stream, warnings, false)
-}
-
-fn abstract_parse_block(
-    unit_stream: &mut UnitStream,
-    warnings: &mut Warnings,
-    parse_tags: bool,
-) -> ParseResult<Block> {
     // 開始位置がブロック開始でなければ不適合
     if unit_stream.peek() != Unit::BlockBeginning {
         return Ok(None);
@@ -73,10 +66,26 @@ fn abstract_parse_block(
 
     let mut contents: BlockContents = vec![];
 
+    let mut blank_lines_beginning: Option<Mark> = None;
+    let mut blank_line_count = 0;
+
     loop {
+        if blank_lines_beginning.is_some() {
+            match unit_stream.peek() {
+                Unit::Char(_) | Unit::BlockBeginning => {
+                    for _ in 0..blank_line_count {
+                        contents.push(Box::new(BlankLine::INSTANCE));
+                    }
+                    blank_lines_beginning = None;
+                    blank_line_count = 0;
+                }
+                _ => {}
+            }
+        }
+
         match unit_stream.peek() {
             Unit::Char(c) => {
-                if parse_tags && c == ':' {
+                if c == ':' {
                     if let Some(block_tag) = try_parse(parse_block_tag, unit_stream, warnings)? {
                         contents.push(Box::new(block_tag));
                         continue;
@@ -88,7 +97,11 @@ fn abstract_parse_block(
                 contents.push(Box::new(paragraph));
             }
             Unit::NewLine => {
-                contents.push(Box::new(BlankLine::INSTANCE));
+                if blank_lines_beginning.is_none() {
+                    blank_lines_beginning = Some(unit_stream.mark());
+                }
+                blank_line_count += 1;
+
                 unit_stream.read();
             }
             Unit::BlockBeginning => {
@@ -110,7 +123,98 @@ fn abstract_parse_block(
     }
 
     if !contents.is_empty() {
+        if let Some(mark) = blank_lines_beginning {
+            unit_stream.reset(mark);
+        }
         Ok(Some(Block { contents }))
+    } else {
+        Ok(None)
+    }
+}
+
+pub fn parse_raw_block(
+    unit_stream: &mut UnitStream,
+    warnings: &mut Warnings,
+) -> ParseResult<Block> {
+    // abstract_parse_block(unit_stream, warnings, false)
+
+    // 開始位置がブロック開始でなければ不適合
+    if unit_stream.peek() != Unit::BlockBeginning {
+        return Ok(None);
+    }
+    unit_stream.read();
+
+    let mut contents = String::new();
+
+    let mut indent_depth = 0;
+    let mut head_of_line = true;
+
+    let mut blank_lines_beginning: Option<Mark> = None;
+    let mut blank_line_count = 0;
+
+    loop {
+        if blank_lines_beginning.is_some() {
+            match unit_stream.peek() {
+                Unit::Char(_) | Unit::BlockBeginning => {
+                    for _ in 0..blank_line_count {
+                        contents.push('\n');
+                    }
+                    blank_lines_beginning = None;
+                    blank_line_count = 0;
+                }
+                _ => {}
+            }
+        }
+
+        match unit_stream.peek() {
+            Unit::Char(c) => {
+                if head_of_line {
+                    for _ in 0..indent_depth * INDENT_SIZE {
+                        contents.push(' ');
+                    }
+                    head_of_line = false;
+                }
+                contents.push(c);
+                unit_stream.read();
+            }
+            Unit::NewLine => {
+                if blank_lines_beginning.is_none() {
+                    blank_lines_beginning = Some(unit_stream.mark());
+                }
+                blank_line_count += 1;
+
+                head_of_line = true;
+
+                unit_stream.read();
+            }
+            Unit::BlockBeginning => {
+                indent_depth += 1;
+                unit_stream.read();
+            }
+            Unit::BlockEnd => {
+                unit_stream.read();
+
+                if indent_depth == 0 {
+                    break;
+                }
+                indent_depth -= 1;
+            }
+            Unit::Eof => {
+                return Err(ParseError::new(
+                    unit_stream.file_position(),
+                    "Although there is a block beginning, there is no block end.".to_owned(),
+                ));
+            }
+        }
+    }
+
+    if !contents.is_empty() {
+        if let Some(mark) = blank_lines_beginning {
+            unit_stream.reset(mark);
+        }
+        Ok(Some(Block {
+            contents: vec![Box::new(Paragraph::new(vec![Box::new(contents)]))],
+        }))
     } else {
         Ok(None)
     }
@@ -120,26 +224,43 @@ fn abstract_parse_block(
 mod test_parse_block {
     use super::parse_block;
     use crate::build::step2::test_utils::unit_stream;
-    use crate::build::step3::Reversing;
+    use crate::build::step3::test_utils::assert_model;
+    use crate::build::step3::ContentModel;
     use crate::build::step3::Warnings;
+    use indoc::indoc;
     use std::error::Error;
 
     #[test]
     fn test_normal() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream("    block\nabc\nxyz\n\n:tag[a=1]\n    contents\n")?;
+        // let mut us = unit_stream("    block\nabc\nxyz\n\n:tag[a=1]\n    contents\n\n\n")?;
+        let mut us = unit_stream(indoc! {"
+                block
+            abc
+            xyz
+            
+            :tag[a=1]
+                contents
+                
+                
+            "})?;
         let mut warnings = Warnings::new();
         let block = parse_block(&mut us, &mut warnings).unwrap().unwrap();
 
-        assert_eq!(block.contents.len(), 4);
-        let mut r = Reversing::new();
-        for content in &block.contents {
-            content.reverse(&mut r);
-        }
-        assert_eq!(
-            r.to_string(),
-            "    block\nabc\nxyz\n\n:tag[a=1]\n    contents\n".to_owned()
+        assert_model(
+            &block,
+            r#"{
+                "b":[
+                    {"b":[{"p":["block\n"]}]},
+                    {"p":["abc\nxyz\n"]},
+                    "<bl>",
+                    {
+                        "bt":"tag",
+                        "a":{"a":"1"},"h":null,
+                        "c":{"b":[{"p":["contents\n"]}]}
+                    }
+                ]
+            }"#,
         );
-
         assert_eq!(warnings.warnings.len(), 0);
 
         Ok(())
@@ -163,16 +284,20 @@ mod test_parse_block {
     /// コロンから始まる段落があるがブロックタグではない
     #[test]
     fn test_not_block_tag() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream(":tag_[a=1]\n    contents\n")?;
+        let mut us = unit_stream(indoc! {"
+            :tag_[a=1]
+                contents
+        "})?;
         let mut warnings = Warnings::new();
         let block = parse_block(&mut us, &mut warnings).unwrap().unwrap();
 
-        assert_eq!(block.contents.len(), 2);
-        let mut r = Reversing::new();
-        for content in &block.contents {
-            content.reverse(&mut r);
-        }
-        assert_eq!(r.to_string(), ":tag_[a=1]\n    contents\n".to_owned());
+        assert_model(
+            &block,
+            r#"{"b":[
+                {"p":[":tag_[a=1]\n"]},
+                {"b":[{"p":["contents\n"]}]}
+            ]}"#,
+        );
 
         assert_eq!(warnings.warnings.len(), 2);
         assert_eq!(

@@ -11,9 +11,6 @@ use crate::build::step3::ParseFunc;
 use crate::build::step3::ParseResult;
 use crate::build::step3::Warnings;
 
-#[cfg(test)]
-use crate::build::step3::Reversing;
-
 #[derive(Debug)]
 pub struct InlineTag {
     name: String,
@@ -23,15 +20,23 @@ pub struct InlineTag {
 
 impl ContentModel for InlineTag {
     #[cfg(test)]
-    fn reverse(&self, r: &mut Reversing) {
-        r.write(":");
-        r.write(&self.name);
-        self.attributes.reverse(r);
-        r.write("{");
+    fn to_json(&self) -> String {
+        let mut contents = String::new();
+        let mut first = true;
         for content in &self.contents {
-            content.reverse(r);
+            if !first {
+                contents.push(',');
+            }
+            first = false;
+            contents.push_str(content.to_json().as_str());
         }
-        r.write("}");
+
+        format!(
+            r#"{{"it":{},"a":{},"c":[{}]}}"#,
+            &self.name.to_json(),
+            &self.attributes.to_json(),
+            &contents
+        )
     }
 }
 
@@ -165,8 +170,8 @@ fn abstract_parse_inline_tag_contents(
 mod test_parse_inline_tag {
     use super::parse_inline_tag;
     use crate::build::step2::test_utils::unit_stream;
+    use crate::build::step3::test_utils::assert_model;
     use crate::build::step3::ContentModel;
-    use crate::build::step3::Reversing;
     use crate::build::step3::Warnings;
     use std::error::Error;
 
@@ -177,13 +182,17 @@ mod test_parse_inline_tag {
         let mut warnings = Warnings::new();
         let tag = parse_inline_tag(&mut us, &mut warnings).unwrap().unwrap();
 
-        assert_eq!(tag.contents.len(), 3);
-
-        let mut r = Reversing::new();
-        tag.reverse(&mut r);
-        assert_eq!(
-            r.to_string(),
-            ":tag[123,a=x,b=yy]{zzz:b{bold}???}".to_owned()
+        assert_model(
+            &tag,
+            r#"{
+                "it":"tag",
+                "a":{"":"123","a":"x","b":"yy"},
+                "c":[
+                    "zzz",
+                    {"it":"b","a":null,"c":["bold"]},
+                    "???"
+                ]
+            }"#,
         );
 
         assert!(warnings.warnings.is_empty());
@@ -198,13 +207,13 @@ mod test_parse_inline_tag {
         let mut warnings = Warnings::new();
         let tag = parse_inline_tag(&mut us, &mut warnings).unwrap().unwrap();
 
-        assert_eq!(tag.contents.len(), 1);
-
-        let mut r = Reversing::new();
-        tag.reverse(&mut r);
-        assert_eq!(
-            r.to_string(),
-            ":code[123,a=x,b=yy]{zzz:b{bold}???}".to_owned()
+        assert_model(
+            &tag,
+            r#"{
+                "it":"code",
+                "a":{"":"123","a":"x","b":"yy"},
+                "c":["zzz:b{bold}???"]
+            }"#,
         );
 
         assert!(warnings.warnings.is_empty());
@@ -247,8 +256,7 @@ mod test_parse_inline_tag {
 mod test_abstract_parse_inline_tag_contents {
     use super::abstract_parse_inline_tag_contents;
     use crate::build::step2::test_utils::unit_stream;
-    use crate::build::step3::InlineContent;
-    use crate::build::step3::Reversing;
+    use crate::build::step3::test_utils::assert_model;
     use crate::build::step3::Warnings;
     use std::error::Error;
 
@@ -262,7 +270,16 @@ mod test_abstract_parse_inline_tag_contents {
             .unwrap();
 
         assert_eq!(result.len(), 3);
-        assert_eq!(reverse(&result), "abc:tag{xxx}zzz".to_owned());
+        assert_model(result[0].as_ref(), r#""abc""#);
+        assert_model(
+            result[1].as_ref(),
+            r#"{
+                "it":"tag",
+                "a":null,
+                "c":["xxx"]
+            }"#,
+        );
+        assert_eq!(result[2].to_json(), r#""zzz""#.to_owned());
 
         assert_eq!(warnings.warnings.len(), 0);
 
@@ -279,7 +296,7 @@ mod test_abstract_parse_inline_tag_contents {
             .unwrap();
 
         assert_eq!(result.len(), 1);
-        assert_eq!(reverse(&result), "abc:tag{xxx}zzz".to_owned());
+        assert_model(result[0].as_ref(), r#""abc:tag{xxx}zzz""#);
 
         assert_eq!(warnings.warnings.len(), 0);
 
@@ -310,7 +327,7 @@ mod test_abstract_parse_inline_tag_contents {
             .unwrap();
 
         assert_eq!(result.len(), 1);
-        assert_eq!(reverse(&result), "abc{{xxx}zzz}".to_owned());
+        assert_model(result[0].as_ref(), r#""abc{{xxx}zzz}""#);
 
         assert_eq!(warnings.warnings.len(), 0);
 
@@ -327,7 +344,7 @@ mod test_abstract_parse_inline_tag_contents {
             .unwrap();
 
         assert_eq!(result.len(), 1);
-        assert_eq!(reverse(&result), "abc\nxxx".to_owned());
+        assert_model(result[0].as_ref(), r#""abc\nxxx""#);
 
         assert_eq!(warnings.warnings.len(), 0);
 
@@ -359,18 +376,9 @@ mod test_abstract_parse_inline_tag_contents {
             .unwrap();
 
         assert_eq!(result.len(), 0);
-        assert_eq!(reverse(&result), "".to_owned());
 
         assert_eq!(warnings.warnings.len(), 0);
 
         Ok(())
-    }
-
-    fn reverse(contents: &Vec<Box<dyn InlineContent>>) -> String {
-        let mut r = Reversing::new();
-        for content in contents {
-            content.reverse(&mut r);
-        }
-        r.to_string()
     }
 }

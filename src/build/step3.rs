@@ -12,7 +12,7 @@ use crate::build::step2::UnitStream;
 
 pub trait ContentModel {
     #[cfg(test)]
-    fn reverse(&self, r: &mut Reversing);
+    fn to_json(&self) -> String;
 }
 
 pub trait BlockContent: ContentModel {}
@@ -23,8 +23,8 @@ pub type InlineContents = Vec<Box<dyn InlineContent>>;
 
 impl ContentModel for String {
     #[cfg(test)]
-    fn reverse(&self, r: &mut Reversing) {
-        r.write(self);
+    fn to_json(&self) -> String {
+        format!("\"{}\"", self.replace("\n", "\\n"))
     }
 }
 
@@ -87,49 +87,6 @@ fn try_parse<S>(
     }
 
     result
-}
-
-#[cfg(test)]
-pub struct Reversing {
-    source: String,
-    indent_depth: u64,
-}
-
-#[cfg(test)]
-impl Reversing {
-    pub fn new() -> Reversing {
-        Reversing {
-            source: String::new(),
-            indent_depth: 0,
-        }
-    }
-
-    pub fn write(&mut self, s: &str) {
-        self.source.push_str(s);
-    }
-
-    pub fn wrap(&mut self) {
-        self.source.push('\n');
-        for _ in 0..self.indent_depth {
-            self.source.push_str("    ");
-        }
-    }
-
-    pub fn indent(&mut self) {
-        self.source.push_str("    ");
-        self.indent_depth += 1;
-    }
-
-    pub fn unindent(&mut self) {
-        if self.indent_depth > 1 {
-            self.source.truncate(self.source.len() - 4);
-        }
-        self.indent_depth -= 1;
-    }
-
-    pub fn to_string(self) -> String {
-        self.source
-    }
 }
 
 #[cfg(test)]
@@ -301,5 +258,18 @@ mod test_try_parse {
             unit_stream.file_position(),
             "!fatalerror!".to_owned(),
         ))
+    }
+}
+
+#[cfg(test)]
+pub mod test_utils {
+    use super::ContentModel;
+    use serde_json::{from_str, Value};
+
+    /// モデルをJSONに変換して期待値と一致するか検証する。
+    pub fn assert_model<T: ContentModel + ?Sized>(a: &T, b: &str) {
+        let x = from_str::<Value>(&a.to_json()).unwrap();
+        let y = from_str::<Value>(b).unwrap();
+        assert_eq!(x, y);
     }
 }

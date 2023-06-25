@@ -8,19 +8,31 @@ use crate::build::step3::ParseError;
 use crate::build::step3::ParseResult;
 use crate::build::step3::Warnings;
 
-#[cfg(test)]
-use crate::build::step3::Reversing;
-
 pub struct Paragraph {
     contents: InlineContents,
 }
 
+impl Paragraph {
+    pub fn new(contents: InlineContents) -> Paragraph {
+        Paragraph { contents }
+    }
+}
+
 impl ContentModel for Paragraph {
     #[cfg(test)]
-    fn reverse(&self, r: &mut Reversing) {
+    fn to_json(&self) -> String {
+        let mut contents = String::new();
+
+        let mut first = true;
         for content in &self.contents {
-            content.reverse(r);
+            if !first {
+                contents.push(',');
+            }
+            first = false;
+            contents.push_str(content.to_json().as_str());
         }
+
+        format!("{{\"p\":[{}]}}", &contents)
     }
 }
 
@@ -92,9 +104,10 @@ mod test_parse_paragraph {
     use super::parse_paragraph;
     use crate::build::step2::test_utils::unit_stream;
     use crate::build::step2::Unit;
+    use crate::build::step3::test_utils::assert_model;
     use crate::build::step3::ContentModel;
-    use crate::build::step3::Reversing;
     use crate::build::step3::Warnings;
+    use indoc::indoc;
     use std::error::Error;
 
     #[test]
@@ -104,10 +117,17 @@ mod test_parse_paragraph {
         let mut warnings = Warnings::new();
         let paragraph = parse_paragraph(&mut us, &mut warnings).unwrap().unwrap();
 
-        assert_eq!(paragraph.contents.len(), 4);
-        let mut r = Reversing::new();
-        paragraph.reverse(&mut r);
-        assert_eq!(r.to_string(), "abc:t{xyz}:a[b=c]{...}0\n123".to_owned());
+        assert_model(
+            &paragraph,
+            r#"{
+                "p":[
+                    "abc",
+                    {"it":"t","a":null,"c":["xyz"]},
+                    {"it":"a","a":{"b":"c"},"c":["..."]},
+                    "0\n123"
+                ]
+            }"#,
+        );
 
         assert_eq!(&warnings.warnings.len(), &0);
 
@@ -161,16 +181,13 @@ mod test_parse_paragraph {
     }
 
     #[test]
-    fn test_colon_but_tag() -> Result<(), Box<dyn Error>> {
+    fn test_colon_but_not_tag() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream(": abc")?;
         us.read();
         let mut warnings = Warnings::new();
         let paragraph = parse_paragraph(&mut us, &mut warnings).unwrap().unwrap();
 
-        assert_eq!(paragraph.contents.len(), 1);
-        let mut r = Reversing::new();
-        paragraph.reverse(&mut r);
-        assert_eq!(r.to_string(), ": abc".to_owned());
+        assert_model(&paragraph, r#"{"p":[": abc"]}"#);
 
         assert_eq!(&warnings.warnings.len(), &0);
 
@@ -179,15 +196,17 @@ mod test_parse_paragraph {
 
     #[test]
     fn test_ends_with_blank_line() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream("abc\nxyz\n\n123")?;
+        let mut us = unit_stream(indoc! {"
+            abc
+            xyz
+            
+            123
+        "})?;
         us.read();
         let mut warnings = Warnings::new();
         let paragraph = parse_paragraph(&mut us, &mut warnings).unwrap().unwrap();
 
-        assert_eq!(paragraph.contents.len(), 1);
-        let mut r = Reversing::new();
-        paragraph.reverse(&mut r);
-        assert_eq!(r.to_string(), "abc\nxyz\n".to_owned());
+        assert_model(&paragraph, r#"{"p":["abc\nxyz\n"]}"#);
 
         assert_eq!(&warnings.warnings.len(), &0);
 
@@ -196,15 +215,17 @@ mod test_parse_paragraph {
 
     #[test]
     fn test_ends_with_block_beginning() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream("abc\nxyz\n    123")?;
+        let mut us = unit_stream(indoc! {"
+            abc
+            xyz
+                123
+        "})?;
         us.read();
         let mut warnings = Warnings::new();
         let paragraph = parse_paragraph(&mut us, &mut warnings).unwrap().unwrap();
 
         assert_eq!(paragraph.contents.len(), 1);
-        let mut r = Reversing::new();
-        paragraph.reverse(&mut r);
-        assert_eq!(r.to_string(), "abc\nxyz\n".to_owned());
+        assert_model(&paragraph, r#"{"p":["abc\nxyz\n"]}"#);
 
         assert_eq!(&warnings.warnings.len(), &0);
 
@@ -213,16 +234,18 @@ mod test_parse_paragraph {
 
     #[test]
     fn test_ends_with_block_end() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream("    abc\n    xyz\n123")?;
+        let mut us = unit_stream(indoc! {"
+                abc
+                xyz
+            123
+        "})?;
         us.read();
         us.read();
         let mut warnings = Warnings::new();
         let paragraph = parse_paragraph(&mut us, &mut warnings).unwrap().unwrap();
 
         assert_eq!(paragraph.contents.len(), 1);
-        let mut r = Reversing::new();
-        paragraph.reverse(&mut r);
-        assert_eq!(r.to_string(), "abc\nxyz\n".to_owned());
+        assert_model(&paragraph, r#"{"p":["abc\nxyz\n"]}"#);
 
         assert_eq!(&warnings.warnings.len(), &0);
 

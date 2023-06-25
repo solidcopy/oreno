@@ -3,7 +3,7 @@ use crate::build::step1::Mark as Step1Mark;
 use crate::build::step1::Position;
 use std::path::PathBuf;
 
-const INDENT_SIZE: u64 = 4;
+pub const INDENT_SIZE: u64 = 4;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Unit {

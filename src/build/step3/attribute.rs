@@ -12,19 +12,18 @@ use crate::build::step3::ParseError;
 use crate::build::step3::ParseResult;
 use crate::build::step3::Warnings;
 
-#[cfg(test)]
-use crate::build::step3::Reversing;
-
 pub type Attributes = HashMap<Option<String>, String>;
 
 impl ContentModel for Attributes {
     #[cfg(test)]
-    fn reverse(&self, r: &mut Reversing) {
+    fn to_json(&self) -> String {
         if self.is_empty() {
-            return;
+            return "null".to_owned();
         }
 
-        r.write("[");
+        let mut s = String::new();
+
+        s.push('{');
 
         let mut first = true;
 
@@ -32,19 +31,19 @@ impl ContentModel for Attributes {
             let v = self.get(k).unwrap();
 
             if !first {
-                r.write(",");
+                s.push(',');
             }
             first = false;
 
-            if k.is_some() {
-                r.write(k.as_ref().unwrap().as_str());
-                r.write("=");
-            }
-
-            r.write(v.as_str());
+            let attr_name = if let Some(k) = k { k.as_str() } else { "" };
+            let value = v.to_json();
+            let value = value.as_str();
+            s.push_str(&format!("\"{}\":{}", &attr_name, value));
         }
 
-        r.write("]");
+        s.push('}');
+
+        s
     }
 }
 

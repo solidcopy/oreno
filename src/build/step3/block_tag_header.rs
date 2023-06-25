@@ -8,9 +8,6 @@ use crate::build::step3::ParseError;
 use crate::build::step3::ParseResult;
 use crate::build::step3::Warnings;
 
-#[cfg(test)]
-use crate::build::step3::Reversing;
-
 #[derive(Debug)]
 pub struct BlockTagHeader {
     contents: InlineContents,
@@ -18,10 +15,19 @@ pub struct BlockTagHeader {
 
 impl ContentModel for BlockTagHeader {
     #[cfg(test)]
-    fn reverse(&self, r: &mut Reversing) {
+    fn to_json(&self) -> String {
+        let mut s = String::new();
+        s.push('[');
+        let mut first = true;
         for content in &self.contents {
-            content.reverse(r);
+            if !first {
+                s.push(',');
+            }
+            first = false;
+            s.push_str(content.to_json().as_str());
         }
+        s.push(']');
+        s
     }
 }
 
@@ -81,27 +87,32 @@ pub fn parse_block_tag_header(
 mod test_parse_block_tag_header {
     use super::parse_block_tag_header;
     use crate::build::step2::test_utils::unit_stream;
-    use crate::build::step2::Unit;
+    use crate::build::step3::test_utils::assert_model;
     use crate::build::step3::ContentModel;
-    use crate::build::step3::Reversing;
     use crate::build::step3::Warnings;
+    use indoc::indoc;
     use std::error::Error;
 
     #[test]
     fn test_normal() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream(":ta[a=1,b=2]{ccc\n    123}xyz:tb{ddd}\n...")?;
+        let mut us = unit_stream(indoc! {"
+            :ta[a=1,b=2]{ccc
+                123}xyz:tb{ddd}
+            ...
+        "})?;
         us.read();
         let mut warnings = Warnings::new();
         let header = parse_block_tag_header(&mut us, &mut warnings)
             .unwrap()
             .unwrap();
 
-        assert_eq!(header.contents.len(), 3);
-        let mut r = Reversing::new();
-        header.reverse(&mut r);
-        assert_eq!(
-            r.to_string(),
-            ":ta[a=1,b=2]{ccc\n    123}xyz:tb{ddd}".to_owned()
+        assert_model(
+            &header,
+            r#"[
+                {"it":"ta","a":{"a":"1","b":"2"},"c":["ccc\n    123"]},
+                "xyz",
+                {"it":"tb","a":null,"c":["ddd"]}
+            ]"#,
         );
 
         assert_eq!(&warnings.warnings.len(), &0);
@@ -119,9 +130,7 @@ mod test_parse_block_tag_header {
             .unwrap();
 
         assert_eq!(header.contents.len(), 1);
-        let mut r = Reversing::new();
-        header.reverse(&mut r);
-        assert_eq!(r.to_string(), "abc".to_owned());
+        assert_eq!(header.to_json(), "[\"abc\"]".to_owned());
 
         assert_eq!(&warnings.warnings.len(), &0);
 
