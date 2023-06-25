@@ -1,15 +1,15 @@
 use crate::build::step2::Unit;
 use crate::build::step2::UnitStream;
 use crate::build::step3::attribute::Attributes;
+use crate::build::step3::call_parser;
 use crate::build::step3::tag::parse_tag_and_attributes;
-use crate::build::step3::try_parse;
 use crate::build::step3::ContentModel;
 use crate::build::step3::InlineContent;
 use crate::build::step3::InlineContents;
+use crate::build::step3::ParseContext;
 use crate::build::step3::ParseError;
 use crate::build::step3::ParseFunc;
 use crate::build::step3::ParseResult;
-use crate::build::step3::Warnings;
 
 #[derive(Debug)]
 pub struct InlineTag {
@@ -44,22 +44,26 @@ impl InlineContent for InlineTag {}
 
 pub fn parse_inline_tag(
     unit_stream: &mut UnitStream,
-    warnings: &mut Warnings,
+    context: &mut ParseContext,
 ) -> ParseResult<InlineTag> {
-    let (tag_name, attributes) = match parse_tag_and_attributes(unit_stream, warnings)? {
+    let (tag_name, attributes) = match parse_tag_and_attributes(unit_stream, context)? {
         Some((tag_name, attributes)) => (tag_name, attributes),
         None => return Ok(None),
     };
 
-    let contents_parser: ParseFunc<InlineContents> = match tag_name.as_str() {
-        "code" | "raw-html" => parse_raw_inline_tag_contents,
-        _ => parse_inline_tag_contents,
+    let parse_tags = match tag_name.as_str() {
+        "code" | "raw-html" => false,
+        _ => true,
     };
 
-    let contents = match try_parse(contents_parser, unit_stream, warnings)? {
+    let contents = match call_parser(
+        parse_inline_tag_contents,
+        unit_stream,
+        &mut context.change_parse_mode(parse_tags),
+    )? {
         Some(contents) => contents,
         None => {
-            warnings.push(
+            context.warn(
                 unit_stream.file_position(),
                 "There is no tag's contents.".to_owned(),
             );
@@ -76,22 +80,7 @@ pub fn parse_inline_tag(
 
 fn parse_inline_tag_contents(
     unit_stream: &mut UnitStream,
-    warnings: &mut Warnings,
-) -> ParseResult<InlineContents> {
-    abstract_parse_inline_tag_contents(unit_stream, warnings, true)
-}
-
-fn parse_raw_inline_tag_contents(
-    unit_stream: &mut UnitStream,
-    warnings: &mut Warnings,
-) -> ParseResult<InlineContents> {
-    abstract_parse_inline_tag_contents(unit_stream, warnings, false)
-}
-
-fn abstract_parse_inline_tag_contents(
-    unit_stream: &mut UnitStream,
-    warnings: &mut Warnings,
-    parse_tags: bool,
+    context: &mut ParseContext,
 ) -> ParseResult<InlineContents> {
     // 開始が"{"でなければ不適合
     if unit_stream.read().0 != Unit::Char('{') {
@@ -110,19 +99,21 @@ fn abstract_parse_inline_tag_contents(
     loop {
         match unit_stream.peek() {
             Unit::Char(c) => match c {
-                ':' if parse_tags => match try_parse(parse_inline_tag, unit_stream, warnings)? {
-                    Some(inline_tag) => {
-                        if !text.is_empty() {
-                            contents.push(Box::new(text));
-                            text = String::new();
+                ':' if context.is_parse_tags() => {
+                    match call_parser(parse_inline_tag, unit_stream, context)? {
+                        Some(inline_tag) => {
+                            if !text.is_empty() {
+                                contents.push(Box::new(text));
+                                text = String::new();
+                            }
+                            contents.push(Box::new(inline_tag));
                         }
-                        contents.push(Box::new(inline_tag));
+                        None => {
+                            text.push(c);
+                            unit_stream.read();
+                        }
                     }
-                    None => {
-                        text.push(c);
-                        unit_stream.read();
-                    }
-                },
+                }
                 '{' => {
                     bracket_depth += 1;
                     text.push('{');
@@ -151,7 +142,7 @@ fn abstract_parse_inline_tag_contents(
                 unit_stream.read();
             }
             Unit::Eof => {
-                warnings.push(unit_stream.file_position(), "} is required.".to_owned());
+                context.warn(unit_stream.file_position(), "} is required.".to_owned());
                 return Ok(None);
             }
             Unit::BlockBeginning | Unit::BlockEnd => {
@@ -171,15 +162,16 @@ mod test_parse_inline_tag {
     use super::parse_inline_tag;
     use crate::build::step2::test_utils::unit_stream;
     use crate::build::step3::test_utils::assert_model;
-    use crate::build::step3::Warnings;
+    use crate::build::step3::ParseContext;
     use std::error::Error;
 
     #[test]
     fn test_normal() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream(":tag[a=x,b=\"yy\",123]{zzz:b{bold}???}")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let tag = parse_inline_tag(&mut us, &mut warnings).unwrap().unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let tag = parse_inline_tag(&mut us, &mut context).unwrap().unwrap();
 
         assert_model(
             &tag,
@@ -194,7 +186,7 @@ mod test_parse_inline_tag {
             }"#,
         );
 
-        assert!(warnings.warnings.is_empty());
+        assert!(warnings.is_empty());
 
         Ok(())
     }
@@ -203,8 +195,9 @@ mod test_parse_inline_tag {
     fn test_raw() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream(":code[a=x,b=\"yy\",123]{zzz:b{bold}???}")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let tag = parse_inline_tag(&mut us, &mut warnings).unwrap().unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let tag = parse_inline_tag(&mut us, &mut context).unwrap().unwrap();
 
         assert_model(
             &tag,
@@ -215,7 +208,7 @@ mod test_parse_inline_tag {
             }"#,
         );
 
-        assert!(warnings.warnings.is_empty());
+        assert!(warnings.is_empty());
 
         Ok(())
     }
@@ -224,13 +217,14 @@ mod test_parse_inline_tag {
     fn test_no_contents() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream(":tag[a]")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let tag = parse_inline_tag(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let tag = parse_inline_tag(&mut us, &mut context).unwrap();
 
         assert!(tag.is_none());
 
-        assert_eq!(warnings.warnings.len(), 1);
-        assert_eq!(warnings.warnings[0].message, "There is no tag's contents.");
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(warnings[0].message, "There is no tag's contents.");
 
         Ok(())
     }
@@ -239,32 +233,34 @@ mod test_parse_inline_tag {
     fn test_no_contents_without_attr() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream(":tag$")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let tag = parse_inline_tag(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let tag = parse_inline_tag(&mut us, &mut context).unwrap();
 
         assert!(tag.is_none());
 
-        assert_eq!(warnings.warnings.len(), 1);
-        assert_eq!(warnings.warnings[0].message, "There is no tag's contents.");
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(warnings[0].message, "There is no tag's contents.");
 
         Ok(())
     }
 }
 
 #[cfg(test)]
-mod test_abstract_parse_inline_tag_contents {
-    use super::abstract_parse_inline_tag_contents;
+mod test_parse_inline_tag_contents {
+    use super::parse_inline_tag_contents;
     use crate::build::step2::test_utils::unit_stream;
     use crate::build::step3::test_utils::assert_model;
-    use crate::build::step3::Warnings;
+    use crate::build::step3::ParseContext;
     use std::error::Error;
 
     #[test]
     fn test_normal() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("{abc:tag{xxx}zzz}")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let result = abstract_parse_inline_tag_contents(&mut us, &mut warnings, true)
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let result = parse_inline_tag_contents(&mut us, &mut context)
             .unwrap()
             .unwrap();
 
@@ -280,7 +276,7 @@ mod test_abstract_parse_inline_tag_contents {
         );
         assert_eq!(result[2].to_json(), r#""zzz""#.to_owned());
 
-        assert_eq!(warnings.warnings.len(), 0);
+        assert_eq!(warnings.len(), 0);
 
         Ok(())
     }
@@ -289,15 +285,16 @@ mod test_abstract_parse_inline_tag_contents {
     fn test_raw() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("{abc:tag{xxx}zzz}")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let result = abstract_parse_inline_tag_contents(&mut us, &mut warnings, false)
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let result = parse_inline_tag_contents(&mut us, &mut context.change_parse_mode(false))
             .unwrap()
             .unwrap();
 
         assert_eq!(result.len(), 1);
         assert_model(result[0].as_ref(), r#""abc:tag{xxx}zzz""#);
 
-        assert_eq!(warnings.warnings.len(), 0);
+        assert_eq!(warnings.len(), 0);
 
         Ok(())
     }
@@ -306,12 +303,13 @@ mod test_abstract_parse_inline_tag_contents {
     fn test_no_bracket() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("abc:tag{xxx}zzz}")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let result = abstract_parse_inline_tag_contents(&mut us, &mut warnings, true).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let result = parse_inline_tag_contents(&mut us, &mut context).unwrap();
 
         assert!(result.is_none());
 
-        assert_eq!(warnings.warnings.len(), 0);
+        assert_eq!(warnings.len(), 0);
 
         Ok(())
     }
@@ -320,15 +318,16 @@ mod test_abstract_parse_inline_tag_contents {
     fn test_count_brackets() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("{abc{{xxx}zzz}}??")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let result = abstract_parse_inline_tag_contents(&mut us, &mut warnings, true)
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let result = parse_inline_tag_contents(&mut us, &mut context)
             .unwrap()
             .unwrap();
 
         assert_eq!(result.len(), 1);
         assert_model(result[0].as_ref(), r#""abc{{xxx}zzz}""#);
 
-        assert_eq!(warnings.warnings.len(), 0);
+        assert_eq!(warnings.len(), 0);
 
         Ok(())
     }
@@ -337,15 +336,16 @@ mod test_abstract_parse_inline_tag_contents {
     fn test_new_line() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("{abc\nxxx}")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let result = abstract_parse_inline_tag_contents(&mut us, &mut warnings, true)
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let result = parse_inline_tag_contents(&mut us, &mut context)
             .unwrap()
             .unwrap();
 
         assert_eq!(result.len(), 1);
         assert_model(result[0].as_ref(), r#""abc\nxxx""#);
 
-        assert_eq!(warnings.warnings.len(), 0);
+        assert_eq!(warnings.len(), 0);
 
         Ok(())
     }
@@ -354,13 +354,14 @@ mod test_abstract_parse_inline_tag_contents {
     fn test_eof() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("{abc")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let result = abstract_parse_inline_tag_contents(&mut us, &mut warnings, true).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let result = parse_inline_tag_contents(&mut us, &mut context).unwrap();
 
         assert!(result.is_none());
 
-        assert_eq!(warnings.warnings.len(), 1);
-        assert_eq!(warnings.warnings[0].message, "} is required.");
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(warnings[0].message, "} is required.");
 
         Ok(())
     }
@@ -369,14 +370,15 @@ mod test_abstract_parse_inline_tag_contents {
     fn test_empty() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("{}")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let result = abstract_parse_inline_tag_contents(&mut us, &mut warnings, true)
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let result = parse_inline_tag_contents(&mut us, &mut context)
             .unwrap()
             .unwrap();
 
         assert_eq!(result.len(), 0);
 
-        assert_eq!(warnings.warnings.len(), 0);
+        assert_eq!(warnings.len(), 0);
 
         Ok(())
     }

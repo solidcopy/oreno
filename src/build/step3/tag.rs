@@ -2,21 +2,21 @@ use crate::build::step2::Unit;
 use crate::build::step2::UnitStream;
 use crate::build::step3::attribute::parse_attributes;
 use crate::build::step3::attribute::Attributes;
+use crate::build::step3::call_parser;
 use crate::build::step3::symbol;
-use crate::build::step3::try_parse;
+use crate::build::step3::ParseContext;
 use crate::build::step3::ParseResult;
-use crate::build::step3::Warnings;
 
 /// タグをパースする。
 /// タグとはコロンからタグ名の部分まで。
 /// パースできたらタグ名を返す。
 ///
 /// 開始位置はコロンである想定。
-pub fn parse_tag(unit_stream: &mut UnitStream, warnings: &mut Warnings) -> ParseResult<String> {
+pub fn parse_tag(unit_stream: &mut UnitStream, context: &mut ParseContext) -> ParseResult<String> {
     // 開始がコロンか省略記法でなければ不適合
     if let (Unit::Char(c), _) = unit_stream.read() {
         let tag_name_or_none = match c {
-            ':' => symbol::parse_symbol(unit_stream, warnings)?,
+            ':' => symbol::parse_symbol(unit_stream, context)?,
             '*' => Some("b".to_owned()),
             '/' => Some("i".to_owned()),
             '_' => Some("u".to_owned()),
@@ -40,14 +40,14 @@ pub fn parse_tag(unit_stream: &mut UnitStream, warnings: &mut Warnings) -> Parse
 
 pub fn parse_tag_and_attributes(
     unit_stream: &mut UnitStream,
-    warnings: &mut Warnings,
+    context: &mut ParseContext,
 ) -> ParseResult<(String, Attributes)> {
-    let tag_name = match try_parse(parse_tag, unit_stream, warnings)? {
+    let tag_name = match call_parser(parse_tag, unit_stream, context)? {
         Some(tag_name) => tag_name,
         None => return Ok(None),
     };
 
-    let attributes = match try_parse(parse_attributes, unit_stream, warnings)? {
+    let attributes = match call_parser(parse_attributes, unit_stream, context)? {
         Some(attributes) => attributes,
         None => Attributes::with_capacity(0),
     };
@@ -61,15 +61,16 @@ mod test_parse_tag {
 
     use super::parse_tag;
     use crate::build::step2::test_utils::unit_stream;
-    use crate::build::step3::Warnings;
+    use crate::build::step3::ParseContext;
 
     #[test]
     fn test_normal() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream(":mytag{}")?;
         us.read();
-        let mut warnings = Warnings::new();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
         assert_eq!(
-            parse_tag(&mut us, &mut warnings).unwrap(),
+            parse_tag(&mut us, &mut context).unwrap(),
             Some("mytag".to_owned())
         );
         Ok(())
@@ -79,9 +80,10 @@ mod test_parse_tag {
     fn test_abbreviation() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("&[a]")?;
         us.read();
-        let mut warnings = Warnings::new();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
         assert_eq!(
-            parse_tag(&mut us, &mut warnings).unwrap(),
+            parse_tag(&mut us, &mut context).unwrap(),
             Some("link".to_owned())
         );
         Ok(())
@@ -91,8 +93,9 @@ mod test_parse_tag {
     fn test_mismatched() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("<{}")?;
         us.read();
-        let mut warnings = Warnings::new();
-        assert_eq!(parse_tag(&mut us, &mut warnings).unwrap(), None);
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        assert_eq!(parse_tag(&mut us, &mut context).unwrap(), None);
         Ok(())
     }
 
@@ -100,8 +103,9 @@ mod test_parse_tag {
     fn test_not_a_char() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("\nabc")?;
         us.read();
-        let mut warnings = Warnings::new();
-        assert_eq!(parse_tag(&mut us, &mut warnings).unwrap(), None);
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        assert_eq!(parse_tag(&mut us, &mut context).unwrap(), None);
         Ok(())
     }
 }
@@ -112,14 +116,15 @@ mod test_parse_tag_and_attributes {
 
     use super::parse_tag_and_attributes;
     use crate::build::step2::test_utils::unit_stream;
-    use crate::build::step3::Warnings;
+    use crate::build::step3::ParseContext;
 
     #[test]
     fn test_with_attributes() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream(":font[gothic]{text}")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let (tag_name, attributes) = parse_tag_and_attributes(&mut us, &mut warnings)
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let (tag_name, attributes) = parse_tag_and_attributes(&mut us, &mut context)
             .unwrap()
             .unwrap();
         assert_eq!(&tag_name, "font");
@@ -132,8 +137,9 @@ mod test_parse_tag_and_attributes {
     fn test_without_attributes() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream(":i{text}")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let (tag_name, attributes) = parse_tag_and_attributes(&mut us, &mut warnings)
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let (tag_name, attributes) = parse_tag_and_attributes(&mut us, &mut context)
             .unwrap()
             .unwrap();
         assert_eq!(&tag_name, "i");
@@ -145,8 +151,9 @@ mod test_parse_tag_and_attributes {
     fn test_not_a_tag() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("i{text}")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let result = parse_tag_and_attributes(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let result = parse_tag_and_attributes(&mut us, &mut context).unwrap();
         assert_eq!(&result, &None);
         Ok(())
     }

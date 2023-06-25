@@ -1,12 +1,12 @@
 use crate::build::step2::{Unit, UnitStream};
+use crate::build::step3::call_parser;
 use crate::build::step3::inline_tag::parse_inline_tag;
-use crate::build::step3::try_parse;
 use crate::build::step3::BlockContent;
 use crate::build::step3::ContentModel;
 use crate::build::step3::InlineContents;
+use crate::build::step3::ParseContext;
 use crate::build::step3::ParseError;
 use crate::build::step3::ParseResult;
-use crate::build::step3::Warnings;
 
 pub struct Paragraph {
     contents: InlineContents,
@@ -40,22 +40,7 @@ impl BlockContent for Paragraph {}
 
 pub fn parse_paragraph(
     unit_stream: &mut UnitStream,
-    warnings: &mut Warnings,
-) -> ParseResult<Paragraph> {
-    abstract_parse_paragraph(unit_stream, warnings, true)
-}
-
-pub fn parse_raw_paragraph(
-    unit_stream: &mut UnitStream,
-    warnings: &mut Warnings,
-) -> ParseResult<Paragraph> {
-    abstract_parse_paragraph(unit_stream, warnings, false)
-}
-
-fn abstract_parse_paragraph(
-    unit_stream: &mut UnitStream,
-    warnings: &mut Warnings,
-    parse_tags: bool,
+    context: &mut ParseContext,
 ) -> ParseResult<Paragraph> {
     match unit_stream.peek() {
         Unit::NewLine | Unit::BlockBeginning | Unit::BlockEnd => return Ok(None),
@@ -68,8 +53,8 @@ fn abstract_parse_paragraph(
     loop {
         match unit_stream.peek() {
             Unit::Char(c) => {
-                if c == ':' && parse_tags {
-                    if let Some(inline_tag) = try_parse(parse_inline_tag, unit_stream, warnings)? {
+                if c == ':' && context.is_parse_tags() {
+                    if let Some(inline_tag) = call_parser(parse_inline_tag, unit_stream, context)? {
                         if !text.is_empty() {
                             contents.push(Box::new(text));
                             text = String::new();
@@ -120,7 +105,7 @@ mod test_parse_paragraph {
     use crate::build::step2::test_utils::unit_stream;
     use crate::build::step2::Unit;
     use crate::build::step3::test_utils::assert_model;
-    use crate::build::step3::Warnings;
+    use crate::build::step3::ParseContext;
     use indoc::indoc;
     use std::error::Error;
 
@@ -128,8 +113,9 @@ mod test_parse_paragraph {
     fn test_normal() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("abc:t{xyz}:a[b=c]{...}0\n123")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let paragraph = parse_paragraph(&mut us, &mut warnings).unwrap().unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let paragraph = parse_paragraph(&mut us, &mut context).unwrap().unwrap();
 
         assert_model(
             &paragraph,
@@ -143,7 +129,7 @@ mod test_parse_paragraph {
             }"#,
         );
 
-        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(warnings.len(), 0);
 
         Ok(())
     }
@@ -152,12 +138,13 @@ mod test_parse_paragraph {
     fn test_starts_with_wrap() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("\nabc:t{xyz}0\n123")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let paragraph = parse_paragraph(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let paragraph = parse_paragraph(&mut us, &mut context).unwrap();
 
         assert!(paragraph.is_none());
 
-        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(warnings.len(), 0);
 
         Ok(())
     }
@@ -166,12 +153,13 @@ mod test_parse_paragraph {
     fn test_starts_with_block_beginning() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("    abc:t{xyz}0\n123")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let paragraph = parse_paragraph(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let paragraph = parse_paragraph(&mut us, &mut context).unwrap();
 
         assert!(paragraph.is_none());
 
-        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(warnings.len(), 0);
 
         Ok(())
     }
@@ -184,12 +172,13 @@ mod test_parse_paragraph {
         us.read();
         us.read();
         assert_eq!(us.peek(), Unit::BlockEnd);
-        let mut warnings = Warnings::new();
-        let paragraph = parse_paragraph(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let paragraph = parse_paragraph(&mut us, &mut context).unwrap();
 
         assert!(paragraph.is_none());
 
-        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(warnings.len(), 0);
 
         Ok(())
     }
@@ -198,12 +187,13 @@ mod test_parse_paragraph {
     fn test_colon_but_not_tag() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream(": abc")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let paragraph = parse_paragraph(&mut us, &mut warnings).unwrap().unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let paragraph = parse_paragraph(&mut us, &mut context).unwrap().unwrap();
 
         assert_model(&paragraph, r#"{"p":[": abc"]}"#);
 
-        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(warnings.len(), 0);
 
         Ok(())
     }
@@ -217,12 +207,13 @@ mod test_parse_paragraph {
             123
         "})?;
         us.read();
-        let mut warnings = Warnings::new();
-        let paragraph = parse_paragraph(&mut us, &mut warnings).unwrap().unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let paragraph = parse_paragraph(&mut us, &mut context).unwrap().unwrap();
 
         assert_model(&paragraph, r#"{"p":["abc\nxyz\n"]}"#);
 
-        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(warnings.len(), 0);
 
         Ok(())
     }
@@ -235,13 +226,14 @@ mod test_parse_paragraph {
                 123
         "})?;
         us.read();
-        let mut warnings = Warnings::new();
-        let paragraph = parse_paragraph(&mut us, &mut warnings).unwrap().unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let paragraph = parse_paragraph(&mut us, &mut context).unwrap().unwrap();
 
         assert_eq!(paragraph.contents.len(), 1);
         assert_model(&paragraph, r#"{"p":["abc\nxyz\n"]}"#);
 
-        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(warnings.len(), 0);
 
         Ok(())
     }
@@ -255,13 +247,14 @@ mod test_parse_paragraph {
         "})?;
         us.read();
         us.read();
-        let mut warnings = Warnings::new();
-        let paragraph = parse_paragraph(&mut us, &mut warnings).unwrap().unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let paragraph = parse_paragraph(&mut us, &mut context).unwrap().unwrap();
 
         assert_eq!(paragraph.contents.len(), 1);
         assert_model(&paragraph, r#"{"p":["abc\nxyz\n"]}"#);
 
-        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(warnings.len(), 0);
 
         Ok(())
     }
@@ -270,12 +263,13 @@ mod test_parse_paragraph {
     fn test_empty() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let paragraph = parse_paragraph(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let paragraph = parse_paragraph(&mut us, &mut context).unwrap();
 
         assert!(paragraph.is_none());
 
-        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(warnings.len(), 0);
 
         Ok(())
     }

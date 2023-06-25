@@ -1,12 +1,12 @@
 use crate::build::step2::Unit;
 use crate::build::step2::UnitStream;
+use crate::build::step3::call_parser;
 use crate::build::step3::inline_tag::parse_inline_tag;
-use crate::build::step3::try_parse;
 use crate::build::step3::ContentModel;
 use crate::build::step3::InlineContents;
+use crate::build::step3::ParseContext;
 use crate::build::step3::ParseError;
 use crate::build::step3::ParseResult;
-use crate::build::step3::Warnings;
 
 #[derive(Debug)]
 pub struct BlockTagHeader {
@@ -35,7 +35,7 @@ impl ContentModel for BlockTagHeader {
 /// 改行かEOFでパースを終了するが、改行は消費しない。
 pub fn parse_block_tag_header(
     unit_stream: &mut UnitStream,
-    warnings: &mut Warnings,
+    context: &mut ParseContext,
 ) -> ParseResult<BlockTagHeader> {
     let mut contents: InlineContents = vec![];
     let mut text = String::new();
@@ -44,7 +44,7 @@ pub fn parse_block_tag_header(
         match unit_stream.peek() {
             Unit::Char(c) => match c {
                 ':' => {
-                    if let Some(inline_tag) = try_parse(parse_inline_tag, unit_stream, warnings)? {
+                    if let Some(inline_tag) = call_parser(parse_inline_tag, unit_stream, context)? {
                         if !text.is_empty() {
                             contents.push(Box::new(text));
                             text = String::new();
@@ -89,7 +89,7 @@ mod test_parse_block_tag_header {
     use crate::build::step2::test_utils::unit_stream;
     use crate::build::step3::test_utils::assert_model;
     use crate::build::step3::ContentModel;
-    use crate::build::step3::Warnings;
+    use crate::build::step3::ParseContext;
     use indoc::indoc;
     use std::error::Error;
 
@@ -101,8 +101,9 @@ mod test_parse_block_tag_header {
             ...
         "})?;
         us.read();
-        let mut warnings = Warnings::new();
-        let header = parse_block_tag_header(&mut us, &mut warnings)
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let header = parse_block_tag_header(&mut us, &mut context)
             .unwrap()
             .unwrap();
 
@@ -115,7 +116,7 @@ mod test_parse_block_tag_header {
             ]"#,
         );
 
-        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(warnings.len(), 0);
 
         Ok(())
     }
@@ -124,15 +125,16 @@ mod test_parse_block_tag_header {
     fn test_ends_with_block_end() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("abc")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let header = parse_block_tag_header(&mut us, &mut warnings)
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let header = parse_block_tag_header(&mut us, &mut context)
             .unwrap()
             .unwrap();
 
         assert_eq!(header.contents.len(), 1);
         assert_eq!(header.to_json(), "[\"abc\"]".to_owned());
 
-        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(warnings.len(), 0);
 
         Ok(())
     }
@@ -141,12 +143,13 @@ mod test_parse_block_tag_header {
     fn test_starts_with_block_beginning() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("    abc")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let header = parse_block_tag_header(&mut us, &mut warnings).unwrap_err();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let header = parse_block_tag_header(&mut us, &mut context).unwrap_err();
 
         assert_eq!(&header.message, "Unexpected block beginning.");
 
-        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(warnings.len(), 0);
 
         Ok(())
     }
@@ -155,12 +158,13 @@ mod test_parse_block_tag_header {
     fn test_empty() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("\n")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let header = parse_block_tag_header(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let header = parse_block_tag_header(&mut us, &mut context).unwrap();
 
         assert!(header.is_none());
 
-        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(warnings.len(), 0);
 
         Ok(())
     }

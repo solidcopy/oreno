@@ -2,15 +2,14 @@ use crate::build::step2::Mark;
 use crate::build::step2::Unit;
 use crate::build::step2::UnitStream;
 use crate::build::step3::block_tag::parse_block_tag;
+use crate::build::step3::call_parser;
 use crate::build::step3::paragraph::parse_paragraph;
-use crate::build::step3::paragraph::parse_raw_paragraph;
-use crate::build::step3::try_parse;
 use crate::build::step3::BlockContent;
 use crate::build::step3::BlockContents;
 use crate::build::step3::ContentModel;
+use crate::build::step3::ParseContext;
 use crate::build::step3::ParseError;
 use crate::build::step3::ParseResult;
-use crate::build::step3::Warnings;
 
 pub struct Block {
     contents: BlockContents,
@@ -56,22 +55,7 @@ impl ContentModel for BlankLine {
 
 impl BlockContent for BlankLine {}
 
-pub fn parse_block(unit_stream: &mut UnitStream, warnings: &mut Warnings) -> ParseResult<Block> {
-    abstract_parse_block(unit_stream, warnings, true)
-}
-
-pub fn parse_raw_block(
-    unit_stream: &mut UnitStream,
-    warnings: &mut Warnings,
-) -> ParseResult<Block> {
-    abstract_parse_block(unit_stream, warnings, false)
-}
-
-fn abstract_parse_block(
-    unit_stream: &mut UnitStream,
-    warnings: &mut Warnings,
-    parse_tags: bool,
-) -> ParseResult<Block> {
+pub fn parse_block(unit_stream: &mut UnitStream, context: &mut ParseContext) -> ParseResult<Block> {
     // 開始位置がブロック開始でなければ不適合
     if unit_stream.peek() != Unit::BlockBeginning {
         return Ok(None);
@@ -99,20 +83,15 @@ fn abstract_parse_block(
 
         match unit_stream.peek() {
             Unit::Char(c) => {
-                if c == ':' && parse_tags {
-                    if let Some(block_tag) = try_parse(parse_block_tag, unit_stream, warnings)? {
+                if c == ':' && context.is_parse_tags() {
+                    if let Some(block_tag) = call_parser(parse_block_tag, unit_stream, context)? {
                         contents.push(Box::new(block_tag));
                         continue;
                     }
                 }
 
                 // 開始位置に文字がある以上は段落のパースは成功する
-                let paragraph_parser = if parse_tags {
-                    parse_paragraph
-                } else {
-                    parse_raw_paragraph
-                };
-                let paragraph = try_parse(paragraph_parser, unit_stream, warnings)?.unwrap();
+                let paragraph = call_parser(parse_paragraph, unit_stream, context)?.unwrap();
                 contents.push(Box::new(paragraph));
             }
             Unit::NewLine => {
@@ -125,12 +104,7 @@ fn abstract_parse_block(
             }
             Unit::BlockBeginning => {
                 // ブロック開始があった以上はその後に文字があるので空ではあり得ない
-                let block_parser = if parse_tags {
-                    parse_block
-                } else {
-                    parse_raw_block
-                };
-                let block = try_parse(block_parser, unit_stream, warnings)?.unwrap();
+                let block = call_parser(parse_block, unit_stream, context)?.unwrap();
                 contents.push(Box::new(block));
             }
             Unit::BlockEnd => {
@@ -161,7 +135,7 @@ mod test_parse_block {
     use super::parse_block;
     use crate::build::step2::test_utils::unit_stream;
     use crate::build::step3::test_utils::assert_model;
-    use crate::build::step3::Warnings;
+    use crate::build::step3::ParseContext;
     use indoc::indoc;
     use std::error::Error;
 
@@ -177,8 +151,9 @@ mod test_parse_block {
                 
                 
             "})?;
-        let mut warnings = Warnings::new();
-        let block = parse_block(&mut us, &mut warnings).unwrap().unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let block = parse_block(&mut us, &mut context).unwrap().unwrap();
 
         assert_model(
             &block,
@@ -195,7 +170,7 @@ mod test_parse_block {
                 ]
             }"#,
         );
-        assert_eq!(warnings.warnings.len(), 0);
+        assert_eq!(warnings.len(), 0);
 
         Ok(())
     }
@@ -205,12 +180,13 @@ mod test_parse_block {
     fn test_no_block_beginning() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("abc")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let result = parse_block(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let result = parse_block(&mut us, &mut context).unwrap();
 
         assert!(result.is_none());
 
-        assert_eq!(warnings.warnings.len(), 0);
+        assert_eq!(warnings.len(), 0);
 
         Ok(())
     }
@@ -222,8 +198,9 @@ mod test_parse_block {
             :tag_[a=1]
                 contents
         "})?;
-        let mut warnings = Warnings::new();
-        let block = parse_block(&mut us, &mut warnings).unwrap().unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let block = parse_block(&mut us, &mut context).unwrap().unwrap();
 
         assert_model(
             &block,
@@ -233,12 +210,9 @@ mod test_parse_block {
             ]}"#,
         );
 
-        assert_eq!(warnings.warnings.len(), 2);
-        assert_eq!(
-            warnings.warnings[0].message,
-            "There is an illegal character. '_'"
-        );
-        assert_eq!(warnings.warnings[1].message, "There is no tag's contents.");
+        assert_eq!(warnings.len(), 2);
+        assert_eq!(warnings[0].message, "There is an illegal character. '_'");
+        assert_eq!(warnings[1].message, "There is no tag's contents.");
 
         Ok(())
     }
@@ -247,12 +221,13 @@ mod test_parse_block {
     #[test]
     fn test_empty() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("")?;
-        let mut warnings = Warnings::new();
-        let result = parse_block(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let result = parse_block(&mut us, &mut context).unwrap();
 
         assert!(result.is_none());
 
-        assert_eq!(warnings.warnings.len(), 0);
+        assert_eq!(warnings.len(), 0);
 
         Ok(())
     }

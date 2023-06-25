@@ -1,11 +1,14 @@
 use crate::build::step2::Unit;
 use crate::build::step2::UnitStream;
+use crate::build::step3::ParseContext;
 use crate::build::step3::ParseResult;
-use crate::build::step3::Warnings;
 
 /// シンボルをパースする。
 /// シンボルはタグ名、属性名。
-pub fn parse_symbol(unit_stream: &mut UnitStream, warnings: &mut Warnings) -> ParseResult<String> {
+pub fn parse_symbol(
+    unit_stream: &mut UnitStream,
+    context: &mut ParseContext,
+) -> ParseResult<String> {
     let mut symbol = String::new();
 
     // 英数字とハイフンが続く限りバッファに追加していく。
@@ -39,14 +42,15 @@ mod test_parse_symbol {
 
     use super::parse_symbol;
     use crate::build::step2::test_utils::unit_stream;
-    use crate::build::step3::Warnings;
+    use crate::build::step3::ParseContext;
 
     #[test]
     fn test_end_by_char() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("code-block???")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let symbol = parse_symbol(&mut us, &mut warnings).unwrap().unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let symbol = parse_symbol(&mut us, &mut context).unwrap().unwrap();
         assert_eq!(&symbol, "code-block");
         Ok(())
     }
@@ -55,8 +59,9 @@ mod test_parse_symbol {
     fn test_end_by_new_line() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("code\nblock")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let symbol = parse_symbol(&mut us, &mut warnings).unwrap().unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let symbol = parse_symbol(&mut us, &mut context).unwrap().unwrap();
         assert_eq!(&symbol, "code");
         Ok(())
     }
@@ -64,8 +69,9 @@ mod test_parse_symbol {
     #[test]
     fn test_end_by_block_beginning() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("x")?;
-        let mut warnings = Warnings::new();
-        let symbol = parse_symbol(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let symbol = parse_symbol(&mut us, &mut context).unwrap();
         assert_eq!(&symbol, &None);
         Ok(())
     }
@@ -74,8 +80,9 @@ mod test_parse_symbol {
     fn test_end_by_block_end() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("code-block")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let symbol = parse_symbol(&mut us, &mut warnings).unwrap().unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let symbol = parse_symbol(&mut us, &mut context).unwrap().unwrap();
         assert_eq!(&symbol, "code-block");
         Ok(())
     }
@@ -85,8 +92,9 @@ mod test_parse_symbol {
         let mut us = unit_stream("")?;
         us.read();
         us.read();
-        let mut warnings = Warnings::new();
-        let symbol = parse_symbol(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let symbol = parse_symbol(&mut us, &mut context).unwrap();
         assert_eq!(&symbol, &None);
         Ok(())
     }

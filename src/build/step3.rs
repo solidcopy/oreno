@@ -47,35 +47,61 @@ impl ParseError {
     }
 }
 
-pub struct Warnings {
-    pub warnings: Vec<ParseError>,
+pub struct ParseContext<'a> {
+    pub warnings: &'a mut Vec<ParseError>,
+    save_warnings: bool,
+    parse_tags: bool,
 }
 
-impl Warnings {
-    pub fn new() -> Warnings {
-        Warnings {
-            warnings: Vec::with_capacity(0),
+impl<'a> ParseContext<'a> {
+    pub fn new(warnings: &'a mut Vec<ParseError>) -> ParseContext<'a> {
+        ParseContext {
+            warnings,
+            save_warnings: true,
+            parse_tags: true,
         }
     }
 
-    pub fn push(&mut self, file_position: FilePosition, message: String) {
-        self.warnings.push(ParseError::new(file_position, message));
+    pub fn is_parse_tags(&self) -> bool {
+        self.parse_tags
+    }
+
+    pub fn warn(&mut self, file_position: FilePosition, message: String) {
+        if self.save_warnings {
+            self.warnings.push(ParseError::new(file_position, message));
+        }
+    }
+
+    pub fn change_warn_mode(&mut self, save_warnings: bool) -> ParseContext {
+        ParseContext {
+            warnings: self.warnings,
+            save_warnings,
+            parse_tags: self.parse_tags,
+        }
+    }
+
+    pub fn change_parse_mode(&mut self, parse_tags: bool) -> ParseContext {
+        ParseContext {
+            warnings: self.warnings,
+            save_warnings: self.save_warnings,
+            parse_tags,
+        }
     }
 }
 
-type ParseFunc<S> = fn(&mut UnitStream, &mut Warnings) -> ParseResult<S>;
+type ParseFunc<S> = fn(&mut UnitStream, &mut ParseContext) -> ParseResult<S>;
 
 /// 指定されたパース関数でパースを試みる。
 /// パースの結果が成功以外だったらユニットストリームの状態を元に戻す。
-fn try_parse<S>(
+fn call_parser<S>(
     parse_func: ParseFunc<S>,
     unit_stream: &mut UnitStream,
-    warnings: &mut Warnings,
+    context: &mut ParseContext,
 ) -> ParseResult<S> {
     let mark = unit_stream.mark();
     let indent_check_mode = unit_stream.get_indent_check_mode();
 
-    let result = parse_func(unit_stream, warnings);
+    let result = parse_func(unit_stream, context);
 
     // インデントチェックモードは正否にかかわらず元に戻す
     unit_stream.set_indent_check_mode(indent_check_mode);
@@ -133,23 +159,25 @@ mod test_parse_error {
 }
 
 #[cfg(test)]
-mod test_warnings {
+mod test_parse_context {
     use std::path::PathBuf;
 
-    use super::Warnings;
+    use super::ParseContext;
     use crate::build::step1::Position;
     use crate::build::step2::FilePosition;
 
     #[test]
     fn test_new() {
-        let subject = Warnings::new();
+        let mut warnings = vec![];
+        let subject = ParseContext::new(&mut warnings);
         assert!(subject.warnings.is_empty());
     }
 
     #[test]
     fn test_push() {
-        let mut subject = Warnings::new();
-        subject.push(
+        let mut warnings = vec![];
+        let mut subject = ParseContext::new(&mut warnings);
+        subject.warn(
             FilePosition {
                 filepath: PathBuf::from("a/b.c"),
                 position: Some(Position::new(10, 21)),
@@ -169,10 +197,10 @@ mod test_warnings {
 mod test_try_parse {
     use std::error::Error;
 
-    use super::try_parse;
+    use super::call_parser;
+    use super::ParseContext;
     use super::ParseError;
     use super::ParseResult;
-    use super::Warnings;
     use crate::build::step1::Position;
     use crate::build::step2::test_utils::unit_stream;
     use crate::build::step2::UnitStream;
@@ -183,9 +211,10 @@ mod test_try_parse {
         for _ in 0..5 {
             unit_stream.read();
         }
-        let mut warnings = Warnings::new();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
 
-        let result = try_parse(parse_success, &mut unit_stream, &mut warnings);
+        let result = call_parser(parse_success, &mut unit_stream, &mut context);
 
         assert!(result.is_ok());
         assert_eq!(&result.unwrap().unwrap(), "xxx");
@@ -203,9 +232,10 @@ mod test_try_parse {
         for _ in 0..5 {
             unit_stream.read();
         }
-        let mut warnings = Warnings::new();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
 
-        let result = try_parse(parse_mismatched, &mut unit_stream, &mut warnings);
+        let result = call_parser(parse_mismatched, &mut unit_stream, &mut context);
 
         assert!(result.is_ok());
         assert!(result.unwrap().is_none());
@@ -223,16 +253,17 @@ mod test_try_parse {
         for _ in 0..5 {
             unit_stream.read();
         }
-        let mut warnings = Warnings::new();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
 
-        let result = try_parse(parse_error, &mut unit_stream, &mut warnings);
+        let result = call_parser(parse_error, &mut unit_stream, &mut context);
 
         assert!(result.is_err());
 
         Ok(())
     }
 
-    fn parse_success(unit_stream: &mut UnitStream, _: &mut Warnings) -> ParseResult<String> {
+    fn parse_success(unit_stream: &mut UnitStream, _: &mut ParseContext) -> ParseResult<String> {
         for _ in 0..4 {
             unit_stream.read();
         }
@@ -241,16 +272,19 @@ mod test_try_parse {
 
     fn parse_mismatched(
         unit_stream: &mut UnitStream,
-        warnings: &mut Warnings,
+        context: &mut ParseContext,
     ) -> ParseResult<String> {
         for _ in 0..4 {
             unit_stream.read();
         }
-        warnings.push(unit_stream.file_position(), "!warn!".to_owned());
+        context.warn(unit_stream.file_position(), "!warn!".to_owned());
         Ok(None)
     }
 
-    fn parse_error(unit_stream: &mut UnitStream, warnings: &mut Warnings) -> ParseResult<String> {
+    fn parse_error(
+        unit_stream: &mut UnitStream,
+        context: &mut ParseContext,
+    ) -> ParseResult<String> {
         for _ in 0..4 {
             unit_stream.read();
         }

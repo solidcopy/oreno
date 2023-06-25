@@ -2,17 +2,16 @@ use crate::build::step2::Unit;
 use crate::build::step2::UnitStream;
 use crate::build::step3::attribute::Attributes;
 use crate::build::step3::block::parse_block;
-use crate::build::step3::block::parse_raw_block;
 use crate::build::step3::block::Block;
 use crate::build::step3::block_tag_header::parse_block_tag_header;
 use crate::build::step3::block_tag_header::BlockTagHeader;
+use crate::build::step3::call_parser;
 use crate::build::step3::tag::parse_tag_and_attributes;
-use crate::build::step3::try_parse;
 use crate::build::step3::BlockContent;
 use crate::build::step3::ContentModel;
+use crate::build::step3::ParseContext;
 use crate::build::step3::ParseError;
 use crate::build::step3::ParseResult;
-use crate::build::step3::Warnings;
 
 pub struct BlockTag {
     name: String,
@@ -49,20 +48,21 @@ impl BlockContent for BlockTag {}
 
 pub fn parse_block_tag(
     unit_stream: &mut UnitStream,
-    warnings: &mut Warnings,
+    context: &mut ParseContext,
 ) -> ParseResult<BlockTag> {
-    let (tag_name, attributes) = match try_parse(parse_tag_and_attributes, unit_stream, warnings)? {
+    let (tag_name, attributes) = match call_parser(parse_tag_and_attributes, unit_stream, context)?
+    {
         Some(tag_and_attributes) => tag_and_attributes,
         None => return Ok(None),
     };
 
-    let raw_tag = &tag_name == "code-block" || &tag_name == "raw-html";
+    let parse_tags = &tag_name != "code-block" && &tag_name != "raw-html";
 
     match unit_stream.peek() {
         Unit::Char(' ') | Unit::NewLine | Unit::BlockEnd | Unit::Eof => {}
         Unit::Char(c) => {
-            if c == ':' && !raw_tag {
-                if let Some(block_tag) = try_parse(parse_block_tag, unit_stream, warnings)? {
+            if c == ':' && parse_tags {
+                if let Some(block_tag) = call_parser(parse_block_tag, unit_stream, context)? {
                     return Ok(Some(BlockTag {
                         name: tag_name,
                         attributes,
@@ -72,7 +72,7 @@ pub fn parse_block_tag(
                 }
             }
 
-            warnings.push(
+            context.warn(
                 unit_stream.file_position(),
                 format!("There is an illegal character. '{}'", c),
             );
@@ -88,19 +88,18 @@ pub fn parse_block_tag(
 
     let header = if unit_stream.peek() == Unit::Char(' ') {
         unit_stream.read();
-        try_parse(parse_block_tag_header, unit_stream, warnings)?
+        call_parser(parse_block_tag_header, unit_stream, context)?
     } else {
         None
     };
 
     let contents = if unit_stream.peek() == Unit::NewLine {
         unit_stream.read();
-        let block_parser = if raw_tag {
-            parse_raw_block
-        } else {
-            parse_block
-        };
-        try_parse(block_parser, unit_stream, warnings)?
+        call_parser(
+            parse_block,
+            unit_stream,
+            &mut context.change_parse_mode(parse_tags),
+        )?
     } else {
         None
     };
@@ -118,7 +117,7 @@ mod test_parse_block_tag {
     use super::parse_block_tag;
     use crate::build::step2::test_utils::unit_stream;
     use crate::build::step3::test_utils::assert_model;
-    use crate::build::step3::Warnings;
+    use crate::build::step3::ParseContext;
     use indoc::indoc;
     use std::error::Error;
 
@@ -131,8 +130,9 @@ mod test_parse_block_tag {
             
             ???"#})?;
         us.read();
-        let mut warnings = Warnings::new();
-        let tag = parse_block_tag(&mut us, &mut warnings).unwrap().unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let tag = parse_block_tag(&mut us, &mut context).unwrap().unwrap();
 
         assert!(tag.header.is_none());
         assert!(tag.contents.is_some());
@@ -155,7 +155,7 @@ mod test_parse_block_tag {
             }"#,
         );
 
-        assert!(warnings.warnings.is_empty());
+        assert!(warnings.is_empty());
 
         Ok(())
     }
@@ -169,8 +169,9 @@ mod test_parse_block_tag {
             
             ???"#})?;
         us.read();
-        let mut warnings = Warnings::new();
-        let tag = parse_block_tag(&mut us, &mut warnings).unwrap().unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let tag = parse_block_tag(&mut us, &mut context).unwrap().unwrap();
 
         assert!(tag.header.is_none());
         assert!(tag.contents.is_some());
@@ -189,7 +190,7 @@ mod test_parse_block_tag {
             }"#,
         );
 
-        assert!(warnings.warnings.is_empty());
+        assert!(warnings.is_empty());
 
         Ok(())
     }
@@ -203,16 +204,14 @@ mod test_parse_block_tag {
         
         ???"#})?;
         us.read();
-        let mut warnings = Warnings::new();
-        let tag = parse_block_tag(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let tag = parse_block_tag(&mut us, &mut context).unwrap();
 
         assert!(tag.is_none());
 
-        assert_eq!(warnings.warnings.len(), 1);
-        assert_eq!(
-            warnings.warnings[0].message,
-            "There is an illegal character. '*'"
-        );
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(&warnings[0].message, "There is an illegal character. '*'");
 
         Ok(())
     }
@@ -226,8 +225,9 @@ mod test_parse_block_tag {
             
             "})?;
         us.read();
-        let mut warnings = Warnings::new();
-        let tag = parse_block_tag(&mut us, &mut warnings).unwrap().unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let tag = parse_block_tag(&mut us, &mut context).unwrap().unwrap();
 
         assert!(tag.contents.is_some());
 
@@ -241,7 +241,7 @@ mod test_parse_block_tag {
             }"#,
         );
 
-        assert!(warnings.warnings.is_empty());
+        assert!(warnings.is_empty());
 
         Ok(())
     }
@@ -252,8 +252,9 @@ mod test_parse_block_tag {
     fn test_no_contents() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream(":tag[a]")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let tag = parse_block_tag(&mut us, &mut warnings).unwrap().unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let tag = parse_block_tag(&mut us, &mut context).unwrap().unwrap();
 
         assert_model(
             &tag,
@@ -265,7 +266,7 @@ mod test_parse_block_tag {
             }"#,
         );
 
-        assert_eq!(warnings.warnings.len(), 0);
+        assert_eq!(warnings.len(), 0);
 
         Ok(())
     }
@@ -276,8 +277,9 @@ mod test_parse_block_tag {
     fn test_contents_ends_with_eof() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream(":tag\n    xxx")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let tag = parse_block_tag(&mut us, &mut warnings).unwrap().unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let tag = parse_block_tag(&mut us, &mut context).unwrap().unwrap();
 
         assert_model(
             &tag,
@@ -289,7 +291,7 @@ mod test_parse_block_tag {
             }"#,
         );
 
-        assert_eq!(warnings.warnings.len(), 0);
+        assert_eq!(warnings.len(), 0);
 
         Ok(())
     }
@@ -303,8 +305,9 @@ mod test_parse_block_tag {
                 zzz
         "})?;
         us.read();
-        let mut warnings = Warnings::new();
-        let tag = parse_block_tag(&mut us, &mut warnings).unwrap().unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let tag = parse_block_tag(&mut us, &mut context).unwrap().unwrap();
 
         assert_model(
             &tag,
@@ -316,7 +319,7 @@ mod test_parse_block_tag {
             }"#,
         );
 
-        assert_eq!(warnings.warnings.len(), 0);
+        assert_eq!(warnings.len(), 0);
 
         Ok(())
     }
@@ -327,8 +330,9 @@ mod test_parse_block_tag {
     fn test_header_ends_with_eof() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream(":tag[a=1] :b{xxx}")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let tag = parse_block_tag(&mut us, &mut warnings).unwrap().unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let tag = parse_block_tag(&mut us, &mut context).unwrap().unwrap();
 
         assert_model(
             &tag,
@@ -342,7 +346,7 @@ mod test_parse_block_tag {
             }"#,
         );
 
-        assert_eq!(warnings.warnings.len(), 0);
+        assert_eq!(warnings.len(), 0);
 
         Ok(())
     }
@@ -351,16 +355,14 @@ mod test_parse_block_tag {
     fn test_no_contents_without_attr() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream(":tag$")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let tag = parse_block_tag(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let tag = parse_block_tag(&mut us, &mut context).unwrap();
 
         assert!(tag.is_none());
 
-        assert_eq!(warnings.warnings.len(), 1);
-        assert_eq!(
-            warnings.warnings[0].message,
-            "There is an illegal character. '$'"
-        );
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(&warnings[0].message, "There is an illegal character. '$'");
 
         Ok(())
     }
@@ -375,8 +377,9 @@ mod test_parse_block_tag {
             
             ???"#})?;
         us.read();
-        let mut warnings = Warnings::new();
-        let tag = parse_block_tag(&mut us, &mut warnings).unwrap().unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let tag = parse_block_tag(&mut us, &mut context).unwrap().unwrap();
 
         assert_model(
             &tag,
@@ -391,7 +394,7 @@ mod test_parse_block_tag {
             }"#,
         );
 
-        assert!(warnings.warnings.is_empty());
+        assert!(warnings.is_empty());
 
         Ok(())
     }
@@ -406,16 +409,14 @@ mod test_parse_block_tag {
             
             ???"#})?;
         us.read();
-        let mut warnings = Warnings::new();
-        let tag = parse_block_tag(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let tag = parse_block_tag(&mut us, &mut context).unwrap();
 
         assert!(tag.is_none());
 
-        assert_eq!(warnings.warnings.len(), 1);
-        assert_eq!(
-            warnings.warnings[0].message,
-            "There is an illegal character. ':'"
-        );
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(&warnings[0].message, "There is an illegal character. ':'");
 
         Ok(())
     }
@@ -430,8 +431,9 @@ mod test_parse_block_tag {
             
             ???"#})?;
         us.read();
-        let mut warnings = Warnings::new();
-        let tag = parse_block_tag(&mut us, &mut warnings).unwrap().unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let tag = parse_block_tag(&mut us, &mut context).unwrap().unwrap();
 
         assert_model(
             &tag,
@@ -446,7 +448,7 @@ mod test_parse_block_tag {
             }"#,
         );
 
-        assert!(warnings.warnings.is_empty());
+        assert!(warnings.is_empty());
 
         Ok(())
     }

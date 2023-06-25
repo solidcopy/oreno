@@ -5,12 +5,12 @@ use std::collections::HashMap;
 
 use crate::build::step2::Unit;
 use crate::build::step2::UnitStream;
+use crate::build::step3::call_parser;
 use crate::build::step3::symbol;
-use crate::build::step3::try_parse;
 use crate::build::step3::ContentModel;
+use crate::build::step3::ParseContext;
 use crate::build::step3::ParseError;
 use crate::build::step3::ParseResult;
-use crate::build::step3::Warnings;
 
 pub type Attributes = HashMap<Option<String>, String>;
 
@@ -49,7 +49,7 @@ impl ContentModel for Attributes {
 
 pub fn parse_attributes(
     unit_stream: &mut UnitStream,
-    warnings: &mut Warnings,
+    context: &mut ParseContext,
 ) -> ParseResult<Attributes> {
     // 開始が"["でなければ不適合
     if unit_stream.peek() != Unit::Char('[') {
@@ -74,7 +74,7 @@ pub fn parse_attributes(
                 }
                 ',' => {
                     if !need_separator {
-                        warnings.push(
+                        context.warn(
                             unit_stream.file_position(),
                             "It's a comma you don't need.".to_owned(),
                         );
@@ -88,17 +88,17 @@ pub fn parse_attributes(
                 }
                 _ => {
                     if need_separator {
-                        warnings.push(
+                        context.warn(
                             unit_stream.file_position(),
                             "A comma is required.".to_owned(),
                         );
                         return Ok(None);
                     }
 
-                    match try_parse(parse_attribute, unit_stream, warnings)? {
+                    match call_parser(parse_attribute, unit_stream, context)? {
                         Some((attribute_name, attribute_value)) => {
                             match attributes.entry(attribute_name) {
-                                Entry::Occupied(_) => warnings.push(
+                                Entry::Occupied(_) => context.warn(
                                     unit_stream.file_position(),
                                     "The attributes are duplicated.".to_owned(),
                                 ),
@@ -109,7 +109,7 @@ pub fn parse_attributes(
                             need_separator = true;
                         }
                         None => {
-                            warnings.push(
+                            context.warn(
                                 unit_stream.file_position(),
                                 "The attribute is malformed.".to_owned(),
                             );
@@ -128,7 +128,7 @@ pub fn parse_attributes(
                 ));
             }
             Unit::Eof => {
-                warnings.push(unit_stream.file_position(), "] is required.".to_owned());
+                context.warn(unit_stream.file_position(), "] is required.".to_owned());
                 return Ok(None);
             }
         }
@@ -139,27 +139,27 @@ pub fn parse_attributes(
 
 fn parse_attribute(
     unit_stream: &mut UnitStream,
-    warnings: &mut Warnings,
+    context: &mut ParseContext,
 ) -> ParseResult<(Option<String>, String)> {
     // 無名属性をパースする
     // 普通の属性が書かれていた時に"="の警告を捨てるためにダミーのWarningsを使う
-    let mut ignored = Warnings::new();
+    let mut no_warning = context.change_warn_mode(false);
     if let Some(attribute_value) =
-        try_parse(parse_quoted_attribute_value, unit_stream, &mut ignored)?
+        call_parser(parse_quoted_attribute_value, unit_stream, &mut no_warning)?
     {
         return Ok(Some((None, attribute_value)));
     }
     if let Some(attribute_value) =
-        try_parse(parse_simple_attribute_value, unit_stream, &mut ignored)?
+        call_parser(parse_simple_attribute_value, unit_stream, &mut no_warning)?
     {
         return Ok(Some((None, attribute_value)));
     }
 
     // 属性名をパースする
-    let attribute_name = match try_parse(symbol::parse_symbol, unit_stream, warnings)? {
+    let attribute_name = match call_parser(symbol::parse_symbol, unit_stream, context)? {
         Some(attribute_name) => attribute_name,
         None => {
-            warnings.push(
+            context.warn(
                 unit_stream.file_position(),
                 "There is no attribute name.".to_owned(),
             );
@@ -174,13 +174,13 @@ fn parse_attribute(
     unit_stream.read();
 
     // 引用符付き属性値がパースできればパース成功
-    match try_parse(parse_quoted_attribute_value, unit_stream, warnings)? {
+    match call_parser(parse_quoted_attribute_value, unit_stream, context)? {
         Some(attribute_value) => return Ok(Some((Some(attribute_name), attribute_value))),
         None => {}
     }
 
     // 単純属性値がパースできればパース成功
-    match try_parse(parse_simple_attribute_value, unit_stream, warnings)? {
+    match call_parser(parse_simple_attribute_value, unit_stream, context)? {
         Some(attribute_value) => Ok(Some((Some(attribute_name), attribute_value))),
         None => Ok(None),
     }
@@ -189,7 +189,7 @@ fn parse_attribute(
 /// 引用符付き属性値をパースする。
 fn parse_quoted_attribute_value(
     unit_stream: &mut UnitStream,
-    warnings: &mut Warnings,
+    context: &mut ParseContext,
 ) -> ParseResult<String> {
     // 開始が引用符でなければ不適合
     if unit_stream.peek() != Unit::Char('"') {
@@ -222,7 +222,7 @@ fn parse_quoted_attribute_value(
                 if quotation_found {
                     break;
                 } else {
-                    warnings.push(
+                    context.warn(
                         unit_stream.file_position(),
                         "A quoted attribute value is not closed.".to_owned(),
                     );
@@ -244,7 +244,7 @@ fn parse_quoted_attribute_value(
 /// 引用符なしの属性値をパースする。
 fn parse_simple_attribute_value(
     unit_stream: &mut UnitStream,
-    warnings: &mut Warnings,
+    context: &mut ParseContext,
 ) -> ParseResult<String> {
     let mut attribute_value = String::new();
 
@@ -253,7 +253,7 @@ fn parse_simple_attribute_value(
             Unit::Char(c) => match c {
                 '"' | '=' => {
                     let invalid_char_name = if c == '"' { "Quotes" } else { "Equal Signs" };
-                    warnings.push(
+                    context.warn(
                         unit_stream.file_position(),
                         format!(
                             "{} cannot be written in the middle of an attribute value.",
@@ -300,19 +300,20 @@ pub fn sort_keys(attributes: &Attributes) -> Vec<&Option<String>> {
 mod test_parse_attributes {
     use super::parse_attributes;
     use crate::build::step2::test_utils::unit_stream;
-    use crate::build::step3::Warnings;
+    use crate::build::step3::ParseContext;
     use std::error::Error;
 
     #[test]
     fn test_normal() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("[a=xxx,b=\"y,y\"\"y\",\n    zzz]")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let attributes = parse_attributes(&mut us, &mut warnings).unwrap().unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let attributes = parse_attributes(&mut us, &mut context).unwrap().unwrap();
         assert_eq!(attributes[&Some("a".to_owned())], "xxx");
         assert_eq!(attributes[&Some("b".to_owned())], "y,y\"y");
         assert_eq!(attributes[&None], "zzz");
-        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(warnings.len(), 0);
         Ok(())
     }
 
@@ -321,14 +322,12 @@ mod test_parse_attributes {
     fn test_duplicated_key() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("[a=xxx,a=yyy]")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let attributes = parse_attributes(&mut us, &mut warnings).unwrap().unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let attributes = parse_attributes(&mut us, &mut context).unwrap().unwrap();
         assert_eq!(attributes[&Some("a".to_owned())], "xxx");
-        assert_eq!(&warnings.warnings.len(), &1);
-        assert_eq!(
-            &warnings.warnings[0].message,
-            "The attributes are duplicated."
-        );
+        assert_eq!(&context.warnings.len(), &1);
+        assert_eq!(&warnings[0].message, "The attributes are duplicated.");
         Ok(())
     }
 
@@ -337,10 +336,11 @@ mod test_parse_attributes {
     fn test_starts_with_other() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("{a=x}")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let result = parse_attributes(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let result = parse_attributes(&mut us, &mut context).unwrap();
         assert_eq!(&result, &None);
-        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(warnings.len(), 0);
         Ok(())
     }
 
@@ -349,14 +349,12 @@ mod test_parse_attributes {
     fn test_unnecessary_comma() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("[a=x,,b=y]")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let result = parse_attributes(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let result = parse_attributes(&mut us, &mut context).unwrap();
         assert_eq!(&result, &None);
-        assert_eq!(&warnings.warnings.len(), &1);
-        assert_eq!(
-            &warnings.warnings[0].message,
-            "It's a comma you don't need."
-        );
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(&warnings[0].message, "It's a comma you don't need.");
         Ok(())
     }
 
@@ -365,11 +363,12 @@ mod test_parse_attributes {
     fn test_missing_comma() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("[a=\"x\"b=y]")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let result = parse_attributes(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let result = parse_attributes(&mut us, &mut context).unwrap();
         assert_eq!(&result, &None);
-        assert_eq!(&warnings.warnings.len(), &1);
-        assert_eq!(&warnings.warnings[0].message, "A comma is required.");
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(&warnings[0].message, "A comma is required.");
         Ok(())
     }
 
@@ -378,12 +377,13 @@ mod test_parse_attributes {
     fn test_malformed_attribute() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("[?=a]")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let result = parse_attributes(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let result = parse_attributes(&mut us, &mut context).unwrap();
         assert_eq!(&result, &None);
-        assert_eq!(&warnings.warnings.len(), &2);
-        assert_eq!(&warnings.warnings[0].message, "There is no attribute name.");
-        assert_eq!(&warnings.warnings[1].message, "The attribute is malformed.");
+        assert_eq!(warnings.len(), 2);
+        assert_eq!(&warnings[0].message, "There is no attribute name.");
+        assert_eq!(&warnings[1].message, "The attribute is malformed.");
         Ok(())
     }
 
@@ -392,11 +392,12 @@ mod test_parse_attributes {
     fn test_eof() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("[a=x,b=y")?;
         us.read();
-        let mut warnings = Warnings::new();
-        let result = parse_attributes(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let result = parse_attributes(&mut us, &mut context).unwrap();
         assert_eq!(&result, &None);
-        assert_eq!(&warnings.warnings.len(), &1);
-        assert_eq!(&warnings.warnings[0].message, "] is required.");
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(&warnings[0].message, "] is required.");
         Ok(())
     }
 }
@@ -405,7 +406,7 @@ mod test_parse_attributes {
 mod test_parse_attribute {
     use super::parse_attribute;
     use crate::build::step2::test_utils::unit_stream;
-    use crate::build::step3::Warnings;
+    use crate::build::step3::ParseContext;
     use std::error::Error;
 
     #[test]
@@ -413,11 +414,12 @@ mod test_parse_attribute {
         let mut us = unit_stream("a=xxx,")?;
         us.read();
         us.set_indent_check_mode(false);
-        let mut warnings = Warnings::new();
-        let (k, v) = parse_attribute(&mut us, &mut warnings).unwrap().unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let (k, v) = parse_attribute(&mut us, &mut context).unwrap().unwrap();
         assert_eq!(&k, &Some("a".to_owned()));
         assert_eq!(&v, "xxx");
-        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(warnings.len(), 0);
         Ok(())
     }
 
@@ -426,11 +428,12 @@ mod test_parse_attribute {
         let mut us = unit_stream("a=\"xxx\"]")?;
         us.read();
         us.set_indent_check_mode(false);
-        let mut warnings = Warnings::new();
-        let (k, v) = parse_attribute(&mut us, &mut warnings).unwrap().unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let (k, v) = parse_attribute(&mut us, &mut context).unwrap().unwrap();
         assert_eq!(&k, &Some("a".to_owned()));
         assert_eq!(&v, "xxx");
-        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(warnings.len(), 0);
         Ok(())
     }
 
@@ -439,11 +442,12 @@ mod test_parse_attribute {
         let mut us = unit_stream("xxx]")?;
         us.read();
         us.set_indent_check_mode(false);
-        let mut warnings = Warnings::new();
-        let (k, v) = parse_attribute(&mut us, &mut warnings).unwrap().unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let (k, v) = parse_attribute(&mut us, &mut context).unwrap().unwrap();
         assert_eq!(&k, &None);
         assert_eq!(&v, "xxx");
-        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(warnings.len(), 0);
         Ok(())
     }
 
@@ -452,11 +456,12 @@ mod test_parse_attribute {
         let mut us = unit_stream("\"xxx\"\n  ,")?;
         us.read();
         us.set_indent_check_mode(false);
-        let mut warnings = Warnings::new();
-        let (k, v) = parse_attribute(&mut us, &mut warnings).unwrap().unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let (k, v) = parse_attribute(&mut us, &mut context).unwrap().unwrap();
         assert_eq!(&k, &None);
         assert_eq!(&v, "xxx");
-        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(warnings.len(), 0);
         Ok(())
     }
 
@@ -466,11 +471,12 @@ mod test_parse_attribute {
         let mut us = unit_stream("$=xxx,")?;
         us.read();
         us.set_indent_check_mode(false);
-        let mut warnings = Warnings::new();
-        let result = parse_attribute(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let result = parse_attribute(&mut us, &mut context).unwrap();
         assert_eq!(&result, &None);
-        assert_eq!(&warnings.warnings.len(), &1);
-        assert_eq!(&warnings.warnings[0].message, "There is no attribute name.");
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(&warnings[0].message, "There is no attribute name.");
         Ok(())
     }
 
@@ -480,10 +486,11 @@ mod test_parse_attribute {
         let mut us = unit_stream("a\"xxx,")?;
         us.read();
         us.set_indent_check_mode(false);
-        let mut warnings = Warnings::new();
-        let result = parse_attribute(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let result = parse_attribute(&mut us, &mut context).unwrap();
         assert_eq!(&result, &None);
-        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(warnings.len(), 0);
         Ok(())
     }
 
@@ -493,11 +500,12 @@ mod test_parse_attribute {
         let mut us = unit_stream("=xxx,")?;
         us.read();
         us.set_indent_check_mode(false);
-        let mut warnings = Warnings::new();
-        let result = parse_attribute(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let result = parse_attribute(&mut us, &mut context).unwrap();
         assert_eq!(&result, &None);
-        assert_eq!(&warnings.warnings.len(), &1);
-        assert_eq!(&warnings.warnings[0].message, "There is no attribute name.");
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(&warnings[0].message, "There is no attribute name.");
         Ok(())
     }
 
@@ -507,11 +515,12 @@ mod test_parse_attribute {
         let mut us = unit_stream("a=,")?;
         us.read();
         us.set_indent_check_mode(false);
-        let mut warnings = Warnings::new();
-        let (k, v) = parse_attribute(&mut us, &mut warnings).unwrap().unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let (k, v) = parse_attribute(&mut us, &mut context).unwrap().unwrap();
         assert_eq!(&k, &Some("a".to_owned()));
         assert_eq!(&v, &"".to_owned());
-        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(warnings.len(), 0);
         Ok(())
     }
 }
@@ -521,7 +530,7 @@ mod test_parse_quoted_attribute_value {
     use super::parse_quoted_attribute_value;
     use crate::build::step1::Position;
     use crate::build::step2::test_utils::unit_stream;
-    use crate::build::step3::Warnings;
+    use crate::build::step3::ParseContext;
     use std::error::Error;
 
     #[test]
@@ -529,10 +538,11 @@ mod test_parse_quoted_attribute_value {
         let mut us = unit_stream("\"xxx\",")?;
         us.read();
         us.set_indent_check_mode(false);
-        let mut warnings = Warnings::new();
-        let result = parse_quoted_attribute_value(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let result = parse_quoted_attribute_value(&mut us, &mut context).unwrap();
         assert_eq!(&result, &Some("xxx".to_owned()));
-        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(warnings.len(), 0);
         assert_eq!(us.file_position().position, Some(Position::new(1, 6)));
         Ok(())
     }
@@ -543,10 +553,11 @@ mod test_parse_quoted_attribute_value {
         let mut us = unit_stream("xxx,")?;
         us.read();
         us.set_indent_check_mode(false);
-        let mut warnings = Warnings::new();
-        let result = parse_quoted_attribute_value(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let result = parse_quoted_attribute_value(&mut us, &mut context).unwrap();
         assert_eq!(&result, &None);
-        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(warnings.len(), 0);
         Ok(())
     }
 
@@ -556,10 +567,11 @@ mod test_parse_quoted_attribute_value {
         let mut us = unit_stream("\"xx\"\"zz\",")?;
         us.read();
         us.set_indent_check_mode(false);
-        let mut warnings = Warnings::new();
-        let result = parse_quoted_attribute_value(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let result = parse_quoted_attribute_value(&mut us, &mut context).unwrap();
         assert_eq!(&result, &Some("xx\"zz".to_owned()));
-        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(warnings.len(), 0);
         assert_eq!(us.file_position().position, Some(Position::new(1, 9)));
         Ok(())
     }
@@ -570,10 +582,11 @@ mod test_parse_quoted_attribute_value {
         let mut us = unit_stream("\"xx\"\"\"\"zz\",")?;
         us.read();
         us.set_indent_check_mode(false);
-        let mut warnings = Warnings::new();
-        let result = parse_quoted_attribute_value(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let result = parse_quoted_attribute_value(&mut us, &mut context).unwrap();
         assert_eq!(&result, &Some("xx\"\"zz".to_owned()));
-        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(warnings.len(), 0);
         assert_eq!(us.file_position().position, Some(Position::new(1, 11)));
         Ok(())
     }
@@ -584,10 +597,11 @@ mod test_parse_quoted_attribute_value {
         let mut us = unit_stream("\"xx\"\"\"\n")?;
         us.read();
         us.set_indent_check_mode(false);
-        let mut warnings = Warnings::new();
-        let result = parse_quoted_attribute_value(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let result = parse_quoted_attribute_value(&mut us, &mut context).unwrap();
         assert_eq!(&result, &Some("xx\"".to_owned()));
-        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(warnings.len(), 0);
         assert_eq!(us.file_position().position, Some(Position::new(1, 7)));
         Ok(())
     }
@@ -598,12 +612,13 @@ mod test_parse_quoted_attribute_value {
         let mut us = unit_stream("\"xxx\n")?;
         us.read();
         us.set_indent_check_mode(false);
-        let mut warnings = Warnings::new();
-        let result = parse_quoted_attribute_value(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let result = parse_quoted_attribute_value(&mut us, &mut context).unwrap();
         assert_eq!(&result, &None);
-        assert_eq!(&warnings.warnings.len(), &1);
+        assert_eq!(warnings.len(), 1);
         assert_eq!(
-            &warnings.warnings[0].message,
+            &warnings[0].message,
             "A quoted attribute value is not closed."
         );
         Ok(())
@@ -615,12 +630,13 @@ mod test_parse_quoted_attribute_value {
         let mut us = unit_stream("\"xxx")?;
         us.read();
         us.set_indent_check_mode(false);
-        let mut warnings = Warnings::new();
-        let result = parse_quoted_attribute_value(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let result = parse_quoted_attribute_value(&mut us, &mut context).unwrap();
         assert_eq!(&result, &None);
-        assert_eq!(&warnings.warnings.len(), &1);
+        assert_eq!(warnings.len(), 1);
         assert_eq!(
-            &warnings.warnings[0].message,
+            &warnings[0].message,
             "A quoted attribute value is not closed."
         );
         Ok(())
@@ -632,7 +648,7 @@ mod test_parse_simple_attribute_value {
     use super::parse_simple_attribute_value;
     use crate::build::step1::Position;
     use crate::build::step2::test_utils::unit_stream;
-    use crate::build::step3::Warnings;
+    use crate::build::step3::ParseContext;
     use std::error::Error;
 
     /// カンマで終了
@@ -641,10 +657,11 @@ mod test_parse_simple_attribute_value {
         let mut us = unit_stream("xxx,")?;
         us.read();
         us.set_indent_check_mode(false);
-        let mut warnings = Warnings::new();
-        let result = parse_simple_attribute_value(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let result = parse_simple_attribute_value(&mut us, &mut context).unwrap();
         assert_eq!(&result, &Some("xxx".to_owned()));
-        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(warnings.len(), 0);
         assert_eq!(us.file_position().position, Some(Position::new(1, 4)));
         Ok(())
     }
@@ -655,10 +672,11 @@ mod test_parse_simple_attribute_value {
         let mut us = unit_stream("xxx]")?;
         us.read();
         us.set_indent_check_mode(false);
-        let mut warnings = Warnings::new();
-        let result = parse_simple_attribute_value(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let result = parse_simple_attribute_value(&mut us, &mut context).unwrap();
         assert_eq!(&result, &Some("xxx".to_owned()));
-        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(warnings.len(), 0);
         assert_eq!(us.file_position().position, Some(Position::new(1, 4)));
         Ok(())
     }
@@ -669,10 +687,11 @@ mod test_parse_simple_attribute_value {
         let mut us = unit_stream("xxx\n")?;
         us.read();
         us.set_indent_check_mode(false);
-        let mut warnings = Warnings::new();
-        let result = parse_simple_attribute_value(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let result = parse_simple_attribute_value(&mut us, &mut context).unwrap();
         assert_eq!(&result, &Some("xxx".to_owned()));
-        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(warnings.len(), 0);
         assert_eq!(us.file_position().position, Some(Position::new(1, 4)));
         Ok(())
     }
@@ -683,10 +702,11 @@ mod test_parse_simple_attribute_value {
         let mut us = unit_stream("xxx")?;
         us.read();
         us.set_indent_check_mode(false);
-        let mut warnings = Warnings::new();
-        let result = parse_simple_attribute_value(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let result = parse_simple_attribute_value(&mut us, &mut context).unwrap();
         assert_eq!(&result, &Some("xxx".to_owned()));
-        assert_eq!(&warnings.warnings.len(), &0);
+        assert_eq!(warnings.len(), 0);
         assert_eq!(us.file_position().position, Some(Position::new(1, 4)));
         Ok(())
     }
@@ -697,12 +717,13 @@ mod test_parse_simple_attribute_value {
         let mut us = unit_stream("xx\",")?;
         us.read();
         us.set_indent_check_mode(false);
-        let mut warnings = Warnings::new();
-        let result = parse_simple_attribute_value(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let result = parse_simple_attribute_value(&mut us, &mut context).unwrap();
         assert_eq!(&result, &None);
-        assert_eq!(&warnings.warnings.len(), &1);
+        assert_eq!(warnings.len(), 1);
         assert_eq!(
-            &warnings.warnings[0].message,
+            &warnings[0].message,
             "Quotes cannot be written in the middle of an attribute value."
         );
         Ok(())
@@ -714,12 +735,13 @@ mod test_parse_simple_attribute_value {
         let mut us = unit_stream("xx=,")?;
         us.read();
         us.set_indent_check_mode(false);
-        let mut warnings = Warnings::new();
-        let result = parse_simple_attribute_value(&mut us, &mut warnings).unwrap();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let result = parse_simple_attribute_value(&mut us, &mut context).unwrap();
         assert_eq!(&result, &None);
-        assert_eq!(&warnings.warnings.len(), &1);
+        assert_eq!(warnings.len(), 1);
         assert_eq!(
-            &warnings.warnings[0].message,
+            &warnings[0].message,
             "Equal Signs cannot be written in the middle of an attribute value."
         );
         Ok(())
