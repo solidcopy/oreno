@@ -56,10 +56,12 @@ pub fn parse_block_tag(
         None => return Ok(None),
     };
 
+    let raw_tag = &tag_name == "code-block" || &tag_name == "raw-html";
+
     match unit_stream.peek() {
         Unit::Char(' ') | Unit::NewLine | Unit::BlockEnd | Unit::Eof => {}
         Unit::Char(c) => {
-            if c == ':' {
+            if c == ':' && !raw_tag {
                 if let Some(block_tag) = try_parse(parse_block_tag, unit_stream, warnings)? {
                     return Ok(Some(BlockTag {
                         name: tag_name,
@@ -93,9 +95,10 @@ pub fn parse_block_tag(
 
     let contents = if unit_stream.peek() == Unit::NewLine {
         unit_stream.read();
-        let block_parser = match tag_name.as_str() {
-            "code-block" | "raw-html" => parse_raw_block,
-            _ => parse_block,
+        let block_parser = if raw_tag {
+            parse_raw_block
+        } else {
+            parse_block
         };
         try_parse(block_parser, unit_stream, warnings)?
     } else {
@@ -121,7 +124,6 @@ mod test_parse_block_tag {
 
     #[test]
     fn test_normal() -> Result<(), Box<dyn Error>> {
-        // let mut us = unit_stream(":tag[a=x,b=\"yy\",123]\n    zzz\n    :b{bold}\n\n???")?;
         let mut us = unit_stream(indoc! {r#"
             :tag[a=x,b="yy",123]
                 zzz
@@ -158,6 +160,64 @@ mod test_parse_block_tag {
         Ok(())
     }
 
+    /// 属性なし
+    #[test]
+    fn test_no_attrs() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream(indoc! {r#"
+            :tag
+                zzz
+            
+            ???"#})?;
+        us.read();
+        let mut warnings = Warnings::new();
+        let tag = parse_block_tag(&mut us, &mut warnings).unwrap().unwrap();
+
+        assert!(tag.header.is_none());
+        assert!(tag.contents.is_some());
+
+        assert_model(
+            &tag,
+            r#"{
+                "bt":"tag",
+                "a":null,
+                "h":null,
+                "c":{
+                    "b":[
+                        {"p":["zzz\n"]}
+                    ]
+                }
+            }"#,
+        );
+
+        assert!(warnings.warnings.is_empty());
+
+        Ok(())
+    }
+
+    /// 属性の後に不正な文字
+    #[test]
+    fn test_attrs_follewed_by_illegal_char() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream(indoc! {r#"
+        :tag[a=x]*
+            zzz
+        
+        ???"#})?;
+        us.read();
+        let mut warnings = Warnings::new();
+        let tag = parse_block_tag(&mut us, &mut warnings).unwrap();
+
+        assert!(tag.is_none());
+
+        assert_eq!(warnings.warnings.len(), 1);
+        assert_eq!(
+            warnings.warnings[0].message,
+            "There is an illegal character. '*'"
+        );
+
+        Ok(())
+    }
+
+    /// rawタグ
     #[test]
     fn test_raw() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream(indoc! {"
@@ -177,7 +237,7 @@ mod test_parse_block_tag {
                 "bt":"code-block",
                 "a":{"":"oreno"},
                 "h":null,
-                "c":{"b":[{"p":["zzz:b{bold}???"]}]}
+                "c":{"b":[{"p":["zzz:b{bold}???\n"]}]}
             }"#,
         );
 
@@ -186,14 +246,101 @@ mod test_parse_block_tag {
         Ok(())
     }
 
+    /// 内容なし
+    /// 属性の後でEOF
     #[test]
     fn test_no_contents() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream(":tag[a]")?;
         us.read();
         let mut warnings = Warnings::new();
-        let tag = parse_block_tag(&mut us, &mut warnings).unwrap();
+        let tag = parse_block_tag(&mut us, &mut warnings).unwrap().unwrap();
 
-        assert!(tag.is_some());
+        assert_model(
+            &tag,
+            r#"{
+                "bt":"tag",
+                "a":{"":"a"},
+                "h":null,
+                "c":null
+            }"#,
+        );
+
+        assert_eq!(warnings.warnings.len(), 0);
+
+        Ok(())
+    }
+
+    /// 内容あり
+    /// EOFで終わり
+    #[test]
+    fn test_contents_ends_with_eof() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream(":tag\n    xxx")?;
+        us.read();
+        let mut warnings = Warnings::new();
+        let tag = parse_block_tag(&mut us, &mut warnings).unwrap().unwrap();
+
+        assert_model(
+            &tag,
+            r#"{
+                "bt":"tag",
+                "a":null,
+                "h":null,
+                "c":{"b":[{"p":["xxx"]}]}
+            }"#,
+        );
+
+        assert_eq!(warnings.warnings.len(), 0);
+
+        Ok(())
+    }
+
+    /// ヘッダーあり
+    /// 改行で終わり
+    #[test]
+    fn test_header_ends_with_wrap() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream(indoc! {"
+            :tag xxx
+                zzz
+        "})?;
+        us.read();
+        let mut warnings = Warnings::new();
+        let tag = parse_block_tag(&mut us, &mut warnings).unwrap().unwrap();
+
+        assert_model(
+            &tag,
+            r#"{
+                "bt":"tag",
+                "a":null,
+                "h":["xxx"],
+                "c":{"b":[{"p":["zzz\n"]}]}
+            }"#,
+        );
+
+        assert_eq!(warnings.warnings.len(), 0);
+
+        Ok(())
+    }
+
+    /// ヘッダーあり
+    /// EOFで終わり
+    #[test]
+    fn test_header_ends_with_eof() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream(":tag[a=1] :b{xxx}")?;
+        us.read();
+        let mut warnings = Warnings::new();
+        let tag = parse_block_tag(&mut us, &mut warnings).unwrap().unwrap();
+
+        assert_model(
+            &tag,
+            r#"{
+                "bt":"tag",
+                "a":{"a":"1"},
+                "h":[
+                    {"it":"b","a":null,"c":["xxx"]}
+                ],
+                "c":null
+            }"#,
+        );
 
         assert_eq!(warnings.warnings.len(), 0);
 
@@ -214,6 +361,92 @@ mod test_parse_block_tag {
             warnings.warnings[0].message,
             "There is an illegal character. '$'"
         );
+
+        Ok(())
+    }
+
+    /// ネスト
+    /// 属性なし
+    #[test]
+    fn test_nest_no_attr() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream(indoc! {r#"
+            :parent:child
+                zzz
+            
+            ???"#})?;
+        us.read();
+        let mut warnings = Warnings::new();
+        let tag = parse_block_tag(&mut us, &mut warnings).unwrap().unwrap();
+
+        assert_model(
+            &tag,
+            r#"{
+                "bt":"parent", "a":null, "h":null,
+                "c":{"b":[
+                    {
+                        "bt":"child", "a":null, "h":null,
+                        "c":{"b":[{"p":["zzz\n"]}]}
+                    }
+                ]}
+            }"#,
+        );
+
+        assert!(warnings.warnings.is_empty());
+
+        Ok(())
+    }
+
+    /// ネスト
+    /// 親がrawタグならネストを許可しない
+    #[test]
+    fn test_nest_parent_raw() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream(indoc! {r#"
+            :code-block:child
+                zzz
+            
+            ???"#})?;
+        us.read();
+        let mut warnings = Warnings::new();
+        let tag = parse_block_tag(&mut us, &mut warnings).unwrap();
+
+        assert!(tag.is_none());
+
+        assert_eq!(warnings.warnings.len(), 1);
+        assert_eq!(
+            warnings.warnings[0].message,
+            "There is an illegal character. ':'"
+        );
+
+        Ok(())
+    }
+
+    /// ネスト
+    /// 子がrawタグ
+    #[test]
+    fn test_nest_child_raw() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream(indoc! {r#"
+            :parent:code-block
+                zzz
+            
+            ???"#})?;
+        us.read();
+        let mut warnings = Warnings::new();
+        let tag = parse_block_tag(&mut us, &mut warnings).unwrap().unwrap();
+
+        assert_model(
+            &tag,
+            r#"{
+                "bt":"parent", "a":null, "h":null,
+                "c":{"b":[
+                    {
+                        "bt":"code-block", "a":null, "h":null,
+                        "c":{"b":[{"p":["zzz\n"]}]}
+                    }
+                ]}
+            }"#,
+        );
+
+        assert!(warnings.warnings.is_empty());
 
         Ok(())
     }

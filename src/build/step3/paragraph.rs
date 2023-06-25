@@ -42,6 +42,21 @@ pub fn parse_paragraph(
     unit_stream: &mut UnitStream,
     warnings: &mut Warnings,
 ) -> ParseResult<Paragraph> {
+    abstract_parse_paragraph(unit_stream, warnings, true)
+}
+
+pub fn parse_raw_paragraph(
+    unit_stream: &mut UnitStream,
+    warnings: &mut Warnings,
+) -> ParseResult<Paragraph> {
+    abstract_parse_paragraph(unit_stream, warnings, false)
+}
+
+fn abstract_parse_paragraph(
+    unit_stream: &mut UnitStream,
+    warnings: &mut Warnings,
+    parse_tags: bool,
+) -> ParseResult<Paragraph> {
     match unit_stream.peek() {
         Unit::NewLine | Unit::BlockBeginning | Unit::BlockEnd => return Ok(None),
         _ => {}
@@ -53,7 +68,7 @@ pub fn parse_paragraph(
     loop {
         match unit_stream.peek() {
             Unit::Char(c) => {
-                if c == ':' {
+                if c == ':' && parse_tags {
                     if let Some(inline_tag) = try_parse(parse_inline_tag, unit_stream, warnings)? {
                         if !text.is_empty() {
                             contents.push(Box::new(text));

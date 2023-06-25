@@ -1,10 +1,9 @@
 use crate::build::step2::Mark;
 use crate::build::step2::Unit;
 use crate::build::step2::UnitStream;
-use crate::build::step2::INDENT_SIZE;
 use crate::build::step3::block_tag::parse_block_tag;
 use crate::build::step3::paragraph::parse_paragraph;
-use crate::build::step3::paragraph::Paragraph;
+use crate::build::step3::paragraph::parse_raw_paragraph;
 use crate::build::step3::try_parse;
 use crate::build::step3::BlockContent;
 use crate::build::step3::BlockContents;
@@ -58,6 +57,21 @@ impl ContentModel for BlankLine {
 impl BlockContent for BlankLine {}
 
 pub fn parse_block(unit_stream: &mut UnitStream, warnings: &mut Warnings) -> ParseResult<Block> {
+    abstract_parse_block(unit_stream, warnings, true)
+}
+
+pub fn parse_raw_block(
+    unit_stream: &mut UnitStream,
+    warnings: &mut Warnings,
+) -> ParseResult<Block> {
+    abstract_parse_block(unit_stream, warnings, false)
+}
+
+fn abstract_parse_block(
+    unit_stream: &mut UnitStream,
+    warnings: &mut Warnings,
+    parse_tags: bool,
+) -> ParseResult<Block> {
     // 開始位置がブロック開始でなければ不適合
     if unit_stream.peek() != Unit::BlockBeginning {
         return Ok(None);
@@ -85,7 +99,7 @@ pub fn parse_block(unit_stream: &mut UnitStream, warnings: &mut Warnings) -> Par
 
         match unit_stream.peek() {
             Unit::Char(c) => {
-                if c == ':' {
+                if c == ':' && parse_tags {
                     if let Some(block_tag) = try_parse(parse_block_tag, unit_stream, warnings)? {
                         contents.push(Box::new(block_tag));
                         continue;
@@ -93,7 +107,12 @@ pub fn parse_block(unit_stream: &mut UnitStream, warnings: &mut Warnings) -> Par
                 }
 
                 // 開始位置に文字がある以上は段落のパースは成功する
-                let paragraph = try_parse(parse_paragraph, unit_stream, warnings)?.unwrap();
+                let paragraph_parser = if parse_tags {
+                    parse_paragraph
+                } else {
+                    parse_raw_paragraph
+                };
+                let paragraph = try_parse(paragraph_parser, unit_stream, warnings)?.unwrap();
                 contents.push(Box::new(paragraph));
             }
             Unit::NewLine => {
@@ -106,7 +125,12 @@ pub fn parse_block(unit_stream: &mut UnitStream, warnings: &mut Warnings) -> Par
             }
             Unit::BlockBeginning => {
                 // ブロック開始があった以上はその後に文字があるので空ではあり得ない
-                let block = try_parse(parse_block, unit_stream, warnings)?.unwrap();
+                let block_parser = if parse_tags {
+                    parse_block
+                } else {
+                    parse_raw_block
+                };
+                let block = try_parse(block_parser, unit_stream, warnings)?.unwrap();
                 contents.push(Box::new(block));
             }
             Unit::BlockEnd => {
@@ -132,94 +156,6 @@ pub fn parse_block(unit_stream: &mut UnitStream, warnings: &mut Warnings) -> Par
     }
 }
 
-pub fn parse_raw_block(
-    unit_stream: &mut UnitStream,
-    warnings: &mut Warnings,
-) -> ParseResult<Block> {
-    // abstract_parse_block(unit_stream, warnings, false)
-
-    // 開始位置がブロック開始でなければ不適合
-    if unit_stream.peek() != Unit::BlockBeginning {
-        return Ok(None);
-    }
-    unit_stream.read();
-
-    let mut contents = String::new();
-
-    let mut indent_depth = 0;
-    let mut head_of_line = true;
-
-    let mut blank_lines_beginning: Option<Mark> = None;
-    let mut blank_line_count = 0;
-
-    loop {
-        if blank_lines_beginning.is_some() {
-            match unit_stream.peek() {
-                Unit::Char(_) | Unit::BlockBeginning => {
-                    for _ in 0..blank_line_count {
-                        contents.push('\n');
-                    }
-                    blank_lines_beginning = None;
-                    blank_line_count = 0;
-                }
-                _ => {}
-            }
-        }
-
-        match unit_stream.peek() {
-            Unit::Char(c) => {
-                if head_of_line {
-                    for _ in 0..indent_depth * INDENT_SIZE {
-                        contents.push(' ');
-                    }
-                    head_of_line = false;
-                }
-                contents.push(c);
-                unit_stream.read();
-            }
-            Unit::NewLine => {
-                if blank_lines_beginning.is_none() {
-                    blank_lines_beginning = Some(unit_stream.mark());
-                }
-                blank_line_count += 1;
-
-                head_of_line = true;
-
-                unit_stream.read();
-            }
-            Unit::BlockBeginning => {
-                indent_depth += 1;
-                unit_stream.read();
-            }
-            Unit::BlockEnd => {
-                unit_stream.read();
-
-                if indent_depth == 0 {
-                    break;
-                }
-                indent_depth -= 1;
-            }
-            Unit::Eof => {
-                return Err(ParseError::new(
-                    unit_stream.file_position(),
-                    "Although there is a block beginning, there is no block end.".to_owned(),
-                ));
-            }
-        }
-    }
-
-    if !contents.is_empty() {
-        if let Some(mark) = blank_lines_beginning {
-            unit_stream.reset(mark);
-        }
-        Ok(Some(Block {
-            contents: vec![Box::new(Paragraph::new(vec![Box::new(contents)]))],
-        }))
-    } else {
-        Ok(None)
-    }
-}
-
 #[cfg(test)]
 mod test_parse_block {
     use super::parse_block;
@@ -231,7 +167,6 @@ mod test_parse_block {
 
     #[test]
     fn test_normal() -> Result<(), Box<dyn Error>> {
-        // let mut us = unit_stream("    block\nabc\nxyz\n\n:tag[a=1]\n    contents\n\n\n")?;
         let mut us = unit_stream(indoc! {"
                 block
             abc
