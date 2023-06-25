@@ -225,7 +225,6 @@ mod test_parse_block {
     use super::parse_block;
     use crate::build::step2::test_utils::unit_stream;
     use crate::build::step3::test_utils::assert_model;
-    use crate::build::step3::ContentModel;
     use crate::build::step3::Warnings;
     use indoc::indoc;
     use std::error::Error;

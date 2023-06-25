@@ -171,7 +171,6 @@ mod test_parse_inline_tag {
     use super::parse_inline_tag;
     use crate::build::step2::test_utils::unit_stream;
     use crate::build::step3::test_utils::assert_model;
-    use crate::build::step3::ContentModel;
     use crate::build::step3::Warnings;
     use std::error::Error;
 
