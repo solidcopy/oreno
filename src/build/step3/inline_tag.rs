@@ -56,6 +56,21 @@ pub fn parse_inline_tag(
         _ => true,
     };
 
+    if parse_tags {
+        if let Some(nested_tag) = call_parser(
+            parse_inline_tag,
+            unit_stream,
+            &mut context.change_warn_mode(false),
+        )? {
+            let contents: Vec<Box<dyn InlineContent>> = vec![Box::new(nested_tag)];
+            return Ok(Some(InlineTag {
+                name: tag_name,
+                attributes,
+                contents,
+            }));
+        }
+    }
+
     let contents = match call_parser(
         parse_inline_tag_contents,
         unit_stream,
@@ -241,6 +256,71 @@ mod test_parse_inline_tag {
 
         assert_eq!(warnings.len(), 1);
         assert_eq!(warnings[0].message, "There is no tag's contents.");
+
+        Ok(())
+    }
+
+    /// ネスト
+    /// 属性なし
+    #[test]
+    fn test_nest() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream(":a:b{ccc}")?;
+        us.read();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let tag = parse_inline_tag(&mut us, &mut context).unwrap().unwrap();
+
+        assert_model(
+            &tag,
+            r#"{
+                "it":"a",
+                "a":null,
+                "c":[{"it":"b","a":null,"c":["ccc"]}]
+            }"#,
+        );
+
+        assert!(warnings.is_empty());
+
+        Ok(())
+    }
+
+    /// ネスト
+    /// 属性あり
+    #[test]
+    fn test_nest_with_attr() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream(":a[x=1]:b[y=2]{ccc}")?;
+        us.read();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let tag = parse_inline_tag(&mut us, &mut context).unwrap().unwrap();
+
+        assert_model(
+            &tag,
+            r#"{
+                "it":"a",
+                "a":{"x":"1"},
+                "c":[{"it":"b","a":{"y":"2"},"c":["ccc"]}]
+            }"#,
+        );
+
+        assert!(warnings.is_empty());
+
+        Ok(())
+    }
+
+    /// ネスト
+    /// 親がrawタグならネストを許可しない
+    #[test]
+    fn test_nest_parent_raw() -> Result<(), Box<dyn Error>> {
+        let mut us = unit_stream(":code:b{ccc}")?;
+        us.read();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+        let tag = parse_inline_tag(&mut us, &mut context).unwrap();
+
+        assert!(tag.is_none());
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(&warnings[0].message, "There is an illegal character. ':'");
 
         Ok(())
     }
