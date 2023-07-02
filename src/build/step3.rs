@@ -35,21 +35,32 @@ pub type ParseResult<S> = Result<Option<S>, ParseError>;
 #[derive(Debug, PartialEq)]
 pub struct ParseError {
     pub file_position: FilePosition,
+    pub parser_name: Option<String>,
     pub message: String,
 }
 
 impl ParseError {
-    pub fn new(file_position: FilePosition, message: String) -> ParseError {
+    pub fn new(
+        file_position: FilePosition,
+        parser_name: Option<String>,
+        message: String,
+    ) -> ParseError {
         ParseError {
             file_position,
+            parser_name,
             message,
         }
+    }
+
+    pub fn parser_name(&self) -> Option<String> {
+        self.parser_name.clone()
     }
 }
 
 pub struct ParseContext<'a> {
     pub warnings: &'a mut Vec<ParseError>,
     save_warnings: bool,
+    parser_name: Option<String>,
     parse_tags: bool,
 }
 
@@ -58,8 +69,13 @@ impl<'a> ParseContext<'a> {
         ParseContext {
             warnings,
             save_warnings: true,
+            parser_name: None,
             parse_tags: true,
         }
+    }
+
+    pub fn parser_name(&self) -> Option<String> {
+        self.parser_name.clone()
     }
 
     pub fn is_parse_tags(&self) -> bool {
@@ -68,7 +84,8 @@ impl<'a> ParseContext<'a> {
 
     pub fn warn(&mut self, file_position: FilePosition, message: String) {
         if self.save_warnings {
-            self.warnings.push(ParseError::new(file_position, message));
+            self.warnings
+                .push(ParseError::new(file_position, self.parser_name(), message));
         }
     }
 
@@ -76,6 +93,16 @@ impl<'a> ParseContext<'a> {
         ParseContext {
             warnings: self.warnings,
             save_warnings,
+            parser_name: self.parser_name.clone(),
+            parse_tags: self.parse_tags,
+        }
+    }
+
+    pub fn change_parser_name(&mut self, parser_name: Option<String>) -> ParseContext {
+        ParseContext {
+            warnings: self.warnings,
+            save_warnings: self.save_warnings,
+            parser_name: parser_name,
             parse_tags: self.parse_tags,
         }
     }
@@ -84,6 +111,7 @@ impl<'a> ParseContext<'a> {
         ParseContext {
             warnings: self.warnings,
             save_warnings: self.save_warnings,
+            parser_name: self.parser_name.clone(),
             parse_tags,
         }
     }
@@ -131,6 +159,7 @@ mod test_parse_error {
                 filepath: PathBuf::from("a/b.c"),
                 position: Some(Position::new(10, 21)),
             },
+            Some("some".to_owned()),
             "!error!".to_owned(),
         );
 
@@ -139,6 +168,7 @@ mod test_parse_error {
             &subject.file_position.position,
             &Some(Position::new(10, 21))
         );
+        assert_eq!(&subject.parser_name, &Some("some".to_owned()));
         assert_eq!(&subject.message, "!error!");
     }
 
@@ -149,11 +179,13 @@ mod test_parse_error {
                 filepath: PathBuf::from("a/b.c"),
                 position: None,
             },
+            Some("some".to_owned()),
             "!error!".to_owned(),
         );
 
         assert_eq!(&subject.file_position.filepath, &PathBuf::from("a/b.c"));
         assert_eq!(&subject.file_position.position, &None);
+        assert_eq!(&subject.parser_name, &Some("some".to_owned()));
         assert_eq!(&subject.message, "!error!");
     }
 }
@@ -290,6 +322,7 @@ mod test_try_parse {
         }
         Err(ParseError::new(
             unit_stream.file_position(),
+            Some("some".to_owned()),
             "!fatalerror!".to_owned(),
         ))
     }

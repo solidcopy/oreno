@@ -8,7 +8,6 @@ use crate::build::step3::InlineContent;
 use crate::build::step3::InlineContents;
 use crate::build::step3::ParseContext;
 use crate::build::step3::ParseError;
-use crate::build::step3::ParseFunc;
 use crate::build::step3::ParseResult;
 
 #[derive(Debug)]
@@ -21,18 +20,20 @@ pub struct InlineTag {
 impl ContentModel for InlineTag {
     #[cfg(test)]
     fn to_json(&self) -> String {
-        let mut contents = String::new();
-        let mut first = true;
-        for content in &self.contents {
-            if !first {
-                contents.push(',');
-            }
-            first = false;
-            contents.push_str(content.to_json().as_str());
-        }
+        let contents = if self.contents.is_empty() {
+            "null".to_owned()
+        } else {
+            let attributes: String = self
+                .contents
+                .iter()
+                .map(|content| content.to_json())
+                .collect::<Vec<String>>()
+                .join(",");
+            format!("[{}]", attributes.as_str())
+        };
 
         format!(
-            r#"{{"it":{},"a":{},"c":[{}]}}"#,
+            r#"{{"it":{},"a":{},"c":{}}}"#,
             &self.name.to_json(),
             &self.attributes.to_json(),
             &contents
@@ -46,6 +47,9 @@ pub fn parse_inline_tag(
     unit_stream: &mut UnitStream,
     context: &mut ParseContext,
 ) -> ParseResult<InlineTag> {
+    let mut context = context.change_parser_name(Some("inline tag".to_owned()));
+    let context = &mut context;
+
     let (tag_name, attributes) = match parse_tag_and_attributes(unit_stream, context)? {
         Some((tag_name, attributes)) => (tag_name, attributes),
         None => return Ok(None),
@@ -57,11 +61,7 @@ pub fn parse_inline_tag(
     };
 
     if parse_tags {
-        if let Some(nested_tag) = call_parser(
-            parse_inline_tag,
-            unit_stream,
-            &mut context.change_warn_mode(false),
-        )? {
+        if let Some(nested_tag) = call_parser(parse_inline_tag, unit_stream, context)? {
             let contents: Vec<Box<dyn InlineContent>> = vec![Box::new(nested_tag)];
             return Ok(Some(InlineTag {
                 name: tag_name,
@@ -71,18 +71,31 @@ pub fn parse_inline_tag(
         }
     }
 
-    let contents = match call_parser(
-        parse_inline_tag_contents,
-        unit_stream,
-        &mut context.change_parse_mode(parse_tags),
-    )? {
-        Some(contents) => contents,
-        None => {
+    let contents = match unit_stream.peek() {
+        Unit::Char(' ') | Unit::NewLine | Unit::BlockEnd | Unit::Eof => Vec::with_capacity(0),
+        Unit::Char('{') => {
+            match call_parser(
+                parse_inline_tag_contents,
+                unit_stream,
+                &mut context.change_parse_mode(parse_tags),
+            )? {
+                Some(contents) => contents,
+                None => return Ok(None),
+            }
+        }
+        Unit::Char(c) => {
             context.warn(
                 unit_stream.file_position(),
-                "There is no tag's contents.".to_owned(),
+                format!("There is an illegal character. '{}'", c),
             );
             return Ok(None);
+        }
+        Unit::BlockBeginning => {
+            return Err(ParseError::new(
+                unit_stream.file_position(),
+                context.parser_name(),
+                "Unexpected block beginning.".to_owned(),
+            ));
         }
     };
 
@@ -163,6 +176,7 @@ fn parse_inline_tag_contents(
             Unit::BlockBeginning | Unit::BlockEnd => {
                 return Err(ParseError::new(
                     unit_stream.file_position(),
+                    context.parser_name(),
                     "Block beginning or end occurred while indent check mode is off.".to_owned(),
                 ));
             }
@@ -234,19 +248,25 @@ mod test_parse_inline_tag {
         us.read();
         let mut warnings = vec![];
         let mut context = ParseContext::new(&mut warnings);
-        let tag = parse_inline_tag(&mut us, &mut context).unwrap();
+        let tag = parse_inline_tag(&mut us, &mut context).unwrap().unwrap();
 
-        assert!(tag.is_none());
+        assert_model(
+            &tag,
+            r#"{
+                "it":"tag",
+                "a":{"":"a"},
+                "c":null
+            }"#,
+        );
 
-        assert_eq!(warnings.len(), 1);
-        assert_eq!(warnings[0].message, "There is no tag's contents.");
+        assert!(warnings.is_empty());
 
         Ok(())
     }
 
     #[test]
     fn test_no_contents_without_attr() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream(":tag$")?;
+        let mut us = unit_stream(":tag;")?;
         us.read();
         let mut warnings = vec![];
         let mut context = ParseContext::new(&mut warnings);
@@ -255,7 +275,7 @@ mod test_parse_inline_tag {
         assert!(tag.is_none());
 
         assert_eq!(warnings.len(), 1);
-        assert_eq!(warnings[0].message, "There is no tag's contents.");
+        assert_eq!(&warnings[0].message, "There is an illegal character. ';'");
 
         Ok(())
     }

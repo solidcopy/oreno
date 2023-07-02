@@ -88,10 +88,7 @@ pub fn parse_attributes(
                 }
                 _ => {
                     if need_separator {
-                        context.warn(
-                            unit_stream.file_position(),
-                            "A comma is required.".to_owned(),
-                        );
+                        context.warn(unit_stream.file_position(), "',' is required.".to_owned());
                         return Ok(None);
                     }
 
@@ -109,10 +106,6 @@ pub fn parse_attributes(
                             need_separator = true;
                         }
                         None => {
-                            context.warn(
-                                unit_stream.file_position(),
-                                "The attribute is malformed.".to_owned(),
-                            );
                             return Ok(None);
                         }
                     }
@@ -124,11 +117,12 @@ pub fn parse_attributes(
             Unit::BlockBeginning | Unit::BlockEnd => {
                 return Err(ParseError::new(
                     unit_stream.file_position(),
+                    context.parser_name(),
                     "Block beginning or end occurred while indent check mode is off.".to_owned(),
                 ));
             }
             Unit::Eof => {
-                context.warn(unit_stream.file_position(), "] is required.".to_owned());
+                context.warn(unit_stream.file_position(), "']' is required.".to_owned());
                 return Ok(None);
             }
         }
@@ -142,7 +136,7 @@ fn parse_attribute(
     context: &mut ParseContext,
 ) -> ParseResult<(Option<String>, String)> {
     // 無名属性をパースする
-    // 普通の属性が書かれていた時に"="の警告を捨てるためにダミーのWarningsを使う
+    // 普通の属性が書かれていた時に"="がないことの警告を無効にする
     let mut no_warning = context.change_warn_mode(false);
     if let Some(attribute_value) =
         call_parser(parse_quoted_attribute_value, unit_stream, &mut no_warning)?
@@ -232,6 +226,7 @@ fn parse_quoted_attribute_value(
             Unit::BlockBeginning | Unit::BlockEnd => {
                 return Err(ParseError::new(
                     unit_stream.file_position(),
+                    context.parser_name(),
                     "Unexpected block beginning or end.".to_owned(),
                 ));
             }
@@ -272,6 +267,7 @@ fn parse_simple_attribute_value(
             Unit::BlockBeginning | Unit::BlockEnd => {
                 return Err(ParseError::new(
                     unit_stream.file_position(),
+                    context.parser_name(),
                     "Unexpected block beginning or end.".to_owned(),
                 ));
             }
@@ -368,7 +364,7 @@ mod test_parse_attributes {
         let result = parse_attributes(&mut us, &mut context).unwrap();
         assert_eq!(&result, &None);
         assert_eq!(warnings.len(), 1);
-        assert_eq!(&warnings[0].message, "A comma is required.");
+        assert_eq!(&warnings[0].message, "',' is required.");
         Ok(())
     }
 
@@ -381,9 +377,8 @@ mod test_parse_attributes {
         let mut context = ParseContext::new(&mut warnings);
         let result = parse_attributes(&mut us, &mut context).unwrap();
         assert_eq!(&result, &None);
-        assert_eq!(warnings.len(), 2);
+        assert_eq!(warnings.len(), 1);
         assert_eq!(&warnings[0].message, "There is no attribute name.");
-        assert_eq!(&warnings[1].message, "The attribute is malformed.");
         Ok(())
     }
 
@@ -397,7 +392,7 @@ mod test_parse_attributes {
         let result = parse_attributes(&mut us, &mut context).unwrap();
         assert_eq!(&result, &None);
         assert_eq!(warnings.len(), 1);
-        assert_eq!(&warnings[0].message, "] is required.");
+        assert_eq!(&warnings[0].message, "']' is required.");
         Ok(())
     }
 }

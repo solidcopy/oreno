@@ -50,6 +50,9 @@ pub fn parse_block_tag(
     unit_stream: &mut UnitStream,
     context: &mut ParseContext,
 ) -> ParseResult<BlockTag> {
+    let mut context = context.change_parser_name(Some("block tag".to_owned()));
+    let context = &mut context;
+
     let (tag_name, attributes) = match call_parser(parse_tag_and_attributes, unit_stream, context)?
     {
         Some(tag_and_attributes) => tag_and_attributes,
@@ -81,6 +84,7 @@ pub fn parse_block_tag(
         Unit::BlockBeginning => {
             return Err(ParseError::new(
                 unit_stream.file_position(),
+                context.parser_name(),
                 "Unexpected block beginning or end.".to_owned(),
             ));
         }

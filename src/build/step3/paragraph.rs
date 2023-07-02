@@ -82,6 +82,7 @@ pub fn parse_paragraph(
             Unit::BlockBeginning => {
                 return Err(ParseError::new(
                     unit_stream.file_position(),
+                    context.parser_name(),
                     "Unexpected block beginning.".to_owned(),
                 ));
             }

@@ -66,6 +66,7 @@ pub fn parse_block_tag_header(
             Unit::BlockBeginning => {
                 return Err(ParseError::new(
                     unit_stream.file_position(),
+                    context.parser_name(),
                     "Unexpected block beginning.".to_owned(),
                 ));
             }

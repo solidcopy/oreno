@@ -114,6 +114,7 @@ pub fn parse_block(unit_stream: &mut UnitStream, context: &mut ParseContext) -> 
             Unit::Eof => {
                 return Err(ParseError::new(
                     unit_stream.file_position(),
+                    context.parser_name(),
                     "Although there is a block beginning, there is no block end.".to_owned(),
                 ));
             }
@@ -195,7 +196,7 @@ mod test_parse_block {
     #[test]
     fn test_not_block_tag() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream(indoc! {"
-            :tag_[a=1]
+            :tag;[a=1]
                 contents
         "})?;
         let mut warnings = vec![];
@@ -205,14 +206,16 @@ mod test_parse_block {
         assert_model(
             &block,
             r#"{"b":[
-                {"p":[":tag_[a=1]\n"]},
+                {"p":[":tag;[a=1]\n"]},
                 {"b":[{"p":["contents\n"]}]}
             ]}"#,
         );
 
         assert_eq!(warnings.len(), 2);
-        assert_eq!(warnings[0].message, "There is an illegal character. '_'");
-        assert_eq!(warnings[1].message, "There is no tag's contents.");
+        assert_eq!(warnings[0].parser_name(), Some("block tag".to_owned()));
+        assert_eq!(warnings[0].message, "There is an illegal character. ';'");
+        assert_eq!(warnings[1].parser_name(), Some("inline tag".to_owned()));
+        assert_eq!(warnings[1].message, "There is an illegal character. ';'");
 
         Ok(())
     }
