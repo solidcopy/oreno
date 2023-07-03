@@ -61,7 +61,7 @@ pub fn parse_inline_tag(
         _ => true,
     };
 
-    if parse_tags {
+    if parse_tags && !tag_name.abbreviation() {
         if let Some(nested_tag) = call_parser(parse_inline_tag, unit_stream, context)? {
             let contents: Vec<Box<dyn InlineContent>> = vec![Box::new(nested_tag)];
             return Ok(Some(InlineTag {
@@ -73,7 +73,12 @@ pub fn parse_inline_tag(
     }
 
     let contents = match unit_stream.peek() {
-        Unit::Char(' ') | Unit::NewLine | Unit::BlockEnd | Unit::Eof => Vec::with_capacity(0),
+        Unit::Char(' ') | Unit::NewLine | Unit::BlockEnd | Unit::Eof => {
+            if tag_name.abbreviation() {
+                return Ok(None);
+            }
+            Vec::with_capacity(0)
+        }
         Unit::Char('{') => {
             match call_parser(
                 parse_inline_tag_contents,
@@ -85,10 +90,12 @@ pub fn parse_inline_tag(
             }
         }
         Unit::Char(c) => {
-            context.warn(
-                unit_stream.file_position(),
-                format!("There is an illegal character. '{}'", c),
-            );
+            if !tag_name.abbreviation() {
+                context.warn(
+                    unit_stream.file_position(),
+                    format!("There is an illegal character. '{}'", c),
+                );
+            }
             return Ok(None);
         }
         Unit::BlockBeginning => {

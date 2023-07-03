@@ -65,7 +65,7 @@ pub fn parse_block_tag(
     match unit_stream.peek() {
         Unit::Char(' ') | Unit::NewLine | Unit::BlockEnd | Unit::Eof => {}
         Unit::Char(c) => {
-            if c == ':' && parse_tags {
+            if c == ':' && parse_tags && !tag_name.abbreviation() {
                 if let Some(block_tag) = call_parser(parse_block_tag, unit_stream, context)? {
                     return Ok(Some(BlockTag {
                         name: tag_name,
