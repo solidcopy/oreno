@@ -4,19 +4,47 @@ use crate::build::step3::attribute::parse_attributes;
 use crate::build::step3::attribute::Attributes;
 use crate::build::step3::call_parser;
 use crate::build::step3::symbol;
+use crate::build::step3::ContentModel;
 use crate::build::step3::ParseContext;
 use crate::build::step3::ParseResult;
+
+/// タグ名
+#[derive(Debug, PartialEq)]
+pub struct TagName {
+    name: String,
+    abbreviation: bool,
+}
+
+impl TagName {
+    pub fn new(name: String, abbreviation: bool) -> TagName {
+        TagName { name, abbreviation }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn abbreviation(&self) -> bool {
+        self.abbreviation
+    }
+}
+
+impl ContentModel for TagName {
+    #[cfg(test)]
+    fn to_json(&self) -> String {
+        format!("\"{}\"", self.name())
+    }
+}
 
 /// タグをパースする。
 /// タグとはコロンからタグ名の部分まで。
 /// パースできたらタグ名を返す。
 ///
 /// 開始位置はコロンである想定。
-pub fn parse_tag(unit_stream: &mut UnitStream, context: &mut ParseContext) -> ParseResult<String> {
+pub fn parse_tag(unit_stream: &mut UnitStream, context: &mut ParseContext) -> ParseResult<TagName> {
     // 開始がコロンか省略記法でなければ不適合
     if let (Unit::Char(c), _) = unit_stream.read() {
-        let tag_name_or_none = match c {
-            ':' => symbol::parse_symbol(unit_stream, context)?,
+        let abbreviated_tag_name = match c {
             '*' => Some("b".to_owned()),
             '/' => Some("i".to_owned()),
             '_' => Some("u".to_owned()),
@@ -32,7 +60,19 @@ pub fn parse_tag(unit_stream: &mut UnitStream, context: &mut ParseContext) -> Pa
             _ => None,
         };
 
-        Ok(tag_name_or_none)
+        if let Some(abbreviated_tag_name) = abbreviated_tag_name {
+            return Ok(Some(TagName::new(abbreviated_tag_name, true)));
+        }
+
+        if c == ':' {
+            if let Some(tag_name) = symbol::parse_symbol(unit_stream, context)? {
+                return Ok(Some(TagName::new(tag_name, false)));
+            } else {
+                return Ok(None);
+            }
+        } else {
+            return Ok(None);
+        }
     } else {
         Ok(None)
     }
@@ -41,7 +81,7 @@ pub fn parse_tag(unit_stream: &mut UnitStream, context: &mut ParseContext) -> Pa
 pub fn parse_tag_and_attributes(
     unit_stream: &mut UnitStream,
     context: &mut ParseContext,
-) -> ParseResult<(String, Attributes)> {
+) -> ParseResult<(TagName, Attributes)> {
     let tag_name = match call_parser(parse_tag, unit_stream, context)? {
         Some(tag_name) => tag_name,
         None => return Ok(None),
@@ -60,6 +100,7 @@ mod test_parse_tag {
     use std::error::Error;
 
     use super::parse_tag;
+    use super::TagName;
     use crate::build::step2::test_utils::unit_stream;
     use crate::build::step3::ParseContext;
 
@@ -71,7 +112,7 @@ mod test_parse_tag {
         let mut context = ParseContext::new(&mut warnings);
         assert_eq!(
             parse_tag(&mut us, &mut context).unwrap(),
-            Some("mytag".to_owned())
+            Some(TagName::new("mytag".to_owned(), false))
         );
         Ok(())
     }
@@ -84,7 +125,7 @@ mod test_parse_tag {
         let mut context = ParseContext::new(&mut warnings);
         assert_eq!(
             parse_tag(&mut us, &mut context).unwrap(),
-            Some("link".to_owned())
+            Some(TagName::new("link".to_owned(), true))
         );
         Ok(())
     }
@@ -115,6 +156,7 @@ mod test_parse_tag_and_attributes {
     use std::error::Error;
 
     use super::parse_tag_and_attributes;
+    use super::TagName;
     use crate::build::step2::test_utils::unit_stream;
     use crate::build::step3::ParseContext;
 
@@ -127,7 +169,7 @@ mod test_parse_tag_and_attributes {
         let (tag_name, attributes) = parse_tag_and_attributes(&mut us, &mut context)
             .unwrap()
             .unwrap();
-        assert_eq!(&tag_name, "font");
+        assert_eq!(tag_name, TagName::new("font".to_owned(), false));
         assert_eq!(attributes.len(), 1);
         assert_eq!(attributes[&None].as_str(), "gothic");
         Ok(())
@@ -142,7 +184,7 @@ mod test_parse_tag_and_attributes {
         let (tag_name, attributes) = parse_tag_and_attributes(&mut us, &mut context)
             .unwrap()
             .unwrap();
-        assert_eq!(&tag_name, "i");
+        assert_eq!(tag_name, TagName::new("i".to_owned(), false));
         assert!(attributes.is_empty());
         Ok(())
     }

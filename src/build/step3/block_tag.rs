@@ -7,6 +7,7 @@ use crate::build::step3::block_tag_header::parse_block_tag_header;
 use crate::build::step3::block_tag_header::BlockTagHeader;
 use crate::build::step3::call_parser;
 use crate::build::step3::tag::parse_tag_and_attributes;
+use crate::build::step3::tag::TagName;
 use crate::build::step3::BlockContent;
 use crate::build::step3::ContentModel;
 use crate::build::step3::ParseContext;
@@ -14,7 +15,7 @@ use crate::build::step3::ParseError;
 use crate::build::step3::ParseResult;
 
 pub struct BlockTag {
-    name: String,
+    name: TagName,
     attributes: Attributes,
     header: Option<BlockTagHeader>,
     contents: Option<Block>,
@@ -59,7 +60,7 @@ pub fn parse_block_tag(
         None => return Ok(None),
     };
 
-    let parse_tags = &tag_name != "code-block" && &tag_name != "raw-html";
+    let parse_tags = tag_name.name() != "code-block" && tag_name.name() != "raw-html";
 
     match unit_stream.peek() {
         Unit::Char(' ') | Unit::NewLine | Unit::BlockEnd | Unit::Eof => {}

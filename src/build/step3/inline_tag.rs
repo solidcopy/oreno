@@ -3,6 +3,7 @@ use crate::build::step2::UnitStream;
 use crate::build::step3::attribute::Attributes;
 use crate::build::step3::call_parser;
 use crate::build::step3::tag::parse_tag_and_attributes;
+use crate::build::step3::tag::TagName;
 use crate::build::step3::ContentModel;
 use crate::build::step3::InlineContent;
 use crate::build::step3::InlineContents;
@@ -12,7 +13,7 @@ use crate::build::step3::ParseResult;
 
 #[derive(Debug)]
 pub struct InlineTag {
-    name: String,
+    name: TagName,
     attributes: Attributes,
     contents: InlineContents,
 }
@@ -55,7 +56,7 @@ pub fn parse_inline_tag(
         None => return Ok(None),
     };
 
-    let parse_tags = match tag_name.as_str() {
+    let parse_tags = match tag_name.name() {
         "code" | "raw-html" => false,
         _ => true,
     };
