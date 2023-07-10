@@ -1,6 +1,7 @@
 use crate::build::step2::Unit;
 use crate::build::step2::UnitStream;
 use crate::build::step3::attribute::Attributes;
+use crate::build::step3::attribute::NamelessAttributeValues;
 use crate::build::step3::call_parser;
 use crate::build::step3::tag::parse_tag_and_attributes;
 use crate::build::step3::tag::TagName;
@@ -15,30 +16,37 @@ use crate::build::step3::ParseResult;
 pub struct InlineTag {
     name: TagName,
     attributes: Attributes,
+    nameless_attribute_values: NamelessAttributeValues,
     contents: InlineContents,
 }
 
 impl ContentModel for InlineTag {
     #[cfg(test)]
     fn to_json(&self) -> String {
-        let contents = if self.contents.is_empty() {
-            "null".to_owned()
-        } else {
-            let attributes: String = self
+        let mut result = format!("{{\"it\":{}", &self.name.to_json());
+
+        if !self.attributes.is_empty() {
+            result.push_str(format!(",\"a\":{}", &self.attributes.to_json()).as_str());
+        }
+
+        if !self.nameless_attribute_values.is_empty() {
+            result
+                .push_str(format!(",\"v\":{}", &self.nameless_attribute_values.to_json()).as_str());
+        }
+
+        if !self.contents.is_empty() {
+            let contents: String = self
                 .contents
                 .iter()
                 .map(|content| content.to_json())
                 .collect::<Vec<String>>()
                 .join(",");
-            format!("[{}]", attributes.as_str())
+            result.push_str(format!(",\"c\":[{}]", contents.as_str()).as_str());
         };
 
-        format!(
-            r#"{{"it":{},"a":{},"c":{}}}"#,
-            &self.name.to_json(),
-            &self.attributes.to_json(),
-            &contents
-        )
+        result.push_str("}");
+
+        result
     }
 }
 
@@ -51,10 +59,11 @@ pub fn parse_inline_tag(
     let mut context = context.change_parser_name(Some("inline tag".to_owned()));
     let context = &mut context;
 
-    let (tag_name, attributes) = match parse_tag_and_attributes(unit_stream, context)? {
-        Some((tag_name, attributes)) => (tag_name, attributes),
-        None => return Ok(None),
-    };
+    let (tag_name, attributes, nameless_attribute_values) =
+        match parse_tag_and_attributes(unit_stream, context)? {
+            Some(x) => x,
+            None => return Ok(None),
+        };
 
     let parse_tags = match tag_name.name() {
         "code" | "raw-html" => false,
@@ -67,6 +76,7 @@ pub fn parse_inline_tag(
             return Ok(Some(InlineTag {
                 name: tag_name,
                 attributes,
+                nameless_attribute_values,
                 contents,
             }));
         }
@@ -110,6 +120,7 @@ pub fn parse_inline_tag(
     Ok(Some(InlineTag {
         name: tag_name,
         attributes,
+        nameless_attribute_values,
         contents,
     }))
 }
@@ -214,10 +225,11 @@ mod test_parse_inline_tag {
             &tag,
             r#"{
                 "it":"tag",
-                "a":{"":"123","a":"x","b":"yy"},
+                "a":{"a":"x","b":"yy"},
+                "v":["123"],
                 "c":[
                     "zzz",
-                    {"it":"b","a":null,"c":["bold"]},
+                    {"it":"b","c":["bold"]},
                     "???"
                 ]
             }"#,
@@ -240,7 +252,8 @@ mod test_parse_inline_tag {
             &tag,
             r#"{
                 "it":"code",
-                "a":{"":"123","a":"x","b":"yy"},
+                "a":{"a":"x","b":"yy"},
+                "v":["123"],
                 "c":["zzz:b{bold}???"]
             }"#,
         );
@@ -262,8 +275,7 @@ mod test_parse_inline_tag {
             &tag,
             r#"{
                 "it":"tag",
-                "a":{"":"a"},
-                "c":null
+                "v":["a"]
             }"#,
         );
 
@@ -302,8 +314,7 @@ mod test_parse_inline_tag {
             &tag,
             r#"{
                 "it":"a",
-                "a":null,
-                "c":[{"it":"b","a":null,"c":["ccc"]}]
+                "c":[{"it":"b","c":["ccc"]}]
             }"#,
         );
 
@@ -378,7 +389,6 @@ mod test_parse_inline_tag_contents {
             result[1].as_ref(),
             r#"{
                 "it":"tag",
-                "a":null,
                 "c":["xxx"]
             }"#,
         );

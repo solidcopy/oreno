@@ -2,6 +2,7 @@ use crate::build::step2::Unit;
 use crate::build::step2::UnitStream;
 use crate::build::step3::attribute::parse_attributes;
 use crate::build::step3::attribute::Attributes;
+use crate::build::step3::attribute::NamelessAttributeValues;
 use crate::build::step3::call_parser;
 use crate::build::step3::symbol;
 use crate::build::step3::ContentModel;
@@ -81,18 +82,22 @@ pub fn parse_tag(unit_stream: &mut UnitStream, context: &mut ParseContext) -> Pa
 pub fn parse_tag_and_attributes(
     unit_stream: &mut UnitStream,
     context: &mut ParseContext,
-) -> ParseResult<(TagName, Attributes)> {
+) -> ParseResult<(TagName, Attributes, NamelessAttributeValues)> {
     let tag_name = match call_parser(parse_tag, unit_stream, context)? {
         Some(tag_name) => tag_name,
         None => return Ok(None),
     };
 
-    let attributes = match call_parser(parse_attributes, unit_stream, context)? {
-        Some(attributes) => attributes,
-        None => Attributes::with_capacity(0),
-    };
+    let (attributes, nameless_attribute_values) =
+        match call_parser(parse_attributes, unit_stream, context)? {
+            Some(x) => x,
+            None => (
+                Attributes::with_capacity(0),
+                NamelessAttributeValues::with_capacity(0),
+            ),
+        };
 
-    Ok(Some((tag_name, attributes)))
+    Ok(Some((tag_name, attributes, nameless_attribute_values)))
 }
 
 #[cfg(test)]
@@ -166,12 +171,13 @@ mod test_parse_tag_and_attributes {
         us.read();
         let mut warnings = vec![];
         let mut context = ParseContext::new(&mut warnings);
-        let (tag_name, attributes) = parse_tag_and_attributes(&mut us, &mut context)
+        let (tag_name, attributes, values) = parse_tag_and_attributes(&mut us, &mut context)
             .unwrap()
             .unwrap();
         assert_eq!(tag_name, TagName::new("font".to_owned(), false));
-        assert_eq!(attributes.len(), 1);
-        assert_eq!(attributes[&None].as_str(), "gothic");
+        assert_eq!(attributes.len(), 0);
+        assert_eq!(values.len(), 1);
+        assert_eq!(values[0], "gothic");
         Ok(())
     }
 
@@ -181,11 +187,12 @@ mod test_parse_tag_and_attributes {
         us.read();
         let mut warnings = vec![];
         let mut context = ParseContext::new(&mut warnings);
-        let (tag_name, attributes) = parse_tag_and_attributes(&mut us, &mut context)
+        let (tag_name, attributes, values) = parse_tag_and_attributes(&mut us, &mut context)
             .unwrap()
             .unwrap();
         assert_eq!(tag_name, TagName::new("i".to_owned(), false));
-        assert!(attributes.is_empty());
+        assert_eq!(attributes.len(), 0);
+        assert_eq!(values.len(), 0);
         Ok(())
     }
 

@@ -113,7 +113,7 @@ mod test_parse_block_tag_header {
             r#"[
                 {"it":"ta","a":{"a":"1","b":"2"},"c":["ccc\n    123"]},
                 "xyz",
-                {"it":"tb","a":null,"c":["ddd"]}
+                {"it":"tb","c":["ddd"]}
             ]"#,
         );
 

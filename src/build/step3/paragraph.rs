@@ -123,7 +123,7 @@ mod test_parse_paragraph {
             r#"{
                 "p":[
                     "abc",
-                    {"it":"t","a":null,"c":["xyz"]},
+                    {"it":"t","c":["xyz"]},
                     {"it":"a","a":{"b":"c"},"c":["..."]},
                     "0\n123"
                 ]

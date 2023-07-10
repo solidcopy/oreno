@@ -165,7 +165,7 @@ mod test_parse_block {
                     "<bl>",
                     {
                         "bt":"tag",
-                        "a":{"a":"1"},"h":null,
+                        "a":{"a":"1"},
                         "c":{"b":[{"p":["contents\n"]}]}
                     }
                 ]

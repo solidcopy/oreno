@@ -1,6 +1,7 @@
 use crate::build::step2::Unit;
 use crate::build::step2::UnitStream;
 use crate::build::step3::attribute::Attributes;
+use crate::build::step3::attribute::NamelessAttributeValues;
 use crate::build::step3::block::parse_block;
 use crate::build::step3::block::Block;
 use crate::build::step3::block_tag_header::parse_block_tag_header;
@@ -17,6 +18,7 @@ use crate::build::step3::ParseResult;
 pub struct BlockTag {
     name: TagName,
     attributes: Attributes,
+    nameless_attribute_values: NamelessAttributeValues,
     header: Option<BlockTagHeader>,
     contents: Option<Block>,
 }
@@ -24,24 +26,28 @@ pub struct BlockTag {
 impl ContentModel for BlockTag {
     #[cfg(test)]
     fn to_json(&self) -> String {
-        let header = if let Some(header) = &self.header {
-            header.to_json()
-        } else {
-            "null".to_owned()
-        };
-        let contents = if let Some(contents) = &self.contents {
-            contents.to_json()
-        } else {
-            "null".to_owned()
-        };
+        let mut result = format!("{{\"bt\":{}", &self.name.to_json());
 
-        format!(
-            r#"{{"bt":{},"a":{},"h":{},"c":{}}}"#,
-            &self.name.to_json(),
-            &self.attributes.to_json(),
-            &header,
-            &contents
-        )
+        if !self.attributes.is_empty() {
+            result.push_str(format!(",\"a\":{}", &self.attributes.to_json()).as_str());
+        }
+
+        if !self.nameless_attribute_values.is_empty() {
+            result
+                .push_str(format!(",\"v\":{}", &self.nameless_attribute_values.to_json()).as_str());
+        }
+
+        if let Some(header) = &self.header {
+            result.push_str(format!(",\"h\":{}", &header.to_json()).as_str());
+        }
+
+        if let Some(contents) = &self.contents {
+            result.push_str(format!(",\"c\":{}", &contents.to_json()).as_str());
+        }
+
+        result.push_str("}");
+
+        result
     }
 }
 
@@ -54,11 +60,11 @@ pub fn parse_block_tag(
     let mut context = context.change_parser_name(Some("block tag".to_owned()));
     let context = &mut context;
 
-    let (tag_name, attributes) = match call_parser(parse_tag_and_attributes, unit_stream, context)?
-    {
-        Some(tag_and_attributes) => tag_and_attributes,
-        None => return Ok(None),
-    };
+    let (tag_name, attributes, nameless_attribute_values) =
+        match call_parser(parse_tag_and_attributes, unit_stream, context)? {
+            Some(x) => x,
+            None => return Ok(None),
+        };
 
     let parse_tags = tag_name.name() != "code-block" && tag_name.name() != "raw-html";
 
@@ -70,6 +76,7 @@ pub fn parse_block_tag(
                     return Ok(Some(BlockTag {
                         name: tag_name,
                         attributes,
+                        nameless_attribute_values,
                         header: None,
                         contents: Some(Block::new(vec![Box::new(block_tag)])),
                     }));
@@ -112,6 +119,7 @@ pub fn parse_block_tag(
     Ok(Some(BlockTag {
         name: tag_name,
         attributes,
+        nameless_attribute_values,
         header,
         contents,
     }))
@@ -121,6 +129,7 @@ pub fn parse_block_tag(
 mod test_parse_block_tag {
     use super::parse_block_tag;
     use crate::build::step2::test_utils::unit_stream;
+    use crate::build::step2::Unit;
     use crate::build::step3::test_utils::assert_model;
     use crate::build::step3::ParseContext;
     use indoc::indoc;
@@ -146,13 +155,13 @@ mod test_parse_block_tag {
             &tag,
             r#"{
                 "bt":"tag",
-                "a":{"":"123","a":"x","b":"yy"},
-                "h":null,
+                "a":{"a":"x","b":"yy"},
+                "v":["123"],
                 "c":{
                     "b":[
                         {"p":[
                             "zzz\n",
-                            {"it":"b","a":null,"c":["bold"]},
+                            {"it":"b","c":["bold"]},
                             "\n"
                         ]}
                     ]
@@ -185,8 +194,6 @@ mod test_parse_block_tag {
             &tag,
             r#"{
                 "bt":"tag",
-                "a":null,
-                "h":null,
                 "c":{
                     "b":[
                         {"p":["zzz\n"]}
@@ -240,8 +247,7 @@ mod test_parse_block_tag {
             &tag,
             r#"{
                 "bt":"code-block",
-                "a":{"":"oreno"},
-                "h":null,
+                "v":["oreno"],
                 "c":{"b":[{"p":["zzz:b{bold}???\n"]}]}
             }"#,
         );
@@ -265,9 +271,7 @@ mod test_parse_block_tag {
             &tag,
             r#"{
                 "bt":"tag",
-                "a":{"":"a"},
-                "h":null,
-                "c":null
+                "v":["a"]
             }"#,
         );
 
@@ -290,8 +294,6 @@ mod test_parse_block_tag {
             &tag,
             r#"{
                 "bt":"tag",
-                "a":null,
-                "h":null,
                 "c":{"b":[{"p":["xxx"]}]}
             }"#,
         );
@@ -318,7 +320,6 @@ mod test_parse_block_tag {
             &tag,
             r#"{
                 "bt":"tag",
-                "a":null,
                 "h":["xxx"],
                 "c":{"b":[{"p":["zzz\n"]}]}
             }"#,
@@ -345,9 +346,8 @@ mod test_parse_block_tag {
                 "bt":"tag",
                 "a":{"a":"1"},
                 "h":[
-                    {"it":"b","a":null,"c":["xxx"]}
-                ],
-                "c":null
+                    {"it":"b","c":["xxx"]}
+                ]
             }"#,
         );
 
@@ -381,7 +381,7 @@ mod test_parse_block_tag {
                 zzz
             
             ???"#})?;
-        us.read();
+        assert_eq!(us.read().0, Unit::BlockBeginning);
         let mut warnings = vec![];
         let mut context = ParseContext::new(&mut warnings);
         let tag = parse_block_tag(&mut us, &mut context).unwrap().unwrap();
@@ -389,10 +389,10 @@ mod test_parse_block_tag {
         assert_model(
             &tag,
             r#"{
-                "bt":"parent", "a":null, "h":null,
+                "bt":"parent",
                 "c":{"b":[
                     {
-                        "bt":"child", "a":null, "h":null,
+                        "bt":"child",
                         "c":{"b":[{"p":["zzz\n"]}]}
                     }
                 ]}
@@ -443,10 +443,10 @@ mod test_parse_block_tag {
         assert_model(
             &tag,
             r#"{
-                "bt":"parent", "a":null, "h":null,
+                "bt":"parent",
                 "c":{"b":[
                     {
-                        "bt":"code-block", "a":null, "h":null,
+                        "bt":"code-block",
                         "c":{"b":[{"p":["zzz\n"]}]}
                     }
                 ]}

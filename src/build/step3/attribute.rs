@@ -12,7 +12,7 @@ use crate::build::step3::ParseContext;
 use crate::build::step3::ParseError;
 use crate::build::step3::ParseResult;
 
-pub type Attributes = HashMap<Option<String>, String>;
+pub type Attributes = HashMap<String, String>;
 
 impl ContentModel for Attributes {
     #[cfg(test)]
@@ -27,15 +27,14 @@ impl ContentModel for Attributes {
 
         let mut first = true;
 
-        for k in sort_keys(&self) {
-            let v = self.get(k).unwrap();
+        for attr_name in sort_keys(&self) {
+            let v = self.get(attr_name).unwrap();
 
             if !first {
                 s.push(',');
             }
             first = false;
 
-            let attr_name = if let Some(k) = k { k.as_str() } else { "" };
             let value = v.to_json();
             let value = value.as_str();
             s.push_str(&format!("\"{}\":{}", &attr_name, value));
@@ -47,10 +46,30 @@ impl ContentModel for Attributes {
     }
 }
 
+pub type NamelessAttributeValues = Vec<String>;
+
+impl ContentModel for NamelessAttributeValues {
+    #[cfg(test)]
+    fn to_json(&self) -> String {
+        let mut result = "[".to_owned();
+
+        let values = self
+            .iter()
+            .map(|x| format!("\"{}\"", x.as_str()))
+            .collect::<Vec<String>>()
+            .join(",");
+        result.push_str(values.as_str());
+
+        result.push(']');
+
+        result
+    }
+}
+
 pub fn parse_attributes(
     unit_stream: &mut UnitStream,
     context: &mut ParseContext,
-) -> ParseResult<Attributes> {
+) -> ParseResult<(Attributes, NamelessAttributeValues)> {
     // 開始が"["でなければ不適合
     if unit_stream.peek() != Unit::Char('[') {
         return Ok(None);
@@ -61,6 +80,7 @@ pub fn parse_attributes(
     unit_stream.set_indent_check_mode(false);
 
     let mut attributes = HashMap::new();
+    let mut nameless_attribute_values = vec![];
 
     // 次の属性の前に区切り文字が必要か
     let mut need_separator = false;
@@ -94,14 +114,18 @@ pub fn parse_attributes(
 
                     match call_parser(parse_attribute, unit_stream, context)? {
                         Some((attribute_name, attribute_value)) => {
-                            match attributes.entry(attribute_name) {
-                                Entry::Occupied(_) => context.warn(
-                                    unit_stream.file_position(),
-                                    "The attributes are duplicated.".to_owned(),
-                                ),
-                                Entry::Vacant(entry) => {
-                                    entry.insert(attribute_value);
+                            if let Some(attribute_name) = attribute_name {
+                                match attributes.entry(attribute_name) {
+                                    Entry::Occupied(_) => context.warn(
+                                        unit_stream.file_position(),
+                                        "The attributes are duplicated.".to_owned(),
+                                    ),
+                                    Entry::Vacant(entry) => {
+                                        entry.insert(attribute_value);
+                                    }
                                 }
+                            } else {
+                                nameless_attribute_values.push(attribute_value);
                             }
                             need_separator = true;
                         }
@@ -128,7 +152,7 @@ pub fn parse_attributes(
         }
     }
 
-    Ok(Some(attributes))
+    Ok(Some((attributes, nameless_attribute_values)))
 }
 
 fn parse_attribute(
@@ -278,16 +302,9 @@ fn parse_simple_attribute_value(
 }
 
 #[cfg(test)]
-pub fn sort_keys(attributes: &Attributes) -> Vec<&Option<String>> {
-    let mut keys = attributes.keys().collect::<Vec<&Option<String>>>();
-    keys.sort_by({
-        |a, b| match (a, b) {
-            (Some(x), Some(y)) => x.partial_cmp(y).unwrap(),
-            (None, Some(_)) => Ordering::Less,
-            (Some(_), None) => Ordering::Greater,
-            (None, None) => Ordering::Equal,
-        }
-    });
+pub fn sort_keys(attributes: &Attributes) -> Vec<&String> {
+    let mut keys = attributes.keys().collect::<Vec<&String>>();
+    keys.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
     keys
 }
@@ -305,10 +322,12 @@ mod test_parse_attributes {
         us.read();
         let mut warnings = vec![];
         let mut context = ParseContext::new(&mut warnings);
-        let attributes = parse_attributes(&mut us, &mut context).unwrap().unwrap();
-        assert_eq!(attributes[&Some("a".to_owned())], "xxx");
-        assert_eq!(attributes[&Some("b".to_owned())], "y,y\"y");
-        assert_eq!(attributes[&None], "zzz");
+        let (attributes, values) = parse_attributes(&mut us, &mut context).unwrap().unwrap();
+        assert_eq!(attributes.len(), 2);
+        assert_eq!(attributes["a"], "xxx");
+        assert_eq!(attributes["b"], "y,y\"y");
+        assert_eq!(values.len(), 1);
+        assert_eq!(values[0], "zzz");
         assert_eq!(warnings.len(), 0);
         Ok(())
     }
@@ -320,8 +339,10 @@ mod test_parse_attributes {
         us.read();
         let mut warnings = vec![];
         let mut context = ParseContext::new(&mut warnings);
-        let attributes = parse_attributes(&mut us, &mut context).unwrap().unwrap();
-        assert_eq!(attributes[&Some("a".to_owned())], "xxx");
+        let (attributes, values) = parse_attributes(&mut us, &mut context).unwrap().unwrap();
+        assert_eq!(attributes.len(), 1);
+        assert_eq!(attributes["a"], "xxx");
+        assert_eq!(values.len(), 0);
         assert_eq!(&context.warnings.len(), &1);
         assert_eq!(&warnings[0].message, "The attributes are duplicated.");
         Ok(())
