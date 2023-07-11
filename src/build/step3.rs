@@ -331,7 +331,30 @@ mod test_try_parse {
 #[cfg(test)]
 pub mod test_utils {
     use super::ContentModel;
+    use super::ParseContext;
+    use super::ParseError;
+    use super::ParseFunc;
+    use super::ParseResult;
+    use crate::build::step1::Position;
+    use crate::build::step2::test_utils::unit_stream;
     use serde_json::{from_str, Value};
+
+    pub fn test_parser<S>(
+        parser: ParseFunc<S>,
+        source: &str,
+    ) -> (ParseResult<S>, Position, Vec<ParseError>) {
+        let mut us = unit_stream(source).unwrap();
+        // 最初のブロック開始を読み捨てる
+        us.read();
+        let mut warnings = vec![];
+        let mut context = ParseContext::new(&mut warnings);
+
+        let result = parser(&mut us, &mut context);
+
+        let position = us.char_stream_position();
+
+        (result, position, warnings)
+    }
 
     /// モデルをJSONに変換して期待値と一致するか検証する。
     pub fn assert_model<T: ContentModel + ?Sized>(a: &T, b: &str) {

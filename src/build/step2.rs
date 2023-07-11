@@ -186,6 +186,11 @@ impl UnitStream {
 
         Some(result)
     }
+
+    #[cfg(test)]
+    pub fn char_stream_position(&self) -> Position {
+        self.char_stream.get_position()
+    }
 }
 
 #[derive(Clone)]
