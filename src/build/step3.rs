@@ -337,6 +337,7 @@ pub mod test_utils {
     use super::ParseResult;
     use crate::build::step1::Position;
     use crate::build::step2::test_utils::unit_stream;
+    use crate::build::step2::Unit;
     use serde_json::{from_str, Value};
 
     pub fn test_parser<S>(
@@ -349,7 +350,18 @@ pub mod test_utils {
         let mut warnings = vec![];
         let mut context = ParseContext::new(&mut warnings);
 
-        let result = parser(&mut us, &mut context);
+        let mark = us.mark();
+        let parse_tags = if us.read().0 == Unit::Char('!')
+            && us.read().0 == Unit::Char('r')
+            && us.read().0 == Unit::Char('!')
+        {
+            false
+        } else {
+            us.reset(mark);
+            true
+        };
+
+        let result = parser(&mut us, &mut context.change_parse_mode(parse_tags));
 
         let position = us.char_stream_position();
 

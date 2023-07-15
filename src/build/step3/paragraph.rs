@@ -192,7 +192,7 @@ mod test_parse_paragraph {
         let mut context = ParseContext::new(&mut warnings);
         let paragraph = parse_paragraph(&mut us, &mut context).unwrap().unwrap();
 
-        assert_model(&paragraph, r#"{"p":[": abc"]}"#);
+        assert_model(&paragraph, r#"{"p":[{"it":""}, " abc"]}"#);
 
         assert_eq!(warnings.len(), 0);
 

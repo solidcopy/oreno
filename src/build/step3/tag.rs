@@ -66,10 +66,10 @@ pub fn parse_tag(unit_stream: &mut UnitStream, context: &mut ParseContext) -> Pa
         }
 
         if c == ':' {
-            if let Some(tag_name) = symbol::parse_symbol(unit_stream, context)? {
+            if let Some(tag_name) = call_parser(symbol::parse_symbol, unit_stream, context)? {
                 return Ok(Some(TagName::new(tag_name, false)));
             } else {
-                return Ok(None);
+                return Ok(Some(TagName::new("".to_owned(), false)));
             }
         } else {
             return Ok(None);

@@ -208,19 +208,156 @@ fn parse_inline_tag_contents(
 #[cfg(test)]
 mod test_parse_inline_tag {
     use super::parse_inline_tag;
-    use crate::build::step2::test_utils::unit_stream;
+    use crate::build::step1::Position;
     use crate::build::step3::test_utils::assert_model;
-    use crate::build::step3::ParseContext;
+    use crate::build::step3::test_utils::test_parser;
     use std::error::Error;
 
+    /// タグ名あり、属性なし、内容なし、終端は空白
     #[test]
-    fn test_normal() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream(":tag[a=x,b=\"yy\",123]{zzz:b{bold}???}")?;
-        us.read();
-        let mut warnings = vec![];
-        let mut context = ParseContext::new(&mut warnings);
-        let tag = parse_inline_tag(&mut us, &mut context).unwrap().unwrap();
+    fn test_name_no_attrs_no_contents_space() {
+        let (r, p, w) = test_parser(parse_inline_tag, ":tag ");
 
+        let tag = r.unwrap().unwrap();
+        assert_model(&tag, r#"{"it":"tag"}"#);
+
+        assert_eq!(p, Position::new(1, 5));
+
+        assert!(w.is_empty());
+    }
+
+    /// タグ名あり、属性なし、内容なし、終端は改行
+    #[test]
+    fn test_name_no_attrs_no_contents_wrap() {
+        let (r, p, w) = test_parser(parse_inline_tag, ":tag\n");
+
+        let tag = r.unwrap().unwrap();
+        assert_model(&tag, r#"{"it":"tag"}"#);
+
+        assert_eq!(p, Position::new(1, 5));
+
+        assert!(w.is_empty());
+    }
+
+    /// タグ名あり、属性なし、内容なし、終端はブロック終了
+    #[test]
+    fn test_name_no_attrs_no_contents_block_end() {
+        let (r, p, w) = test_parser(parse_inline_tag, ":tag");
+
+        let tag = r.unwrap().unwrap();
+        assert_model(&tag, r#"{"it":"tag"}"#);
+
+        assert_eq!(p, Position::new(1, 5));
+
+        assert!(w.is_empty());
+    }
+
+    /// タグ名あり、属性あり、内容なし、終端は空白
+    #[test]
+    fn test_name_attrs_no_contents_space() {
+        let (r, p, w) = test_parser(parse_inline_tag, ":tag[a=x,b=\"yy\",123] ");
+
+        let tag = r.unwrap().unwrap();
+        assert_model(&tag, r#"{"it":"tag", "a":{"a":"x","b":"yy"}, "v":["123"]}"#);
+
+        assert_eq!(p, Position::new(1, 21));
+
+        assert!(w.is_empty());
+    }
+
+    /// タグ名あり、属性あり、内容なし、終端は改行
+    #[test]
+    fn test_name_attrs_no_contents_wrap() {
+        let (r, p, w) = test_parser(parse_inline_tag, ":tag[a=x,b=\"yy\",123]\n ");
+
+        let tag = r.unwrap().unwrap();
+        assert_model(&tag, r#"{"it":"tag", "a":{"a":"x","b":"yy"}, "v":["123"]}"#);
+
+        assert_eq!(p, Position::new(1, 21));
+
+        assert!(w.is_empty());
+    }
+
+    /// タグ名あり、属性あり、内容なし、終端はブロック終了
+    #[test]
+    fn test_name_attrs_no_contents_block_end() {
+        let (r, p, w) = test_parser(parse_inline_tag, ":tag[a=x,b=\"yy\",123]");
+
+        let tag = r.unwrap().unwrap();
+        assert_model(&tag, r#"{"it":"tag", "a":{"a":"x","b":"yy"}, "v":["123"]}"#);
+
+        assert_eq!(p, Position::new(1, 21));
+
+        assert!(w.is_empty());
+    }
+
+    /// タグ名あり、属性なし、内容あり、終端は空白
+    #[test]
+    fn test_name_no_attrs_contents_space() {
+        let (r, p, w) = test_parser(parse_inline_tag, ":tag{zzz:b{bold}???} ");
+
+        let tag = r.unwrap().unwrap();
+        assert_model(
+            &tag,
+            r#"{"it":"tag", "c":[
+                "zzz",
+                {"it":"b","c":["bold"]},
+                "???"
+            ]}"#,
+        );
+
+        assert_eq!(p, Position::new(1, 21));
+
+        assert!(w.is_empty());
+    }
+
+    /// タグ名あり、属性なし、内容あり、終端は改行
+    #[test]
+    fn test_name_no_attrs_contents_wrap() {
+        let (r, p, w) = test_parser(parse_inline_tag, ":tag{zzz:b{bold}???}\n ");
+
+        let tag = r.unwrap().unwrap();
+        assert_model(
+            &tag,
+            r#"{"it":"tag", "c":[
+                "zzz",
+                {"it":"b","c":["bold"]},
+                "???"
+            ]}"#,
+        );
+
+        assert_eq!(p, Position::new(1, 21));
+
+        assert!(w.is_empty());
+    }
+
+    /// タグ名あり、属性なし、内容あり、終端はブロック終了
+    #[test]
+    fn test_name_no_attrs_contents_block_end() {
+        let (r, p, w) = test_parser(parse_inline_tag, ":tag{zzz:b{bold}???}");
+
+        let tag = r.unwrap().unwrap();
+        assert_model(
+            &tag,
+            r#"{"it":"tag", "c":[
+                "zzz",
+                {"it":"b","c":["bold"]},
+                "???"
+            ]}"#,
+        );
+
+        assert_eq!(p, Position::new(1, 21));
+
+        assert!(w.is_empty());
+    }
+
+    /// タグ名あり、属性あり、内容あり、終端は空白
+    #[test]
+    fn test_name_attrs_contents_space() {
+        let (result, position, warnings) =
+            test_parser(parse_inline_tag, ":tag[a=x,b=\"yy\",123]{zzz:b{bold}???} ");
+
+        let tag = result.unwrap().unwrap();
         assert_model(
             &tag,
             r#"{
@@ -235,19 +372,260 @@ mod test_parse_inline_tag {
             }"#,
         );
 
-        assert!(warnings.is_empty());
+        assert_eq!(position, Position::new(1, 37));
 
-        Ok(())
+        assert_eq!(warnings.len(), 0);
     }
 
+    /// タグ名あり、属性あり、内容あり、終端は改行
     #[test]
-    fn test_raw() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream(":code[a=x,b=\"yy\",123]{zzz:b{bold}???}")?;
-        us.read();
-        let mut warnings = vec![];
-        let mut context = ParseContext::new(&mut warnings);
-        let tag = parse_inline_tag(&mut us, &mut context).unwrap().unwrap();
+    fn test_name_attrs_contents_wrap() {
+        let (result, position, warnings) = test_parser(
+            parse_inline_tag,
+            ":tag[a=x,b=\"yy\",123]{zzz:b{bold}???}\n ",
+        );
 
+        let tag = result.unwrap().unwrap();
+        assert_model(
+            &tag,
+            r#"{
+                "it":"tag",
+                "a":{"a":"x","b":"yy"},
+                "v":["123"],
+                "c":[
+                    "zzz",
+                    {"it":"b","c":["bold"]},
+                    "???"
+                ]
+            }"#,
+        );
+
+        assert_eq!(position, Position::new(1, 37));
+
+        assert_eq!(warnings.len(), 0);
+    }
+
+    /// タグ名あり、属性あり、内容あり、終端はブロック終了
+    #[test]
+    fn test_name_attrs_contents_block_end() {
+        let (result, position, warnings) =
+            test_parser(parse_inline_tag, ":tag[a=x,b=\"yy\",123]{zzz:b{bold}???}");
+
+        let tag = result.unwrap().unwrap();
+        assert_model(
+            &tag,
+            r#"{
+                "it":"tag",
+                "a":{"a":"x","b":"yy"},
+                "v":["123"],
+                "c":[
+                    "zzz",
+                    {"it":"b","c":["bold"]},
+                    "???"
+                ]
+            }"#,
+        );
+
+        assert_eq!(position, Position::new(1, 37));
+
+        assert_eq!(warnings.len(), 0);
+    }
+
+    /// タグ名なし、属性なし、内容なし、終端は空白
+    #[test]
+    fn test_no_name_no_attrs_no_contents_space() {
+        let (result, position, warnings) = test_parser(parse_inline_tag, ": ");
+
+        let tag = result.unwrap().unwrap();
+        assert_model(&tag, r#"{"it":""}"#);
+
+        assert_eq!(position, Position::new(1, 2));
+
+        assert_eq!(warnings.len(), 0);
+    }
+
+    /// タグ名なし、属性なし、内容なし、終端は改行
+    #[test]
+    fn test_no_name_no_attrs_no_contents_wrap() {
+        let (result, position, warnings) = test_parser(parse_inline_tag, ":\n ");
+
+        let tag = result.unwrap().unwrap();
+        assert_model(&tag, r#"{"it":""}"#);
+
+        assert_eq!(position, Position::new(1, 2));
+
+        assert_eq!(warnings.len(), 0);
+    }
+
+    /// タグ名なし、属性なし、内容なし、終端はブロック終了
+    #[test]
+    fn test_no_name_no_attrs_no_contents_block_end() {
+        let (result, position, warnings) = test_parser(parse_inline_tag, ":");
+
+        let tag = result.unwrap().unwrap();
+        assert_model(&tag, r#"{"it":""}"#);
+
+        assert_eq!(position, Position::new(1, 2));
+
+        assert_eq!(warnings.len(), 0);
+    }
+
+    /// タグ名なし、属性あり、内容なし、終端は空白
+    #[test]
+    fn test_no_name_attrs_no_contents_space() {
+        let (result, position, warnings) = test_parser(parse_inline_tag, ":[aa,b=c] ");
+
+        let tag = result.unwrap().unwrap();
+        assert_model(&tag, r#"{"it":"", "a":{"b":"c"}, "v":["aa"]}"#);
+
+        assert_eq!(position, Position::new(1, 10));
+
+        assert_eq!(warnings.len(), 0);
+    }
+
+    /// タグ名なし、属性あり、内容なし、終端は改行
+    #[test]
+    fn test_no_name_attrs_no_contents_wrap() {
+        let (result, position, warnings) = test_parser(parse_inline_tag, ":[aa,b=c]\n ");
+
+        let tag = result.unwrap().unwrap();
+        assert_model(&tag, r#"{"it":"", "a":{"b":"c"}, "v":["aa"]}"#);
+
+        assert_eq!(position, Position::new(1, 10));
+
+        assert_eq!(warnings.len(), 0);
+    }
+
+    /// タグ名なし、属性あり、内容なし、終端はブロック終了
+    #[test]
+    fn test_no_name_attrs_no_contents_block_end() {
+        let (result, position, warnings) = test_parser(parse_inline_tag, ":[aa,b=c]");
+
+        let tag = result.unwrap().unwrap();
+        assert_model(&tag, r#"{"it":"", "a":{"b":"c"}, "v":["aa"]}"#);
+
+        assert_eq!(position, Position::new(1, 10));
+
+        assert_eq!(warnings.len(), 0);
+    }
+
+    /// タグ名なし、属性なし、内容あり、終端は空白
+    #[test]
+    fn test_no_name_no_attrs_contents_space() {
+        let (result, position, warnings) = test_parser(parse_inline_tag, ":{xxx} ");
+
+        let tag = result.unwrap().unwrap();
+        assert_model(&tag, r#"{"it":"", "c":["xxx"]}"#);
+
+        assert_eq!(position, Position::new(1, 7));
+
+        assert_eq!(warnings.len(), 0);
+    }
+
+    /// タグ名なし、属性なし、内容あり、終端は改行
+    #[test]
+    fn test_no_name_no_attrs_contents_wrap() {
+        let (result, position, warnings) = test_parser(parse_inline_tag, ":{xxx}\n ");
+
+        let tag = result.unwrap().unwrap();
+        assert_model(&tag, r#"{"it":"", "c":["xxx"]}"#);
+
+        assert_eq!(position, Position::new(1, 7));
+
+        assert_eq!(warnings.len(), 0);
+    }
+
+    /// タグ名なし、属性なし、内容あり、終端はブロック終了
+    #[test]
+    fn test_no_name_no_attrs_contents_block_end() {
+        let (result, position, warnings) = test_parser(parse_inline_tag, ":{xxx}");
+
+        let tag = result.unwrap().unwrap();
+        assert_model(&tag, r#"{"it":"", "c":["xxx"]}"#);
+
+        assert_eq!(position, Position::new(1, 7));
+
+        assert_eq!(warnings.len(), 0);
+    }
+
+    /// タグ名なし、属性あり、内容あり、終端は空白
+    #[test]
+    fn test_no_name_attrs_contents_space() {
+        let (result, position, warnings) = test_parser(parse_inline_tag, ":[aa,b=c]{xxx} ");
+
+        let tag = result.unwrap().unwrap();
+        assert_model(&tag, r#"{"it":"", "a":{"b":"c"}, "v":["aa"], "c":["xxx"]}"#);
+
+        assert_eq!(position, Position::new(1, 15));
+
+        assert_eq!(warnings.len(), 0);
+    }
+
+    /// タグ名なし、属性あり、内容あり、終端は改行
+    #[test]
+    fn test_no_name_attrs_contents_wrap() {
+        let (result, position, warnings) = test_parser(parse_inline_tag, ":[aa,b=c]{xxx}\n ");
+
+        let tag = result.unwrap().unwrap();
+        assert_model(&tag, r#"{"it":"", "a":{"b":"c"}, "v":["aa"], "c":["xxx"]}"#);
+
+        assert_eq!(position, Position::new(1, 15));
+
+        assert_eq!(warnings.len(), 0);
+    }
+
+    /// タグ名なし、属性あり、内容あり、終端はブロック終了
+    #[test]
+    fn test_no_name_attrs_contents_block_end() {
+        let (result, position, warnings) = test_parser(parse_inline_tag, ":[aa,b=c]{xxx}");
+
+        let tag = result.unwrap().unwrap();
+        assert_model(&tag, r#"{"it":"", "a":{"b":"c"}, "v":["aa"], "c":["xxx"]}"#);
+
+        assert_eq!(position, Position::new(1, 15));
+
+        assert_eq!(warnings.len(), 0);
+    }
+
+    /// 最初がコロンではない
+    #[test]
+    fn test_no_colon() {
+        let (result, _, warnings) = test_parser(parse_inline_tag, "{xxx}");
+
+        assert!(result.unwrap().is_none());
+
+        assert_eq!(warnings.len(), 0);
+    }
+
+    /// コロンの後に不正な文字
+    #[test]
+    fn test_colon_followed_by_illegal_character() {
+        let (result, _, warnings) = test_parser(parse_inline_tag, ":$");
+
+        assert!(result.unwrap().is_none());
+
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(&warnings[0].message, "There is an illegal character. '$'");
+    }
+
+    /// タグ名の後に不正な文字
+    #[test]
+    fn test_name_followed_by_illegal_character() {
+        let (result, _, warnings) = test_parser(parse_inline_tag, ":tag;");
+
+        assert!(result.unwrap().is_none());
+
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(&warnings[0].message, "There is an illegal character. ';'");
+    }
+
+    /// rawタグなら内容のタグをパースしない
+    #[test]
+    fn test_raw() {
+        let (result, position, warnings) =
+            test_parser(parse_inline_tag, ":code[a=x,b=\"yy\",123]{zzz:b{bold}???}");
+
+        let tag = result.unwrap().unwrap();
         assert_model(
             &tag,
             r#"{
@@ -258,58 +636,18 @@ mod test_parse_inline_tag {
             }"#,
         );
 
-        assert!(warnings.is_empty());
+        assert_eq!(position, Position::new(1, 38));
 
-        Ok(())
-    }
-
-    #[test]
-    fn test_no_contents() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream(":tag[a]")?;
-        us.read();
-        let mut warnings = vec![];
-        let mut context = ParseContext::new(&mut warnings);
-        let tag = parse_inline_tag(&mut us, &mut context).unwrap().unwrap();
-
-        assert_model(
-            &tag,
-            r#"{
-                "it":"tag",
-                "v":["a"]
-            }"#,
-        );
-
-        assert!(warnings.is_empty());
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_no_contents_without_attr() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream(":tag;")?;
-        us.read();
-        let mut warnings = vec![];
-        let mut context = ParseContext::new(&mut warnings);
-        let tag = parse_inline_tag(&mut us, &mut context).unwrap();
-
-        assert!(tag.is_none());
-
-        assert_eq!(warnings.len(), 1);
-        assert_eq!(&warnings[0].message, "There is an illegal character. ';'");
-
-        Ok(())
+        assert_eq!(warnings.len(), 0);
     }
 
     /// ネスト
     /// 属性なし
     #[test]
-    fn test_nest() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream(":a:b{ccc}")?;
-        us.read();
-        let mut warnings = vec![];
-        let mut context = ParseContext::new(&mut warnings);
-        let tag = parse_inline_tag(&mut us, &mut context).unwrap().unwrap();
+    fn test_nest_no_attrs() {
+        let (result, position, warnings) = test_parser(parse_inline_tag, ":a:b{ccc}");
 
+        let tag = result.unwrap().unwrap();
         assert_model(
             &tag,
             r#"{
@@ -318,21 +656,18 @@ mod test_parse_inline_tag {
             }"#,
         );
 
-        assert!(warnings.is_empty());
+        assert_eq!(position, Position::new(1, 10));
 
-        Ok(())
+        assert_eq!(warnings.len(), 0);
     }
 
     /// ネスト
     /// 属性あり
     #[test]
     fn test_nest_with_attr() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream(":a[x=1]:b[y=2]{ccc}")?;
-        us.read();
-        let mut warnings = vec![];
-        let mut context = ParseContext::new(&mut warnings);
-        let tag = parse_inline_tag(&mut us, &mut context).unwrap().unwrap();
+        let (result, position, warnings) = test_parser(parse_inline_tag, ":a[x=1]:b[y=2]{ccc}");
 
+        let tag = result.unwrap().unwrap();
         assert_model(
             &tag,
             r#"{
@@ -342,7 +677,9 @@ mod test_parse_inline_tag {
             }"#,
         );
 
-        assert!(warnings.is_empty());
+        assert_eq!(position, Position::new(1, 20));
+
+        assert_eq!(warnings.len(), 0);
 
         Ok(())
     }
@@ -351,13 +688,10 @@ mod test_parse_inline_tag {
     /// 親がrawタグならネストを許可しない
     #[test]
     fn test_nest_parent_raw() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream(":code:b{ccc}")?;
-        us.read();
-        let mut warnings = vec![];
-        let mut context = ParseContext::new(&mut warnings);
-        let tag = parse_inline_tag(&mut us, &mut context).unwrap();
+        let (result, _, warnings) = test_parser(parse_inline_tag, ":code:b{ccc}");
 
-        assert!(tag.is_none());
+        assert!(result.unwrap().is_none());
+
         assert_eq!(warnings.len(), 1);
         assert_eq!(&warnings[0].message, "There is an illegal character. ':'");
 
@@ -368,21 +702,17 @@ mod test_parse_inline_tag {
 #[cfg(test)]
 mod test_parse_inline_tag_contents {
     use super::parse_inline_tag_contents;
-    use crate::build::step2::test_utils::unit_stream;
+    use crate::build::step1::Position;
     use crate::build::step3::test_utils::assert_model;
-    use crate::build::step3::ParseContext;
+    use crate::build::step3::test_utils::test_parser;
     use std::error::Error;
 
     #[test]
     fn test_normal() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream("{abc:tag{xxx}zzz}")?;
-        us.read();
-        let mut warnings = vec![];
-        let mut context = ParseContext::new(&mut warnings);
-        let result = parse_inline_tag_contents(&mut us, &mut context)
-            .unwrap()
-            .unwrap();
+        let (result, position, warnings) =
+            test_parser(parse_inline_tag_contents, "{abc:tag{xxx}zzz}");
 
+        let result = result.unwrap().unwrap();
         assert_eq!(result.len(), 3);
         assert_model(result[0].as_ref(), r#""abc""#);
         assert_model(
@@ -394,6 +724,8 @@ mod test_parse_inline_tag_contents {
         );
         assert_eq!(result[2].to_json(), r#""zzz""#.to_owned());
 
+        assert_eq!(position, Position::new(1, 18));
+
         assert_eq!(warnings.len(), 0);
 
         Ok(())
@@ -401,16 +733,14 @@ mod test_parse_inline_tag_contents {
 
     #[test]
     fn test_raw() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream("{abc:tag{xxx}zzz}")?;
-        us.read();
-        let mut warnings = vec![];
-        let mut context = ParseContext::new(&mut warnings);
-        let result = parse_inline_tag_contents(&mut us, &mut context.change_parse_mode(false))
-            .unwrap()
-            .unwrap();
+        let (result, position, warnings) =
+            test_parser(parse_inline_tag_contents, "!r!{abc:tag{xxx}zzz}");
 
+        let result = result.unwrap().unwrap();
         assert_eq!(result.len(), 1);
         assert_model(result[0].as_ref(), r#""abc:tag{xxx}zzz""#);
+
+        assert_eq!(position, Position::new(1, 21));
 
         assert_eq!(warnings.len(), 0);
 
@@ -419,13 +749,9 @@ mod test_parse_inline_tag_contents {
 
     #[test]
     fn test_no_bracket() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream("abc:tag{xxx}zzz}")?;
-        us.read();
-        let mut warnings = vec![];
-        let mut context = ParseContext::new(&mut warnings);
-        let result = parse_inline_tag_contents(&mut us, &mut context).unwrap();
+        let (result, _, warnings) = test_parser(parse_inline_tag_contents, "abc:tag{xxx}zzz}");
 
-        assert!(result.is_none());
+        assert!(result.unwrap().is_none());
 
         assert_eq!(warnings.len(), 0);
 
@@ -434,16 +760,14 @@ mod test_parse_inline_tag_contents {
 
     #[test]
     fn test_count_brackets() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream("{abc{{xxx}zzz}}??")?;
-        us.read();
-        let mut warnings = vec![];
-        let mut context = ParseContext::new(&mut warnings);
-        let result = parse_inline_tag_contents(&mut us, &mut context)
-            .unwrap()
-            .unwrap();
+        let (result, position, warnings) =
+            test_parser(parse_inline_tag_contents, "{abc{{xxx}zzz}}??");
 
+        let result = result.unwrap().unwrap();
         assert_eq!(result.len(), 1);
         assert_model(result[0].as_ref(), r#""abc{{xxx}zzz}""#);
+
+        assert_eq!(position, Position::new(1, 16));
 
         assert_eq!(warnings.len(), 0);
 
@@ -452,16 +776,13 @@ mod test_parse_inline_tag_contents {
 
     #[test]
     fn test_new_line() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream("{abc\nxxx}")?;
-        us.read();
-        let mut warnings = vec![];
-        let mut context = ParseContext::new(&mut warnings);
-        let result = parse_inline_tag_contents(&mut us, &mut context)
-            .unwrap()
-            .unwrap();
+        let (result, position, warnings) = test_parser(parse_inline_tag_contents, "{abc\nxxx}");
 
+        let result = result.unwrap().unwrap();
         assert_eq!(result.len(), 1);
         assert_model(result[0].as_ref(), r#""abc\nxxx""#);
+
+        assert_eq!(position, Position::new(2, 5));
 
         assert_eq!(warnings.len(), 0);
 
@@ -470,13 +791,9 @@ mod test_parse_inline_tag_contents {
 
     #[test]
     fn test_eof() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream("{abc")?;
-        us.read();
-        let mut warnings = vec![];
-        let mut context = ParseContext::new(&mut warnings);
-        let result = parse_inline_tag_contents(&mut us, &mut context).unwrap();
+        let (result, _, warnings) = test_parser(parse_inline_tag_contents, "{abc");
 
-        assert!(result.is_none());
+        assert!(result.unwrap().is_none());
 
         assert_eq!(warnings.len(), 1);
         assert_eq!(warnings[0].message, "} is required.");
@@ -486,15 +803,12 @@ mod test_parse_inline_tag_contents {
 
     #[test]
     fn test_empty() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream("{}")?;
-        us.read();
-        let mut warnings = vec![];
-        let mut context = ParseContext::new(&mut warnings);
-        let result = parse_inline_tag_contents(&mut us, &mut context)
-            .unwrap()
-            .unwrap();
+        let (result, position, warnings) = test_parser(parse_inline_tag_contents, "{}");
 
+        let result = result.unwrap().unwrap();
         assert_eq!(result.len(), 0);
+
+        assert_eq!(position, Position::new(1, 3));
 
         assert_eq!(warnings.len(), 0);
 
