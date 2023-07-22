@@ -82,9 +82,6 @@ pub fn parse_attributes(
     let mut attributes = HashMap::new();
     let mut nameless_attribute_values = vec![];
 
-    // 次の属性の前に区切り文字が必要か
-    let mut need_separator = false;
-
     loop {
         match unit_stream.peek() {
             Unit::Char(c) => match c {
@@ -92,48 +89,29 @@ pub fn parse_attributes(
                     unit_stream.read();
                     break;
                 }
-                ',' => {
-                    if !need_separator {
-                        context.warn(
-                            unit_stream.file_position(),
-                            "It's a comma you don't need.".to_owned(),
-                        );
-                        return Ok(None);
-                    }
-                    need_separator = false;
-                    unit_stream.read();
-                }
                 ' ' => {
                     unit_stream.read();
                 }
-                _ => {
-                    if need_separator {
-                        context.warn(unit_stream.file_position(), "',' is required.".to_owned());
+                _ => match call_parser(parse_attribute, unit_stream, context)? {
+                    Some((attribute_name, attribute_value)) => {
+                        if let Some(attribute_name) = attribute_name {
+                            match attributes.entry(attribute_name) {
+                                Entry::Occupied(_) => context.warn(
+                                    unit_stream.file_position(),
+                                    "The attributes are duplicated.".to_owned(),
+                                ),
+                                Entry::Vacant(entry) => {
+                                    entry.insert(attribute_value);
+                                }
+                            }
+                        } else {
+                            nameless_attribute_values.push(attribute_value);
+                        }
+                    }
+                    None => {
                         return Ok(None);
                     }
-
-                    match call_parser(parse_attribute, unit_stream, context)? {
-                        Some((attribute_name, attribute_value)) => {
-                            if let Some(attribute_name) = attribute_name {
-                                match attributes.entry(attribute_name) {
-                                    Entry::Occupied(_) => context.warn(
-                                        unit_stream.file_position(),
-                                        "The attributes are duplicated.".to_owned(),
-                                    ),
-                                    Entry::Vacant(entry) => {
-                                        entry.insert(attribute_value);
-                                    }
-                                }
-                            } else {
-                                nameless_attribute_values.push(attribute_value);
-                            }
-                            need_separator = true;
-                        }
-                        None => {
-                            return Ok(None);
-                        }
-                    }
-                }
+                },
             },
             Unit::NewLine => {
                 unit_stream.read();
@@ -281,7 +259,7 @@ fn parse_simple_attribute_value(
                     );
                     return Ok(None);
                 }
-                ',' | ']' => break,
+                ' ' | ']' => break,
                 _ => {
                     attribute_value.push(c);
                     unit_stream.read();
@@ -318,14 +296,14 @@ mod test_parse_attributes {
 
     #[test]
     fn test_normal() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream("[a=xxx,b=\"y,y\"\"y\",\n    zzz]")?;
+        let mut us = unit_stream("[a=xxx b=\"y y\"\"y\"\n    zzz]")?;
         us.read();
         let mut warnings = vec![];
         let mut context = ParseContext::new(&mut warnings);
         let (attributes, values) = parse_attributes(&mut us, &mut context).unwrap().unwrap();
         assert_eq!(attributes.len(), 2);
         assert_eq!(attributes["a"], "xxx");
-        assert_eq!(attributes["b"], "y,y\"y");
+        assert_eq!(attributes["b"], "y y\"y");
         assert_eq!(values.len(), 1);
         assert_eq!(values[0], "zzz");
         assert_eq!(warnings.len(), 0);
@@ -335,7 +313,7 @@ mod test_parse_attributes {
     /// 同じ属性名があったら警告
     #[test]
     fn test_duplicated_key() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream("[a=xxx,a=yyy]")?;
+        let mut us = unit_stream("[a=xxx a=yyy]")?;
         us.read();
         let mut warnings = vec![];
         let mut context = ParseContext::new(&mut warnings);
@@ -361,31 +339,19 @@ mod test_parse_attributes {
         Ok(())
     }
 
-    /// 余分なカンマがあると不適合
-    #[test]
-    fn test_unnecessary_comma() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream("[a=x,,b=y]")?;
-        us.read();
-        let mut warnings = vec![];
-        let mut context = ParseContext::new(&mut warnings);
-        let result = parse_attributes(&mut us, &mut context).unwrap();
-        assert_eq!(&result, &None);
-        assert_eq!(warnings.len(), 1);
-        assert_eq!(&warnings[0].message, "It's a comma you don't need.");
-        Ok(())
-    }
-
-    /// 必要なカンマがないと不適合
+    /// 区切り文字なしで連続していてもOK
     #[test]
     fn test_missing_comma() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream("[a=\"x\"b=y]")?;
         us.read();
         let mut warnings = vec![];
         let mut context = ParseContext::new(&mut warnings);
-        let result = parse_attributes(&mut us, &mut context).unwrap();
-        assert_eq!(&result, &None);
-        assert_eq!(warnings.len(), 1);
-        assert_eq!(&warnings[0].message, "',' is required.");
+        let (attributes, values) = parse_attributes(&mut us, &mut context).unwrap().unwrap();
+        assert_eq!(attributes.len(), 2);
+        assert_eq!(attributes["a"], "x");
+        assert_eq!(attributes["b"], "y");
+        assert_eq!(values.len(), 0);
+        assert_eq!(warnings.len(), 0);
         Ok(())
     }
 
@@ -406,7 +372,7 @@ mod test_parse_attributes {
     /// EOFが出現したら不適合
     #[test]
     fn test_eof() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream("[a=x,b=y")?;
+        let mut us = unit_stream("[a=x b=y")?;
         us.read();
         let mut warnings = vec![];
         let mut context = ParseContext::new(&mut warnings);
@@ -427,7 +393,7 @@ mod test_parse_attribute {
 
     #[test]
     fn test_simple_value() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream("a=xxx,")?;
+        let mut us = unit_stream("a=xxx ")?;
         us.read();
         us.set_indent_check_mode(false);
         let mut warnings = vec![];
@@ -469,7 +435,7 @@ mod test_parse_attribute {
 
     #[test]
     fn test_nameless_quoted_value() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream("\"xxx\"\n  ,")?;
+        let mut us = unit_stream("\"xxx\"\n   ")?;
         us.read();
         us.set_indent_check_mode(false);
         let mut warnings = vec![];
@@ -484,7 +450,7 @@ mod test_parse_attribute {
     /// 属性名が不正なら不適合
     #[test]
     fn test_bad_name() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream("$=xxx,")?;
+        let mut us = unit_stream("$=xxx ")?;
         us.read();
         us.set_indent_check_mode(false);
         let mut warnings = vec![];
@@ -499,7 +465,7 @@ mod test_parse_attribute {
     /// 属性名の後が"="でなければ不適合
     #[test]
     fn test_no_equal_sign() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream("a\"xxx,")?;
+        let mut us = unit_stream("a\"xxx ")?;
         us.read();
         us.set_indent_check_mode(false);
         let mut warnings = vec![];
@@ -513,7 +479,7 @@ mod test_parse_attribute {
     /// 開始が"="なら不適合
     #[test]
     fn test_starts_with_equal_sign() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream("=xxx,")?;
+        let mut us = unit_stream("=xxx ")?;
         us.read();
         us.set_indent_check_mode(false);
         let mut warnings = vec![];
@@ -528,7 +494,7 @@ mod test_parse_attribute {
     /// 値が空
     #[test]
     fn test_empty_value() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream("a=,")?;
+        let mut us = unit_stream("a= ")?;
         us.read();
         us.set_indent_check_mode(false);
         let mut warnings = vec![];
@@ -551,7 +517,7 @@ mod test_parse_quoted_attribute_value {
 
     #[test]
     fn test_normal() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream("\"xxx\",")?;
+        let mut us = unit_stream("\"xxx\" x")?;
         us.read();
         us.set_indent_check_mode(false);
         let mut warnings = vec![];
@@ -566,7 +532,7 @@ mod test_parse_quoted_attribute_value {
     /// 引用符がなければ不適合
     #[test]
     fn test_no_quotations() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream("xxx,")?;
+        let mut us = unit_stream("xxx ")?;
         us.read();
         us.set_indent_check_mode(false);
         let mut warnings = vec![];
@@ -580,7 +546,7 @@ mod test_parse_quoted_attribute_value {
     /// 内容に引用符を含む
     #[test]
     fn test_has_quotations() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream("\"xx\"\"zz\",")?;
+        let mut us = unit_stream("\"xx\"\"zz\" x")?;
         us.read();
         us.set_indent_check_mode(false);
         let mut warnings = vec![];
@@ -595,7 +561,7 @@ mod test_parse_quoted_attribute_value {
     /// 連続した引用符を含む
     #[test]
     fn test_has_two_quotations() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream("\"xx\"\"\"\"zz\",")?;
+        let mut us = unit_stream("\"xx\"\"\"\"zz\" x")?;
         us.read();
         us.set_indent_check_mode(false);
         let mut warnings = vec![];
@@ -670,7 +636,7 @@ mod test_parse_simple_attribute_value {
     /// カンマで終了
     #[test]
     fn test_ends_with_comma() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream("xxx,")?;
+        let mut us = unit_stream("xxx x")?;
         us.read();
         us.set_indent_check_mode(false);
         let mut warnings = vec![];
@@ -730,7 +696,7 @@ mod test_parse_simple_attribute_value {
     /// 引用符があれば不適合
     #[test]
     fn test_has_quotations() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream("xx\",")?;
+        let mut us = unit_stream("xx\"")?;
         us.read();
         us.set_indent_check_mode(false);
         let mut warnings = vec![];
@@ -748,7 +714,7 @@ mod test_parse_simple_attribute_value {
     /// 等号があれば不適合
     #[test]
     fn test_has_equal_signs() -> Result<(), Box<dyn Error>> {
-        let mut us = unit_stream("xx=,")?;
+        let mut us = unit_stream("xx= x")?;
         us.read();
         us.set_indent_check_mode(false);
         let mut warnings = vec![];

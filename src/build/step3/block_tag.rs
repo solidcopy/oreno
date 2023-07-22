@@ -138,7 +138,7 @@ mod test_parse_block_tag {
     #[test]
     fn test_normal() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream(indoc! {r#"
-            :tag[a=x,b="yy",123]
+            :tag[a=x b="yy" 123]
                 zzz
                 :b{bold}
             

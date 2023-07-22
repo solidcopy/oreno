@@ -102,7 +102,7 @@ impl UnitStream {
                                         // 再実行でEOFが読み込まれるのでEOFモードになる
                                         return self.read();
                                     }
-                                    (Some(_), position) => {
+                                    (Some(_), _) => {
                                         self.char_stream.reset(mark);
                                         return (Unit::Char(' '), Some(position));
                                     }

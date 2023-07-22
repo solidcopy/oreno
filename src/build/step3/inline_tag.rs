@@ -255,7 +255,7 @@ mod test_parse_inline_tag {
     /// タグ名あり、属性あり、内容なし、終端は空白
     #[test]
     fn test_name_attrs_no_contents_space() {
-        let (r, p, w) = test_parser(parse_inline_tag, ":tag[a=x,b=\"yy\",123] ");
+        let (r, p, w) = test_parser(parse_inline_tag, ":tag[a=x b=\"yy\" 123] ");
 
         let tag = r.unwrap().unwrap();
         assert_model(&tag, r#"{"it":"tag", "a":{"a":"x","b":"yy"}, "v":["123"]}"#);
@@ -268,12 +268,12 @@ mod test_parse_inline_tag {
     /// タグ名あり、属性あり、内容なし、終端は改行
     #[test]
     fn test_name_attrs_no_contents_wrap() {
-        let (r, p, w) = test_parser(parse_inline_tag, ":tag[a=x,b=\"yy\",123]\n ");
+        let (r, p, w) = test_parser(parse_inline_tag, ":tag[a=x b=\"yy\"123]\n ");
 
         let tag = r.unwrap().unwrap();
         assert_model(&tag, r#"{"it":"tag", "a":{"a":"x","b":"yy"}, "v":["123"]}"#);
 
-        assert_eq!(p, Position::new(1, 21));
+        assert_eq!(p, Position::new(1, 20));
 
         assert!(w.is_empty());
     }
@@ -281,12 +281,12 @@ mod test_parse_inline_tag {
     /// タグ名あり、属性あり、内容なし、終端はブロック終了
     #[test]
     fn test_name_attrs_no_contents_block_end() {
-        let (r, p, w) = test_parser(parse_inline_tag, ":tag[a=x,b=\"yy\",123]");
+        let (r, p, w) = test_parser(parse_inline_tag, ":tag[a=x b=\"yy\"   123]");
 
         let tag = r.unwrap().unwrap();
         assert_model(&tag, r#"{"it":"tag", "a":{"a":"x","b":"yy"}, "v":["123"]}"#);
 
-        assert_eq!(p, Position::new(1, 21));
+        assert_eq!(p, Position::new(1, 23));
 
         assert!(w.is_empty());
     }
@@ -355,7 +355,7 @@ mod test_parse_inline_tag {
     #[test]
     fn test_name_attrs_contents_space() {
         let (result, position, warnings) =
-            test_parser(parse_inline_tag, ":tag[a=x,b=\"yy\",123]{zzz:b{bold}???} ");
+            test_parser(parse_inline_tag, ":tag[a=x b=\"yy\" 123]{zzz:b{bold}???} ");
 
         let tag = result.unwrap().unwrap();
         assert_model(
@@ -380,10 +380,8 @@ mod test_parse_inline_tag {
     /// タグ名あり、属性あり、内容あり、終端は改行
     #[test]
     fn test_name_attrs_contents_wrap() {
-        let (result, position, warnings) = test_parser(
-            parse_inline_tag,
-            ":tag[a=x,b=\"yy\",123]{zzz:b{bold}???}\n ",
-        );
+        let (result, position, warnings) =
+            test_parser(parse_inline_tag, ":tag[a=x b=\"yy\"123]{zzz:b{bold}???}\n ");
 
         let tag = result.unwrap().unwrap();
         assert_model(
@@ -400,7 +398,7 @@ mod test_parse_inline_tag {
             }"#,
         );
 
-        assert_eq!(position, Position::new(1, 37));
+        assert_eq!(position, Position::new(1, 36));
 
         assert_eq!(warnings.len(), 0);
     }
@@ -409,7 +407,7 @@ mod test_parse_inline_tag {
     #[test]
     fn test_name_attrs_contents_block_end() {
         let (result, position, warnings) =
-            test_parser(parse_inline_tag, ":tag[a=x,b=\"yy\",123]{zzz:b{bold}???}");
+            test_parser(parse_inline_tag, ":tag[a=x b=\"yy\" 123]{zzz:b{bold}???}");
 
         let tag = result.unwrap().unwrap();
         assert_model(
@@ -473,7 +471,7 @@ mod test_parse_inline_tag {
     /// タグ名なし、属性あり、内容なし、終端は空白
     #[test]
     fn test_no_name_attrs_no_contents_space() {
-        let (result, position, warnings) = test_parser(parse_inline_tag, ":[aa,b=c] ");
+        let (result, position, warnings) = test_parser(parse_inline_tag, ":[aa b=c] ");
 
         let tag = result.unwrap().unwrap();
         assert_model(&tag, r#"{"it":"", "a":{"b":"c"}, "v":["aa"]}"#);
@@ -486,7 +484,7 @@ mod test_parse_inline_tag {
     /// タグ名なし、属性あり、内容なし、終端は改行
     #[test]
     fn test_no_name_attrs_no_contents_wrap() {
-        let (result, position, warnings) = test_parser(parse_inline_tag, ":[aa,b=c]\n ");
+        let (result, position, warnings) = test_parser(parse_inline_tag, ":[aa b=c]\n ");
 
         let tag = result.unwrap().unwrap();
         assert_model(&tag, r#"{"it":"", "a":{"b":"c"}, "v":["aa"]}"#);
@@ -499,7 +497,7 @@ mod test_parse_inline_tag {
     /// タグ名なし、属性あり、内容なし、終端はブロック終了
     #[test]
     fn test_no_name_attrs_no_contents_block_end() {
-        let (result, position, warnings) = test_parser(parse_inline_tag, ":[aa,b=c]");
+        let (result, position, warnings) = test_parser(parse_inline_tag, ":[aa b=c]");
 
         let tag = result.unwrap().unwrap();
         assert_model(&tag, r#"{"it":"", "a":{"b":"c"}, "v":["aa"]}"#);
@@ -551,7 +549,7 @@ mod test_parse_inline_tag {
     /// タグ名なし、属性あり、内容あり、終端は空白
     #[test]
     fn test_no_name_attrs_contents_space() {
-        let (result, position, warnings) = test_parser(parse_inline_tag, ":[aa,b=c]{xxx} ");
+        let (result, position, warnings) = test_parser(parse_inline_tag, ":[aa b=c]{xxx} ");
 
         let tag = result.unwrap().unwrap();
         assert_model(&tag, r#"{"it":"", "a":{"b":"c"}, "v":["aa"], "c":["xxx"]}"#);
@@ -564,7 +562,7 @@ mod test_parse_inline_tag {
     /// タグ名なし、属性あり、内容あり、終端は改行
     #[test]
     fn test_no_name_attrs_contents_wrap() {
-        let (result, position, warnings) = test_parser(parse_inline_tag, ":[aa,b=c]{xxx}\n ");
+        let (result, position, warnings) = test_parser(parse_inline_tag, ":[aa b=c]{xxx}\n ");
 
         let tag = result.unwrap().unwrap();
         assert_model(&tag, r#"{"it":"", "a":{"b":"c"}, "v":["aa"], "c":["xxx"]}"#);
@@ -577,7 +575,7 @@ mod test_parse_inline_tag {
     /// タグ名なし、属性あり、内容あり、終端はブロック終了
     #[test]
     fn test_no_name_attrs_contents_block_end() {
-        let (result, position, warnings) = test_parser(parse_inline_tag, ":[aa,b=c]{xxx}");
+        let (result, position, warnings) = test_parser(parse_inline_tag, ":[aa b=c]{xxx}");
 
         let tag = result.unwrap().unwrap();
         assert_model(&tag, r#"{"it":"", "a":{"b":"c"}, "v":["aa"], "c":["xxx"]}"#);
@@ -623,7 +621,7 @@ mod test_parse_inline_tag {
     #[test]
     fn test_raw() {
         let (result, position, warnings) =
-            test_parser(parse_inline_tag, ":code[a=x,b=\"yy\",123]{zzz:b{bold}???}");
+            test_parser(parse_inline_tag, ":code[a=x b=\"yy\" 123]{zzz:b{bold}???}");
 
         let tag = result.unwrap().unwrap();
         assert_model(

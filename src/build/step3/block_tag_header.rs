@@ -97,7 +97,7 @@ mod test_parse_block_tag_header {
     #[test]
     fn test_normal() -> Result<(), Box<dyn Error>> {
         let mut us = unit_stream(indoc! {"
-            :ta[a=1,b=2]{ccc
+            :ta[a=1 b=2]{ccc
                 123}xyz:tb{ddd}
             ...
         "})?;
