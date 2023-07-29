@@ -24,7 +24,7 @@ pub type InlineContents = Vec<Box<dyn InlineContent>>;
 impl ContentModel for String {
     #[cfg(test)]
     fn to_json(&self) -> String {
-        format!("\"{}\"", self.replace("\n", "\\n"))
+        format!("\"{}\"", self.replace("\n", "\\n").replace("\"", "\\\""))
     }
 }
 
@@ -350,16 +350,19 @@ pub mod test_utils {
         let mut warnings = vec![];
         let mut context = ParseContext::new(&mut warnings);
 
-        let mark = us.mark();
-        let parse_tags = if us.read().0 == Unit::Char('!')
-            && us.read().0 == Unit::Char('r')
-            && us.read().0 == Unit::Char('!')
-        {
-            false
-        } else {
-            us.reset(mark);
-            true
-        };
+        let mut parse_tags = true;
+
+        if us.peek() == Unit::Char('!') {
+            us.read();
+            loop {
+                match us.read().0 {
+                    Unit::Char('r') => parse_tags = false,
+                    Unit::Char('i') => us.set_indent_check_mode(false),
+                    Unit::Char('!') => break,
+                    _ => panic!(),
+                }
+            }
+        }
 
         let result = parser(&mut us, &mut context.change_parse_mode(parse_tags));
 
