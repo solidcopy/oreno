@@ -37,7 +37,7 @@ yarn-error.log*
 .env*
 
 # ローカル動作確認用の文書ルート（ORENO_ROOT）
-/.oreno-docs
+/oreno_doc
 
 # vercel
 .vercel

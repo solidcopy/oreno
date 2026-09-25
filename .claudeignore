@@ -11,3 +11,6 @@ package-lock.json
 
 # 環境変数ファイル(秘密情報を読み込ませない)
 .env*
+
+# ローカル動作確認用の文書ルート（ORENO_ROOT）
+/oreno_doc
