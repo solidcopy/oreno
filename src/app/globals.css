@@ -70,6 +70,18 @@ html .milkdown {
     Meiryo, sans-serif;
   --crepe-font-title: var(--font-noto-sans-jp), "Hiragino Sans", "Yu Gothic",
     Meiryo, sans-serif;
+  --crepe-font-code: var(--font-plemol-jp), ui-monospace, monospace;
+}
+
+/*
+ * 編集モードのコードブロックは Crepe のテーマではなく CodeMirror 本体が
+ * 実行時に注入する `.cm-scroller { font-family: monospace }` で
+ * フォントが決まっており、--crepe-font-code を参照しない。
+ * そのため個別に上書きする。詳細度(0,3,1)は CodeMirror 本体の
+ * baseTheme(0,1,0)より確実に高い。
+ */
+html .milkdown .milkdown-code-block .cm-scroller {
+  font-family: var(--font-plemol-jp), ui-monospace, monospace;
 }
 
 /*
@@ -119,7 +131,7 @@ html .milkdown {
 }
 
 .markdown-body code {
-  font-family: var(--font-geist-mono, monospace);
+  font-family: var(--font-plemol-jp), ui-monospace, monospace;
   font-size: 0.9em;
 }
 
