@@ -30,7 +30,8 @@ body {
   flex-direction: column;
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-noto-sans-jp), "Hiragino Sans", "Yu Gothic", Meiryo,
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -50,6 +51,25 @@ a {
   html {
     color-scheme: dark;
   }
+}
+
+/*
+ * Milkdown（Crepe）のエディタは .milkdown スコープの CSS 変数
+ * （--crepe-font-default など）で独自にフォントを決めており、body の
+ * font-family を継承しません。表示モードと編集モードでフォントを揃えるため、
+ * ここで変数を上書きします。
+ * Crepe 自身のテーマ CSS（@milkdown/crepe/theme/frame.css）も同じ
+ * .milkdown セレクタで同じ変数を定義していますが、そちらは
+ * MarkdownEditor.tsx から動的 import されるチャンクとして「編集」を
+ * 押した時点で読み込まれるため、globals.css より後に DOM へ挿入されます。
+ * 同じ詳細度だと後から挿入された方が勝ってしまうので、`html .milkdown` と
+ * 詳細度を上げて読み込み順に関わらずこちらが確実に勝つようにしています。
+ */
+html .milkdown {
+  --crepe-font-default: var(--font-noto-sans-jp), "Hiragino Sans", "Yu Gothic",
+    Meiryo, sans-serif;
+  --crepe-font-title: var(--font-noto-sans-jp), "Hiragino Sans", "Yu Gothic",
+    Meiryo, sans-serif;
 }
 
 /*
