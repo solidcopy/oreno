@@ -1,3 +1,14 @@
+/*
+ * コードブロックの構文ハイライト配色（rehype-highlight が付与する
+ * hljs-xxx クラスに対する色定義）を highlight.js 本体のテーマ CSS から
+ * 読み込みます。@import はスタイルシートの先頭でしか使えないため、
+ * このファイルの一番上に置いています。
+ * ライト/ダークそれぞれ専用のテーマファイルを、下の :root の色変更と
+ * 同じ prefers-color-scheme で出し分けています。
+ */
+@import "highlight.js/styles/github.css" (prefers-color-scheme: light);
+@import "highlight.js/styles/github-dark.css" (prefers-color-scheme: dark);
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -133,6 +144,19 @@ html .milkdown .milkdown-code-block .cm-scroller {
 .markdown-body code {
   font-family: var(--font-plemol-jp), ui-monospace, monospace;
   font-size: 0.9em;
+}
+
+/*
+ * highlight.js のテーマ CSS は色だけでなく、コードブロック自身にも
+ * padding・背景・スクロールを持たせる前提で書かれています。
+ * このアプリでは箱としての見た目（背景・padding・角丸・横スクロール）は
+ * 上の .markdown-body pre 側で既に用意しているので、ここでは二重に
+ * ならないよう打ち消し、色付け（.hljs-* のテキスト色）だけを活かします。
+ */
+.markdown-body pre code.hljs {
+  display: inline;
+  padding: 0;
+  background: transparent;
 }
 
 .markdown-body table {
