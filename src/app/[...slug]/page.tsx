@@ -24,7 +24,7 @@ export default async function DocumentRoute(props: PageProps<"/[...slug]">) {
 
   const filePath = resolveDocPath(slug);
   if (!filePath) {
-    // slug が不正（"/" だけ、".." を含む、特殊記号を含む、等）な場合は 404 にします。
+    // slug が不正（".." を含む、特殊記号を含む、等）な場合は 404 にします。
     // README.md の「ファイルとURLの対応」に書かれているルールです。
     notFound();
   }

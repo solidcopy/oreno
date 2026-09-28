@@ -39,7 +39,8 @@ export function getRootDir(): string {
  */
 export function resolveDocPath(slug: string[]): string | null {
   if (slug.length === 0) {
-    // README: "/" へのアクセスはファイルパスを決められないので 404
+    // ルートURL（"/"）は [...slug] にマッチしないため実際には呼ばれないが、
+    // 念のため空配列もファイルパスを決められないものとして扱う。
     return null;
   }
 
