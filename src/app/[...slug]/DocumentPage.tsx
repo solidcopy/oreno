@@ -129,7 +129,7 @@ export default function DocumentPage({
   }
 
   return (
-    <div>
+    <div className={styles.page}>
       <div className={styles.toolbar}>
         <span>/{slug.join("/")}</span>
         <div className={styles.spacer} />
@@ -181,11 +181,13 @@ export default function DocumentPage({
           dangerouslySetInnerHTML={{ __html: html }}
         />
       ) : (
-        <MarkdownEditor
-          key={editorInstanceKey}
-          ref={editorRef}
-          defaultValue={markdown}
-        />
+        <div className={styles.editorArea}>
+          <MarkdownEditor
+            key={editorInstanceKey}
+            ref={editorRef}
+            defaultValue={markdown}
+          />
+        </div>
       )}
     </div>
   );

@@ -82,6 +82,27 @@ html .milkdown {
   --crepe-font-title: var(--font-noto-sans-jp), "Hiragino Sans", "Yu Gothic",
     Meiryo, sans-serif;
   --crepe-font-code: var(--font-plemol-jp), ui-monospace, monospace;
+
+  /*
+   * 文書が短いとMilkdownの編集領域(.ProseMirror)は中身の高さぶんしか
+   * 確保されず、画面下部に余白ができてしまう。その余白をクリックしても
+   * 編集領域の外なのでカーソルが末尾に移動しない（README外の実際の不具合）。
+   * .milkdown はMilkdownが実行時に MarkdownEditor.tsx の containerRef 直下へ
+   * 生成するdivで、CSS Modulesではスコープできないためここで直接指定する。
+   * MarkdownEditor.tsx (containerRef) → ここ(.milkdown) → 直下の
+   * .ProseMirror まで flex:1 を連鎖させることで、編集領域自体を
+   * 画面下端まで広げ、余白部分のクリックもエディタ内の操作として扱われる
+   * ようにしている。
+   */
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+html .milkdown .ProseMirror {
+  flex: 1;
+  min-height: 0;
 }
 
 /*

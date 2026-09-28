@@ -1,3 +1,13 @@
+.page {
+  /* body(globals.css)がflex列コンテナなので、このdivをflex:1で伸ばすと
+     画面高さいっぱいに広がる。文書が短くても編集エリアが画面下端まで
+     届くようにするための土台。 */
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 .toolbar {
   display: flex;
   gap: 0.5rem;
@@ -47,6 +57,16 @@
   padding: 1.5rem;
   max-width: 860px;
   margin: 0 auto;
+}
+
+.editorArea {
+  /* .page と同じ理由でflex:1。MarkdownEditor側・globals.cssの
+     .milkdown / .ProseMirror へのflex:1と繋がって、Milkdownの
+     編集領域自体を画面下端まで伸ばす。 */
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .editorLoading {

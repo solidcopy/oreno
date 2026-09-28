@@ -85,5 +85,14 @@ export default function MarkdownEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return <div ref={containerRef} />;
+  // flex:1 で親(.editorArea)いっぱいに広がる。globals.css側で
+  // Milkdownが実行時に生成する .milkdown / .ProseMirror にも同じ
+  // flex:1 を連鎖させることで、編集領域が文書の短さに関わらず
+  // 画面下端まで届くようにしている（末尾クリックでカーソル移動できるように）。
+  return (
+    <div
+      ref={containerRef}
+      style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}
+    />
+  );
 }
