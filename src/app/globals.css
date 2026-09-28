@@ -106,6 +106,69 @@ html .milkdown .ProseMirror {
 }
 
 /*
+ * Crepe のデフォルト配色は常にライトモード固定（frame.css が
+ * --crepe-color-background: #fff などを直接定義）で、OSがダークモードでも
+ * 編集モードだけ白くなってしまう。表示モードと同じ配色トークンで
+ * 上書きし、ダークモード時は編集モードもダークで統一する。
+ */
+@media (prefers-color-scheme: dark) {
+  html .milkdown {
+    --crepe-color-background: var(--background);
+    --crepe-color-on-background: var(--foreground);
+    --crepe-color-surface: var(--gray-alpha-100);
+    --crepe-color-surface-low: var(--gray-alpha-100);
+    --crepe-color-on-surface: var(--foreground);
+    --crepe-color-on-surface-variant: var(--foreground);
+    --crepe-color-outline: var(--gray-alpha-200);
+    --crepe-color-primary: var(--foreground);
+    --crepe-color-secondary: var(--gray-alpha-200);
+    --crepe-color-on-secondary: var(--foreground);
+    --crepe-color-hover: var(--gray-alpha-100);
+    --crepe-color-selected: var(--gray-alpha-200);
+    --crepe-color-inline-area: var(--gray-alpha-100);
+  }
+}
+
+/*
+ * 表示モードの見出し(.markdown-body h1〜h6)はブラウザ標準のサイズ・太さ
+ * （em倍率2/1.5/1.17/1/0.83/0.67、太字）のまま使っている。Crepe側は
+ * 独自の見出しスケールと通常太字(h6以外)を採用しており、見た目が
+ * 揃わないので、表示モードと同じ倍率・太さに上書きする。
+ */
+html .milkdown .ProseMirror h1,
+html .milkdown .ProseMirror h2,
+html .milkdown .ProseMirror h3,
+html .milkdown .ProseMirror h4,
+html .milkdown .ProseMirror h5,
+html .milkdown .ProseMirror h6 {
+  font-weight: 700;
+}
+
+html .milkdown .ProseMirror h1 {
+  font-size: 2em;
+}
+
+html .milkdown .ProseMirror h2 {
+  font-size: 1.5em;
+}
+
+html .milkdown .ProseMirror h3 {
+  font-size: 1.17em;
+}
+
+html .milkdown .ProseMirror h4 {
+  font-size: 1em;
+}
+
+html .milkdown .ProseMirror h5 {
+  font-size: 0.83em;
+}
+
+html .milkdown .ProseMirror h6 {
+  font-size: 0.67em;
+}
+
+/*
  * 編集モードのコードブロックは Crepe のテーマではなく CodeMirror 本体が
  * 実行時に注入する `.cm-scroller { font-family: monospace }` で
  * フォントが決まっており、--crepe-font-code を参照しない。
