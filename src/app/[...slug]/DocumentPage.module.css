@@ -20,6 +20,16 @@
   flex: 1;
 }
 
+.rootLink {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.rootLink:hover {
+  text-decoration: underline;
+}
+
 .button {
   padding: 0.4rem 0.9rem;
   border-radius: 6px;

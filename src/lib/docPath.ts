@@ -31,6 +31,14 @@ export function getRootDir(): string {
 }
 
 /**
+ * 文書のルートフォルダ（index.md が置かれているフォルダ）の名前を返します。
+ * ヘッダーのルートリンクの表示文字列などに使います。
+ */
+export function getRootDirName(): string {
+  return path.basename(getRootDir());
+}
+
+/**
  * URL の slug（catch-all セグメントの配列）を、対応するマークダウンファイルの
  * 絶対パスに変換します。
  *

@@ -13,6 +13,7 @@
 
 import { useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import styles from "./DocumentPage.module.css";
 import { saveDocument, deleteDocument } from "../actions";
@@ -31,6 +32,7 @@ type Mode = "view" | "edit";
 
 type Props = {
   slug: string[];
+  rootDirName: string;
   initialMarkdown: string;
   initialHtml: string;
   initialExists: boolean;
@@ -38,6 +40,7 @@ type Props = {
 
 export default function DocumentPage({
   slug,
+  rootDirName,
   initialMarkdown,
   initialHtml,
   initialExists,
@@ -131,6 +134,9 @@ export default function DocumentPage({
   return (
     <div className={styles.page}>
       <div className={styles.toolbar}>
+        <Link href="/index" className={styles.rootLink}>
+          {rootDirName}
+        </Link>
         <span>/{slug.join("/")}</span>
         <div className={styles.spacer} />
         {mode === "view" ? (

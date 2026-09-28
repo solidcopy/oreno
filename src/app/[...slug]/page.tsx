@@ -6,7 +6,7 @@
 
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
-import { resolveDocPath } from "@/lib/docPath";
+import { resolveDocPath, getRootDirName } from "@/lib/docPath";
 import { loadDocument } from "@/lib/document";
 import { markdownToHtml } from "@/lib/markdown";
 import DocumentPage from "./DocumentPage";
@@ -47,6 +47,7 @@ export default async function DocumentRoute(props: PageProps<"/[...slug]">) {
   return (
     <DocumentPage
       slug={slug}
+      rootDirName={getRootDirName()}
       initialMarkdown={markdown}
       initialHtml={html}
       initialExists={exists}
