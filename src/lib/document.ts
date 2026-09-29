@@ -4,13 +4,13 @@ import { resolveDocPath } from "@/lib/docPath";
 export type LoadedDocument = { exists: boolean; markdown: string };
 
 /**
- * 指定した slug のマークダウンファイルを読み込みます。
- * ファイルが存在しない場合はエラーにせず exists: false を返します
- * （README の「ページの新規作成」の判定に使うためです）。
+ * 指定した slug のマークダウンファイルを読み込む
+ * ファイルが存在しない場合はエラーにせず exists: false を返す
+ * （README の「ページの新規作成」の判定に使うため）
  *
- * これは "use server" のついた Server Action ではなく、ただの通常の関数です。
+ * これは "use server" のついた Server Action ではなく、ただの通常の関数
  * Server Component（page.tsx）から直接呼び出すだけなので、
- * わざわざ HTTP 越しの呼び出しにする必要が無いためこの形にしています。
+ * わざわざ HTTP 越しの呼び出しにする必要が無いためこの形にしている
  */
 export async function loadDocument(slug: string[]): Promise<LoadedDocument> {
   const filePath = resolveDocPath(slug);

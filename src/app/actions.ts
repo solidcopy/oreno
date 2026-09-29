@@ -1,17 +1,18 @@
 "use server";
 
 /**
- * ファイル先頭の "use server" が Server Action の目印です。
+ * ファイル先頭の "use server" が Server Action の目印
  *
- * このファイルにある関数は「サーバー上でだけ実行されるコード」として扱われます。
+ * このファイルにある関数は「サーバー上でだけ実行されるコード」として扱われる
  * ブラウザ（Client Component）側からは、これらの関数を普通の async 関数のように
- * import して呼び出せますが、実際には裏側で自動的に HTTP リクエスト（POST）が
- * 飛んでいて、この関数の中身はサーバー上でしか実行されません。
- * ファイル操作（fs）のような Node.js の機能は、まさにこの中でしか使えません。
+ * import して呼び出せるが、実際には裏側で自動的に HTTP リクエスト（POST）が
+ * 飛んでいて、この関数の中身はサーバー上でしか実行されない
+ * ファイル操作（fs）のような Node.js の機能は、まさにこの中でしか使えない
  *
  * 重要な注意点として、Server Action は「実質的には誰でも直接 POST できる
- * エンドポイント」でもあります。ブラウザから渡された slug をそのまま信用せず、
- * この中で resolveDocPath による検証をやり直しています。
+ * エンドポイント」でもある
+ * ブラウザから渡された slug をそのまま信用せず、
+ * この中で resolveDocPath による検証をやり直している
  */
 
 import { revalidatePath } from "next/cache";
@@ -26,8 +27,8 @@ export type SaveResult =
   | { ok: false; message: string };
 
 /**
- * 指定した slug の文書をマークダウンとして保存（新規作成 or 上書き）します。
- * 保存に成功した場合、表示モードにそのまま反映できるよう変換済みの HTML も返します。
+ * 指定した slug の文書をマークダウンとして保存（新規作成 or 上書き）する
+ * 保存に成功した場合、表示モードにそのまま反映できるよう変換済みの HTML も返す
  */
 export async function saveDocument(
   slug: string[],
@@ -39,22 +40,25 @@ export async function saveDocument(
   }
 
   try {
-    // ディレクトリがまだ無い場合に備えて作成しておきます。
+    // ディレクトリがまだ無い場合に備えて作成しておく
     await mkdir(path.dirname(filePath), { recursive: true });
     await writeFile(filePath, markdown, "utf-8");
   } catch (error) {
     return { ok: false, message: `保存に失敗しました: ${String(error)}` };
   }
 
-  // このパスに対して Next.js がキャッシュしているレンダリング結果を破棄します。
-  // これをしないと、次にこのURLへアクセスしたときに古い内容が表示されてしまいます。
+  // このパスに対して Next.js がキャッシュしているレンダリング結果を破棄する
+  // これをしないと、次にこのURLへアクセスしたときに古い内容が表示されてしまう
   revalidatePath(slugToUrlPath(slug));
 
   const html = await markdownToHtml(markdown);
   return { ok: true, html };
 }
 
-/** 指定した slug の文書ファイルを削除します。ファイルが元々無い場合も成功扱いにします。 */
+/**
+ * 指定した slug の文書ファイルを削除する
+ * ファイルが元々無い場合も成功扱いにする
+ */
 export async function deleteDocument(slug: string[]): Promise<ActionResult> {
   const filePath = resolveDocPath(slug);
   if (!filePath) {

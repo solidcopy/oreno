@@ -9,10 +9,11 @@ const notoSansJP = Noto_Sans_JP({
   preload: false,
 });
 
-// コード用フォント。日本語も等幅で揃う PlemolJP(SIL OFL 1.1、
-// src/app/fonts/LICENSE-PlemolJP.txt 参照)を自前配信している。
+// コード用フォント
+// 日本語も等幅で揃う PlemolJP(SIL OFL 1.1、
+// src/app/fonts/LICENSE-PlemolJP.txt 参照)を自前配信している
 // adjustFontFallback: false は、プロポーショナル体(Arial)基準で自動生成される
-// 既定の代替フォントが等幅フォントには不向きなため、明示したフォールバックに任せる。
+// 既定の代替フォントが等幅フォントには不向きなため、明示したフォールバックに任せる
 const plemolJP = localFont({
   src: "./fonts/PlemolJP-Regular.woff2",
   variable: "--font-plemol-jp",

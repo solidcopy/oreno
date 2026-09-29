@@ -1,10 +1,10 @@
 /**
- * not-found.tsx は Next.js が特別に認識するファイル名です。
+ * not-found.tsx は Next.js が特別に認識するファイル名
  * ルート内で notFound() が呼ばれたとき（page.tsx を参照）や、
  * どの page.tsx にもマッチしない URL にアクセスされたときに、
- * このコンポーネントが代わりに表示されます。
+ * このコンポーネントが代わりに表示される
  *
- * これも "use client" が無い Server Component です。
+ * これも "use client" が無い Server Component
  */
 export default function NotFound() {
   return (
