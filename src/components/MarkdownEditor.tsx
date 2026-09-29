@@ -64,6 +64,29 @@ export default function MarkdownEditor({
     crepeRef.current = crepe;
 
     let cancelled = false;
+
+    // 編集モードに切り替えた直後にすぐ入力を始められるよう、
+    // Crepe が生成する contenteditable 要素（.ProseMirror）へフォーカスします。
+    // create() が解決した時点ではまだこの要素が DOM に現れていない上、
+    // 現れた後も内部プラグイン（virtual-cursor など）が要素を組み替える
+    // たびにフォーカスが外れてしまうため、DOM の変化が一定時間落ち着くまで
+    // MutationObserver でフォーカスをかけ直し続けます。
+    // settleTimer は「DOM の変化が止まってから300ms」を判定するための
+    // デバウンス用タイマーです。Mutation が起きるたびに直前のタイマーを
+    // clearTimeout でキャンセルして300ms後の disconnect を予約し直すため、
+    // 変化が連続している間は disconnect が先延ばしされ続けます。
+    // 一度 disconnect が実行されると監視自体が止まるので、それ以降に
+    // DOM が変化してもこのコールバックは呼ばれず、フォーカスも当たりません
+    // （＝以後の変化はエディタ内部の通常の編集によるものとみなして無視する）。
+    const container = containerRef.current;
+    let settleTimer: ReturnType<typeof setTimeout>;
+    const observer = new MutationObserver(() => {
+      container.querySelector<HTMLElement>(".ProseMirror")?.focus();
+      clearTimeout(settleTimer);
+      settleTimer = setTimeout(() => observer.disconnect(), 300);
+    });
+    observer.observe(container, { childList: true, subtree: true });
+
     void crepe.create().then(() => {
       if (cancelled) {
         // create() が終わる前に画面が閉じられていた場合は、
@@ -77,6 +100,8 @@ export default function MarkdownEditor({
     // これをしないと、同じ内容のエディタが裏で残り続けてメモリリークします。
     return () => {
       cancelled = true;
+      clearTimeout(settleTimer);
+      observer.disconnect();
       crepeRef.current = null;
       void crepe.destroy();
     };
