@@ -110,22 +110,45 @@ html .milkdown .ProseMirror {
  * --crepe-color-background: #fff などを直接定義）で、OSがダークモードでも
  * 編集モードだけ白くなってしまう。表示モードと同じ配色トークンで
  * 上書きし、ダークモード時は編集モードもダークで統一する。
+ *
+ * --crepe-color-surface と --crepe-color-outline は、もともとページ背景に
+ * 薄く重ねる用途の半透明トークン（--gray-alpha-100/200）を流用していたため、
+ * リンクツールチップやスラッシュメニューなど「浮く」UIが背景とほぼ同化して
+ * 見えなくなっていた（実際の不具合）。ここでは不透明な色に変え、
+ * --crepe-shadow-1/2（未上書きだとライトモード用の黒い影のままで、暗い
+ * 背景では見えない）もダークモードで視認できる影に上書きする。
  */
 @media (prefers-color-scheme: dark) {
   html .milkdown {
     --crepe-color-background: var(--background);
     --crepe-color-on-background: var(--foreground);
-    --crepe-color-surface: var(--gray-alpha-100);
-    --crepe-color-surface-low: var(--gray-alpha-100);
+    --crepe-color-surface: #242424;
+    --crepe-color-surface-low: #242424;
     --crepe-color-on-surface: var(--foreground);
     --crepe-color-on-surface-variant: var(--foreground);
-    --crepe-color-outline: var(--gray-alpha-200);
+    --crepe-color-outline: #b0b0b0;
     --crepe-color-primary: var(--foreground);
     --crepe-color-secondary: var(--gray-alpha-200);
     --crepe-color-on-secondary: var(--foreground);
-    --crepe-color-hover: var(--gray-alpha-100);
+    --crepe-color-hover: #303030;
     --crepe-color-selected: var(--gray-alpha-200);
     --crepe-color-inline-area: var(--gray-alpha-100);
+    --crepe-shadow-1:
+      0px 2px 8px 0px rgba(0, 0, 0, 0.5),
+      0px 0px 0px 1px rgba(255, 255, 255, 0.06);
+    --crepe-shadow-2:
+      0px 4px 16px 0px rgba(0, 0, 0, 0.5),
+      0px 0px 0px 1px rgba(255, 255, 255, 0.06);
+  }
+
+  /*
+   * リンクツールチップ（テキスト選択時・URL入力時のポップアップ）は
+   * 面積が小さく、--crepe-color-surface の不透明化と影だけでは背景との
+   * 境界がまだ弱いため、枠線でも輪郭をはっきりさせる。
+   */
+  html .milkdown .milkdown-link-preview > .link-preview,
+  html .milkdown .milkdown-link-edit > .link-edit {
+    border: 1px solid color-mix(in srgb, var(--foreground) 24%, transparent);
   }
 }
 
