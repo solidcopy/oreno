@@ -192,6 +192,21 @@ html .milkdown .ProseMirror h6 {
 }
 
 /*
+ * 表示モードの段落間隔(.markdown-body p: margin 0.75em)に対し、Crepe側は
+ * reset.cssの.ProseMirror pでpadding: 4px 0のみを指定しており、段落間の
+ * 余白が表示モードより狭い
+ * marginではなくpaddingを使っているのは、ProseMirrorではクリック位置に
+ * カーソルを合わせる際の当たり判定が要素のボックス内に限られ、marginだと
+ * 段落間をクリックしたときにカーソルが正しい段落へ入らなくなるため
+ * そのためpaddingの仕組みは保ったまま、表示モードと同じ間隔になる値へ
+ * 変更する（paddingは隣接する上下の段落で足し合わさるため、目標の半分の
+ * 0.375emにする）
+ */
+html .milkdown .ProseMirror p {
+  padding: 0.375em 0;
+}
+
+/*
  * 編集モードのコードブロックは Crepe のテーマではなく CodeMirror 本体が
  * 実行時に注入する `.cm-scroller { font-family: monospace }` で
  * フォントが決まっており、--crepe-font-code を参照しない。
