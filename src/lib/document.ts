@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import { resolveDocPath } from "@/lib/docPath";
 
 export type LoadedDocument = { exists: boolean; markdown: string };
@@ -27,5 +27,24 @@ export async function loadDocument(slug: string[]): Promise<LoadedDocument> {
       return { exists: false, markdown: "" };
     }
     throw error;
+  }
+}
+
+/**
+ * 指定した slug のマークダウンファイルが存在するかどうかだけを調べる
+ * 「新規作成」時の重複チェックに使うため、loadDocument と違い
+ * ファイルの中身までは読み込まない（access はファイルの中身を読まないので軽い）
+ */
+export async function documentExists(slug: string[]): Promise<boolean> {
+  const filePath = resolveDocPath(slug);
+  if (!filePath) {
+    return false;
+  }
+
+  try {
+    await access(filePath);
+    return true;
+  } catch {
+    return false;
   }
 }

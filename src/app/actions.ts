@@ -19,6 +19,7 @@ import { revalidatePath } from "next/cache";
 import { writeFile, mkdir, unlink } from "node:fs/promises";
 import path from "node:path";
 import { resolveDocPath, slugToUrlPath } from "@/lib/docPath";
+import { documentExists } from "@/lib/document";
 import { markdownToHtml } from "@/lib/markdown";
 
 export type ActionResult = { ok: true } | { ok: false; message: string };
@@ -53,6 +54,14 @@ export async function saveDocument(
 
   const html = await markdownToHtml(markdown);
   return { ok: true, html };
+}
+
+/**
+ * 指定した slug のファイルがすでに存在するかどうかを調べる
+ * 「新規作成」ポップアップで、既存ファイルを上書きしてしまわないように使う
+ */
+export async function checkDocumentExists(slug: string[]): Promise<boolean> {
+  return documentExists(slug);
 }
 
 /**

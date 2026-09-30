@@ -17,6 +17,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import styles from "./DocumentPage.module.css";
+import NewPageButton from "./NewPageButton";
 import { saveDocument, deleteDocument } from "../actions";
 import type { MarkdownEditorHandle } from "@/components/MarkdownEditor";
 
@@ -143,9 +144,12 @@ export default function DocumentPage({
         <span>/{slug.join("/")}</span>
         <div className={styles.spacer} />
         {mode === "view" ? (
-          <button type="button" className={styles.button} onClick={handleEdit}>
-            編集
-          </button>
+          <>
+            <NewPageButton slug={slug} />
+            <button type="button" className={styles.button} onClick={handleEdit}>
+              編集
+            </button>
+          </>
         ) : (
           <>
             {exists && (
