@@ -29,8 +29,15 @@ html {
   height: 100%;
 }
 
-html,
-body {
+/*
+ * overflow-x: hidden は html だけに付ける。body にも付けると、実際に
+ * スクロールしているのは html なのに body 自身も独立したスクロール
+ * コンテナになってしまい（overflow-x を visible 以外にすると overflow-y も
+ * 暗黙にスクロール可能な値として扱われるため）、body の子要素に付けた
+ * position: sticky が「動かない body」を基準に計算されて効かなくなる
+ * （実際の不具合）。
+ */
+html {
   max-width: 100vw;
   overflow-x: hidden;
 }
