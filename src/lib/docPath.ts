@@ -1,4 +1,5 @@
 import path from "node:path";
+import { isAppReservedPath } from "@/lib/appReservedPath";
 
 /**
  * URL のパス部分（例: "/docs/hello" の "docs", "hello"）を
@@ -50,6 +51,12 @@ export function resolveDocPath(slug: string[]): string | null {
   if (slug.length === 0) {
     // ルートURL（"/"）は [...slug] にマッチしないため実際には呼ばれないが、
     // 念のため空配列もファイルパスを決められないものとして扱う
+    return null;
+  }
+
+  if (isAppReservedPath(slug)) {
+    // ".oreno" 配下はOreno自身の機能用に予約されたパスなので、
+    // 対応するファイルがあったとしても文書としては扱わない
     return null;
   }
 

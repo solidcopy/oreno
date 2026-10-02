@@ -7,6 +7,9 @@ import docStyles from "./DocumentPage.module.css";
 import styles from "./NewPageButton.module.css";
 import { checkDocumentExists } from "../actions";
 import { useClosePopoverOnOutsideClick } from "./useClosePopoverOnOutsideClick";
+import { APP_RESERVED_SEGMENT, isAppReservedPath } from "@/lib/appReservedPath";
+
+const RESERVED_PATH_ERROR = `"${APP_RESERVED_SEGMENT}" から始まるパスにはページを作成できません。`;
 
 // 入力が止まってからこの時間が経つまでは、既存ファイルとの重複チェックを行わない
 // キー入力のたびに毎回サーバーへ問い合わせると無駄なリクエストが増えるため、
@@ -92,6 +95,13 @@ export default function NewPageButton({ slug }: Props) {
     const value = event.target.value;
     setPath(value);
     setError(null);
+
+    const segments = value.trim().split("/").filter((segment) => segment.length > 0);
+    if (isAppReservedPath(segments)) {
+      setError(RESERVED_PATH_ERROR);
+      return;
+    }
+
     scheduleExistsCheck(value);
   }
 
@@ -110,6 +120,11 @@ export default function NewPageButton({ slug }: Props) {
     }
 
     const segments = trimmed.split("/").filter((segment) => segment.length > 0);
+
+    if (isAppReservedPath(segments)) {
+      setError(RESERVED_PATH_ERROR);
+      return;
+    }
 
     // 入力中の確認が間に合っていない場合に備えて、作成の直前にも確認する
     const exists = await checkDocumentExists(segments);
