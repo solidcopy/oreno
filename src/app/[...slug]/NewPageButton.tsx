@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { ChangeEvent, KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import docStyles from "./DocumentPage.module.css";
 import styles from "./NewPageButton.module.css";
 import { checkDocumentExists } from "../actions";
+import { useClosePopoverOnOutsideClick } from "./useClosePopoverOnOutsideClick";
 
 // 入力が止まってからこの時間が経つまでは、既存ファイルとの重複チェックを行わない
 // キー入力のたびに毎回サーバーへ問い合わせると無駄なリクエストが増えるため、
@@ -60,29 +61,7 @@ export default function NewPageButton({ slug }: Props) {
     input.setSelectionRange(input.value.length, input.value.length);
   }, []);
 
-  // ポップアップの外側をクリックしたとき、Escapeキーを押したときに閉じる
-  useEffect(() => {
-    if (!open) return;
-
-    function handlePointerDown(event: MouseEvent) {
-      if (wrapRef.current && !wrapRef.current.contains(event.target as Node)) {
-        handleClose();
-      }
-    }
-
-    function handleKeyDown(event: globalThis.KeyboardEvent) {
-      if (event.key === "Escape") {
-        handleClose();
-      }
-    }
-
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open]);
+  useClosePopoverOnOutsideClick(open, wrapRef, handleClose);
 
   // 入力が落ち着いたタイミングで、同じパスのファイルがすでに無いか確認する
   // 「path が変わったら」ではなく「ユーザーが入力したら」が本来のきっかけなので、
