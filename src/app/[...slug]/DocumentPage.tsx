@@ -17,6 +17,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import styles from "./DocumentPage.module.css";
+import AppMenu from "./AppMenu";
 import NewPageButton from "./NewPageButton";
 import { saveDocument, deleteDocument } from "../actions";
 import type { MarkdownEditorHandle } from "@/components/MarkdownEditor";
@@ -182,6 +183,7 @@ export default function DocumentPage({
             </button>
           </>
         )}
+        <AppMenu />
       </div>
 
       {error && <p className={styles.error}>{error}</p>}
