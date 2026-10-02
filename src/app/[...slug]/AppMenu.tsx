@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Link from "next/link";
 import styles from "./AppMenu.module.css";
 import { useClosePopoverOnOutsideClick } from "./useClosePopoverOnOutsideClick";
 
@@ -48,9 +49,14 @@ export default function AppMenu() {
             Orenoについて
           </a>
           <div className={styles.divider} />
-          <button type="button" role="menuitem" className={styles.menuItem} onClick={handleClose}>
+          <Link
+            href="/.oreno/project_settings"
+            role="menuitem"
+            className={styles.menuItem}
+            onClick={handleClose}
+          >
             プロジェクト設定
-          </button>
+          </Link>
           <button type="button" role="menuitem" className={styles.menuItem} onClick={handleClose}>
             ユーザー設定
           </button>
