@@ -36,9 +36,6 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
-# ローカル動作確認用の文書ルート（ORENO_ROOT）
-/oreno_doc
-
 # vercel
 .vercel
 
