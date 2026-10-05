@@ -20,6 +20,7 @@ import styles from "./DocumentPage.module.css";
 import AppMenu from "./AppMenu";
 import NewPageButton from "./NewPageButton";
 import { saveDocument, deleteDocument } from "../actions";
+import { truncateProjectNameForDisplay } from "@/lib/projectNameDisplay";
 import type { MarkdownEditorHandle } from "@/components/MarkdownEditor";
 
 // Milkdown のエディタ本体はブラウザの document に依存しているため、
@@ -36,6 +37,7 @@ type Mode = "view" | "edit";
 type Props = {
   slug: string[];
   rootDirName: string;
+  projectName: string;
   initialMarkdown: string;
   initialHtml: string;
   initialExists: boolean;
@@ -44,10 +46,16 @@ type Props = {
 export default function DocumentPage({
   slug,
   rootDirName,
+  projectName,
   initialMarkdown,
   initialHtml,
   initialExists,
 }: Props) {
+  // プロジェクト名が設定されていればそちらを、未設定ならルートフォルダ名を表示する
+  const rootLinkText = projectName
+    ? truncateProjectNameForDisplay(projectName)
+    : rootDirName;
+
   const router = useRouter();
 
   // useState は「ブラウザ上でユーザーの操作によって変わる値」を保持するための
@@ -140,7 +148,7 @@ export default function DocumentPage({
     <div className={styles.page}>
       <div className={styles.toolbar}>
         <Link href="/index" className={styles.rootLink}>
-          {rootDirName}
+          {rootLinkText}
         </Link>
         <span>/{slug.join("/")}</span>
         <div className={styles.spacer} />

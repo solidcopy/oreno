@@ -5,6 +5,7 @@ import Link from "next/link";
 import styles from "./ProjectSettingsPage.module.css";
 import AppMenu from "@/app/[...slug]/AppMenu";
 import { saveProjectSettingsAction } from "./actions";
+import { truncateProjectNameForDisplay } from "@/lib/projectNameDisplay";
 
 type Props = {
   rootDirName: string;
@@ -19,6 +20,9 @@ export default function ProjectSettingsPage({
   initialProjectName,
 }: Props) {
   const [projectName, setProjectName] = useState(initialProjectName);
+  // ヘッダーのリンクには「保存済みの」プロジェクト名を表示したいので、
+  // 入力中の値（projectName）とは別に保持しておく
+  const [savedProjectName, setSavedProjectName] = useState(initialProjectName);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showNotice, setShowNotice] = useState(false);
@@ -40,6 +44,7 @@ export default function ProjectSettingsPage({
       return;
     }
 
+    setSavedProjectName(projectName);
     if (noticeTimerRef.current) {
       clearTimeout(noticeTimerRef.current);
     }
@@ -53,7 +58,9 @@ export default function ProjectSettingsPage({
     <div className={styles.page}>
       <div className={styles.toolbar}>
         <Link href="/index" className={styles.rootLink}>
-          {rootDirName}
+          {savedProjectName
+            ? truncateProjectNameForDisplay(savedProjectName)
+            : rootDirName}
         </Link>
         <span>プロジェクト設定</span>
         <div className={styles.spacer} />

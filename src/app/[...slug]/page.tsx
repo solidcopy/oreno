@@ -12,6 +12,7 @@ import { notFound } from "next/navigation";
 import { resolveDocPath, getRootDirName } from "@/lib/docPath";
 import { loadDocument } from "@/lib/document";
 import { markdownToHtml } from "@/lib/markdown";
+import { loadProjectSettings } from "@/lib/projectSettings";
 import DocumentPage from "./DocumentPage";
 
 // [...slug] という名前のディレクトリが「catch-all セグメント」
@@ -45,6 +46,7 @@ export default async function DocumentRoute(props: PageProps<"/[...slug]">) {
 
   const { exists, markdown } = await loadDocument(slug);
   const html = exists ? await markdownToHtml(markdown) : "";
+  const { projectName } = await loadProjectSettings();
 
   // ここから先は Client Component（"use client" がついたコンポーネント）に処理を渡す
   // 表示/編集の切り替えのようなブラウザ上でのインタラクションは
@@ -53,6 +55,7 @@ export default async function DocumentRoute(props: PageProps<"/[...slug]">) {
     <DocumentPage
       slug={slug}
       rootDirName={getRootDirName()}
+      projectName={projectName}
       initialMarkdown={markdown}
       initialHtml={html}
       initialExists={exists}
