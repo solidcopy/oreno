@@ -21,6 +21,7 @@ import path from "node:path";
 import { resolveDocPath, slugToUrlPath } from "@/lib/docPath";
 import { documentExists } from "@/lib/document";
 import { markdownToHtml } from "@/lib/markdown";
+import { addViewHistory } from "@/lib/userSettings";
 
 export type ActionResult = { ok: true } | { ok: false; message: string };
 export type SaveResult =
@@ -86,4 +87,20 @@ export async function deleteDocument(slug: string[]): Promise<ActionResult> {
   revalidatePath(slugToUrlPath(slug));
 
   return { ok: true };
+}
+
+/**
+ * 指定した slug のページを閲覧履歴の先頭に記録する
+ * 履歴は記録するだけで、現時点では画面での利用はしない
+ * 履歴の記録に失敗しても文書の表示には影響させたくないため、失敗は無視する
+ */
+export async function recordViewHistory(slug: string[]): Promise<void> {
+  // 不正なパスや ".oreno" 配下は記録しない
+  if (!resolveDocPath(slug)) return;
+
+  try {
+    await addViewHistory(slugToUrlPath(slug));
+  } catch {
+    // 無視する
+  }
 }

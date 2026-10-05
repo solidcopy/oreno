@@ -12,14 +12,14 @@
  * すべてブラウザ側の状態としてこのコンポーネントが管理する
  */
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import styles from "./DocumentPage.module.css";
 import AppMenu from "./AppMenu";
 import NewPageButton from "./NewPageButton";
-import { saveDocument, deleteDocument } from "../actions";
+import { saveDocument, deleteDocument, recordViewHistory } from "../actions";
 import { truncateProjectNameForDisplay } from "@/lib/projectNameDisplay";
 import type { MarkdownEditorHandle } from "@/components/MarkdownEditor";
 
@@ -57,6 +57,18 @@ export default function DocumentPage({
     : rootDirName;
 
   const router = useRouter();
+
+  // useEffect は「画面が表示されたあとに実行したい処理」を登録するための
+  // React のフック
+  // ページを実際にブラウザで表示したときだけ閲覧履歴を記録するため、
+  // サーバー側の描画中ではなくここで Server Action を呼んでいる
+  // 存在しないページ（新規作成画面）は記録しない
+  // slug は配列で描画のたびに参照が変わりうるため、依存には文字列にした値を使う
+  const slugKey = slug.join("/");
+  useEffect(() => {
+    if (!initialExists) return;
+    void recordViewHistory(slugKey.split("/"));
+  }, [slugKey, initialExists]);
 
   // useState は「ブラウザ上でユーザーの操作によって変わる値」を保持するための
   // React のフック
