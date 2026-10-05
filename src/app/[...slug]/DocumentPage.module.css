@@ -74,7 +74,6 @@
   /* 編集モード(Milkdown)は中央揃えではなく左寄せなので、
      表示モードもそれに合わせて左寄せにしている。 */
   padding: 1.5rem;
-  max-width: 860px;
 }
 
 .editorArea {
