@@ -27,6 +27,9 @@ const plemolJP = localFont({
 export const metadata: Metadata = {
   title: "Oreno",
   description: "マークダウンファイルとして文書を作成するWebアプリ",
+  // src/app/favicon.ico/route.ts が返す。app直下に favicon.ico ファイルを置く
+  // 規約は使えない(ユーザーのファイルに差し替えるため)ので、明示的に指定する
+  icons: { icon: "/favicon.ico" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
