@@ -4,7 +4,7 @@ import { getRootDir } from "@/lib/docPath";
 
 /**
  * ユーザー設定（(文書フォルダのルート)/.oreno/user-settings.json）のうち、
- * 閲覧履歴（view-histories）とスター付きページ（stared-pages）の
+ * 閲覧履歴（view-histories）とスター付きページ（starred-pages）の
  * 読み込み・更新をまとめるモジュール
  * 閲覧履歴は、後にアクセスしたものほど先頭に並ぶ
  *
@@ -156,9 +156,9 @@ export function addViewHistory(urlPath: string): Promise<void> {
  * 保存済みのスター付きページ（URLパス）を返す
  * 文字列以外の要素が混ざっていた場合は取り除く
  */
-export async function loadStaredPages(): Promise<string[]> {
+export async function loadStarredPages(): Promise<string[]> {
   const data = await readUserSettingsFile();
-  return toStringArray(data["stared-pages"]);
+  return toStringArray(data["starred-pages"]);
 }
 
 /**
@@ -166,12 +166,12 @@ export async function loadStaredPages(): Promise<string[]> {
  * すでに同じ状態であれば何も書き込まない
  * 閲覧履歴の記録と同じキューに載せて、更新が同時に走らないようにしている
  */
-export function setPageStared(urlPath: string, stared: boolean): Promise<void> {
+export function setPageStarred(urlPath: string, starred: boolean): Promise<void> {
   return updateUserSettings((data) => {
-    const pages = toStringArray(data["stared-pages"]);
-    if (pages.includes(urlPath) === stared) return false;
+    const pages = toStringArray(data["starred-pages"]);
+    if (pages.includes(urlPath) === starred) return false;
 
-    data["stared-pages"] = stared
+    data["starred-pages"] = starred
       ? [...pages, urlPath]
       : pages.filter((p) => p !== urlPath);
     return true;
@@ -181,6 +181,52 @@ export function setPageStared(urlPath: string, stared: boolean): Promise<void> {
 /**
  * urlPath がスター付きかどうかを返す
  */
-export async function isPageStared(urlPath: string): Promise<boolean> {
-  return (await loadStaredPages()).includes(urlPath);
+export async function isPageStarred(urlPath: string): Promise<boolean> {
+  return (await loadStarredPages()).includes(urlPath);
+}
+
+/**
+ * サイドバーの設定（sidebar-settings）を、アプリ内で扱う形にしたもの
+ * キー名のケバブケースへの変換は、このモジュールの中に閉じ込めている
+ */
+export type SidebarSettings = {
+  // 「スター付き」の一覧を開いているかどうか
+  showStarredPages: boolean;
+};
+
+/**
+ * 保存済みのサイドバーの設定を返す
+ * 未設定の項目は、「スター付き」を開いた状態にする
+ */
+export async function loadSidebarSettings(): Promise<SidebarSettings> {
+  const data = await readUserSettingsFile();
+  const sidebar = data["sidebar-settings"];
+  const showStarredPages =
+    typeof sidebar === "object" && sidebar !== null
+      ? (sidebar as Record<string, unknown>)["show-starred-pages"]
+      : undefined;
+  return {
+    showStarredPages:
+      typeof showStarredPages === "boolean" ? showStarredPages : true,
+  };
+}
+
+/**
+ * 「スター付き」の一覧を開いているかどうかを保存する
+ * sidebar-settings の中の他のキーは残す
+ * すでに同じ状態であれば何も書き込まない
+ */
+export function setShowStarredPages(show: boolean): Promise<void> {
+  return updateUserSettings((data) => {
+    const current = data["sidebar-settings"];
+    const sidebar: Record<string, unknown> =
+      typeof current === "object" && current !== null && !Array.isArray(current)
+        ? { ...(current as Record<string, unknown>) }
+        : {};
+    if (sidebar["show-starred-pages"] === show) return false;
+
+    sidebar["show-starred-pages"] = show;
+    data["sidebar-settings"] = sidebar;
+    return true;
+  });
 }

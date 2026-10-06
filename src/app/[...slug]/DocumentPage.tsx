@@ -20,7 +20,7 @@ import styles from "./DocumentPage.module.css";
 import AppMenu from "./AppMenu";
 import Sidebar from "./Sidebar";
 import NewPageButton from "./NewPageButton";
-import { saveDocument, deleteDocument, recordViewHistory, setStared } from "../actions";
+import { saveDocument, deleteDocument, recordViewHistory, setStarred } from "../actions";
 import { truncateProjectNameForDisplay } from "@/lib/projectNameDisplay";
 import StarIcon from "@/components/StarIcon";
 import type { MarkdownEditorHandle } from "@/components/MarkdownEditor";
@@ -43,8 +43,9 @@ type Props = {
   initialMarkdown: string;
   initialHtml: string;
   initialExists: boolean;
-  initialStared: boolean;
-  staredPages: string[];
+  initialStarred: boolean;
+  starredPages: string[];
+  showStarredPages: boolean;
 };
 
 export default function DocumentPage({
@@ -54,8 +55,9 @@ export default function DocumentPage({
   initialMarkdown,
   initialHtml,
   initialExists,
-  initialStared,
-  staredPages,
+  initialStarred,
+  starredPages,
+  showStarredPages,
 }: Props) {
   // プロジェクト名が設定されていればそちらを、未設定ならルートフォルダ名を表示する
   const rootLinkText = projectName
@@ -105,14 +107,14 @@ export default function DocumentPage({
   // スター付きかどうか
   // ボタンの見た目をすぐ切り替えるため、先に画面の状態を変えてから
   // Server Action で保存し、失敗したら元に戻す
-  const [stared, setStaredState] = useState(initialStared);
+  const [starred, setStarredState] = useState(initialStarred);
 
   async function handleToggleStar() {
-    const next = !stared;
-    setStaredState(next);
-    const result = await setStared(slug, next);
+    const next = !starred;
+    setStarredState(next);
+    const result = await setStarred(slug, next);
     if (!result.ok) {
-      setStaredState(!next);
+      setStarredState(!next);
       setError(result.message);
     }
   }
@@ -228,7 +230,10 @@ export default function DocumentPage({
       </div>
 
       <div className={styles.body}>
-        <Sidebar staredPages={staredPages} />
+        <Sidebar
+          starredPages={starredPages}
+          initialShowStarredPages={showStarredPages}
+        />
         <div className={styles.main}>
           {error && <p className={styles.error}>{error}</p>}
 
@@ -237,11 +242,11 @@ export default function DocumentPage({
               type="button"
               className={styles.starButton}
               onClick={handleToggleStar}
-              aria-pressed={stared}
-              aria-label={stared ? "スターを外す" : "スターを付ける"}
-              title={stared ? "スターを外す" : "スターを付ける"}
+              aria-pressed={starred}
+              aria-label={starred ? "スターを外す" : "スターを付ける"}
+              title={starred ? "スターを外す" : "スターを付ける"}
             >
-              <StarIcon filled={stared} />
+              <StarIcon filled={starred} />
             </button>
           )}
 

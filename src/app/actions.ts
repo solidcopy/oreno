@@ -21,7 +21,11 @@ import path from "node:path";
 import { resolveDocPath, slugToUrlPath } from "@/lib/docPath";
 import { documentExists } from "@/lib/document";
 import { markdownToHtml } from "@/lib/markdown";
-import { addViewHistory, setPageStared } from "@/lib/userSettings";
+import {
+  addViewHistory,
+  setPageStarred,
+  setShowStarredPages,
+} from "@/lib/userSettings";
 
 export type ActionResult = { ok: true } | { ok: false; message: string };
 export type SaveResult =
@@ -109,16 +113,16 @@ export async function recordViewHistory(slug: string[]): Promise<void> {
  * 指定した slug のページのスター付きの状態を設定する
  * 保存できた場合は ok: true を返す
  */
-export async function setStared(
+export async function setStarred(
   slug: string[],
-  stared: boolean,
+  starred: boolean,
 ): Promise<ActionResult> {
   if (!resolveDocPath(slug)) {
     return { ok: false, message: "不正なページです。" };
   }
 
   try {
-    await setPageStared(slugToUrlPath(slug), stared);
+    await setPageStarred(slugToUrlPath(slug), starred);
   } catch (error) {
     return { ok: false, message: `スターの更新に失敗しました: ${String(error)}` };
   }
@@ -126,6 +130,26 @@ export async function setStared(
   // ブラウザ側には、移動前に取得した描画結果（スター無しの状態）がキャッシュされている
   // これを破棄しないと、ブラウザの戻るボタンで戻ったときに古いスターの状態が表示される
   revalidatePath(slugToUrlPath(slug));
+
+  return { ok: true };
+}
+
+/**
+ * サイドバーの「スター付き」の一覧を開いているかどうかを保存する
+ * 保存できた場合は ok: true を返す
+ */
+export async function setShowStarredPagesSetting(
+  show: boolean,
+): Promise<ActionResult> {
+  try {
+    await setShowStarredPages(show);
+  } catch (error) {
+    return { ok: false, message: `設定の保存に失敗しました: ${String(error)}` };
+  }
+
+  // サイドバーは全ページ共通の表示なので、すべてのページのキャッシュを破棄する
+  // これを呼ばないと、戻る/進むで以前の開閉の状態が表示される
+  revalidatePath("/", "layout");
 
   return { ok: true };
 }

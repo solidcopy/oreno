@@ -13,7 +13,11 @@ import { resolveDocPath, getRootDirName, slugToUrlPath } from "@/lib/docPath";
 import { loadDocument } from "@/lib/document";
 import { markdownToHtml } from "@/lib/markdown";
 import { loadProjectSettings } from "@/lib/projectSettings";
-import { isPageStared, loadStaredPages } from "@/lib/userSettings";
+import {
+  isPageStarred,
+  loadSidebarSettings,
+  loadStarredPages,
+} from "@/lib/userSettings";
 import DocumentPage from "./DocumentPage";
 
 // [...slug] という名前のディレクトリが「catch-all セグメント」
@@ -48,8 +52,9 @@ export default async function DocumentRoute(props: PageProps<"/[...slug]">) {
   const { exists, markdown } = await loadDocument(slug);
   const html = exists ? await markdownToHtml(markdown) : "";
   const { projectName } = await loadProjectSettings();
-  const stared = await isPageStared(slugToUrlPath(slug));
-  const staredPages = await loadStaredPages();
+  const starred = await isPageStarred(slugToUrlPath(slug));
+  const starredPages = await loadStarredPages();
+  const sidebarSettings = await loadSidebarSettings();
 
   // ここから先は Client Component（"use client" がついたコンポーネント）に処理を渡す
   // 表示/編集の切り替えのようなブラウザ上でのインタラクションは
@@ -62,8 +67,9 @@ export default async function DocumentRoute(props: PageProps<"/[...slug]">) {
       initialMarkdown={markdown}
       initialHtml={html}
       initialExists={exists}
-      initialStared={stared}
-      staredPages={staredPages}
+      initialStarred={starred}
+      starredPages={starredPages}
+      showStarredPages={sidebarSettings.showStarredPages}
     />
   );
 }

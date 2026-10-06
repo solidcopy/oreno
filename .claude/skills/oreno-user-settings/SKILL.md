@@ -1,6 +1,6 @@
 ---
 name: oreno-user-settings
-description: Orenoのユーザー設定(文書ルート/.oreno/user-settings.json)の仕様を定義したスキルです。閲覧履歴(view-histories)の記録ルール、スター付きページ(stared-pages)の仕様、設定ファイルの読み書きの作法(他のキーを保持して保存する、ファイルが無い・壊れている場合の扱い)を含みます。ユーザー設定の追加・修正、閲覧履歴の記録・表示、ページのスター(お気に入り)機能、user-settings.json や src/lib/userSettings.ts に関わるコードを実装・修正するときは必ず参照してください。
+description: Orenoのユーザー設定(文書ルート/.oreno/user-settings.json)の仕様を定義したスキルです。閲覧履歴(view-histories)の記録ルール、スター付きページ(starred-pages)の仕様、設定ファイルの読み書きの作法(他のキーを保持して保存する、ファイルが無い・壊れている場合の扱い)を含みます。ユーザー設定の追加・修正、閲覧履歴の記録・表示、ページのスター(お気に入り)機能、user-settings.json や src/lib/userSettings.ts に関わるコードを実装・修正するときは必ず参照してください。
 ---
 
 # ユーザー設定
@@ -47,13 +47,13 @@ description: Orenoのユーザー設定(文書ルート/.oreno/user-settings.jso
 
 Server Action は誰でも直接呼び出せるため、渡された slug を信用せずアクション内で検証し直す。履歴の記録に失敗しても文書の表示には影響させない。
 
-## スター付きページ(stared-pages)
+## スター付きページ(starred-pages)
 
 お気に入り(スター付き)にしたページのURLパスを、文字列配列で保存する。
 
 ```json
 {
-  "stared-pages": ["/spec/entities", "/about"]
+  "starred-pages": ["/spec/entities", "/about"]
 }
 ```
 
@@ -71,8 +71,26 @@ Server Action は誰でも直接呼び出せるため、渡された slug を信
 
 ### 実装の仕組み
 
-`page.tsx` が表示のたびに `isPageStared` で状態を調べ、`DocumentPage.tsx` へ `initialStared` として渡す。ボタンを押すと画面の状態を先に切り替え、Server Action `setStared`(`src/app/actions.ts`)で保存する。失敗したら元に戻してエラーを表示する。
+`page.tsx` が表示のたびに `isPageStarred` で状態を調べ、`DocumentPage.tsx` へ `initialStarred` として渡す。ボタンを押すと画面の状態を先に切り替え、Server Action `setStarred`(`src/app/actions.ts`)で保存する。失敗したら元に戻してエラーを表示する。
 
-`setStared` は `recordViewHistory` と同様、渡された slug を信用せずアクション内で検証し直す。
+`setStarred` は `recordViewHistory` と同様、渡された slug を信用せずアクション内で検証し直す。
 
-`setStared` では保存後に `revalidatePath` を呼ぶ。これを省くと、ブラウザが持つ「移動前に取得した描画結果」(クライアントルーターキャッシュ)がそのまま使われ、別のページへ移動してからブラウザの戻るボタンで戻ったときに、スターの状態が古いまま表示される。
+`setStarred` では保存後に `revalidatePath` を呼ぶ。これを省くと、ブラウザが持つ「移動前に取得した描画結果」(クライアントルーターキャッシュ)がそのまま使われ、別のページへ移動してからブラウザの戻るボタンで戻ったときに、スターの状態が古いまま表示される。
+
+## サイドバーの設定(sidebar-settings)
+
+サイドバーの表示状態を保存する。ページごとではなく全ページ共通の設定である。
+
+```json
+{
+  "sidebar-settings": {
+    "show-starred-pages": true
+  }
+}
+```
+
+- `show-starred-pages`: 「スター付き」の一覧を開いているか(`true`)閉じているか(`false`)
+- 未設定、または真偽値以外の場合は開いている(`true`)扱いにする
+- 更新時は `sidebar-settings` 内の他のキーを残す。すでに同じ値なら何も書き込まない
+- 見出しのクリックで画面の状態を先に切り替え、Server Action `setShowStarredPagesSetting`(`src/app/actions.ts`)で保存する。失敗したら元に戻す
+- 全ページ共通の表示なので、保存後は `revalidatePath("/", "layout")` で全ページのキャッシュを破棄する
