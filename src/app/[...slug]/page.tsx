@@ -56,10 +56,7 @@ export default async function DocumentRoute(props: PageProps<"/[...slug]">) {
   const starred = await isPageStarred(slugToUrlPath(slug));
   const starredPages = await loadStarredPages();
   const sidebarSettings = await loadSidebarSettings();
-  // 「最近アクセスしたページ」で表示する最大件数（「もっと表示する」で増やしたとき）
-  const RECENT_PAGES_MAX = 20;
-  const viewHistories = await loadViewHistories();
-  const recentPages = viewHistories.slice(0, RECENT_PAGES_MAX);
+  const recentPages = await loadViewHistories();
 
   // ここから先は Client Component（"use client" がついたコンポーネント）に処理を渡す
   // 表示/編集の切り替えのようなブラウザ上でのインタラクションは

@@ -135,9 +135,13 @@ function updateUserSettings(
   return task;
 }
 
+// 閲覧履歴として保存する最大件数
+const VIEW_HISTORIES_MAX = 20;
+
 /**
  * 閲覧履歴の先頭に urlPath（例: "/spec/entities"）を追加する
  * すでに履歴にあるパスは、元の位置から取り除いて先頭へ移動する
+ * 最大件数を超えた分は、古いものから削除する
  * 文書の保存と同様、ここでは git commit は行わない
  * ファイルを新規作成するときは、Gitの管理対象から外すため .gitignore にも追記する
  */
@@ -147,7 +151,7 @@ export function addViewHistory(urlPath: string): Promise<void> {
     data["view-histories"] = [
       urlPath,
       ...histories.filter((h) => h !== urlPath),
-    ];
+    ].slice(0, VIEW_HISTORIES_MAX);
     return true;
   });
 }
