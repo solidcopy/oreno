@@ -24,6 +24,7 @@ import { markdownToHtml } from "@/lib/markdown";
 import {
   addViewHistory,
   setPageStarred,
+  setShowRecentlyViewedPages,
   setShowSidebar,
   setShowStarredPages,
 } from "@/lib/userSettings";
@@ -96,7 +97,7 @@ export async function deleteDocument(slug: string[]): Promise<ActionResult> {
 
 /**
  * 指定した slug のページを閲覧履歴の先頭に記録する
- * 履歴は記録するだけで、現時点では画面での利用はしない
+ * 履歴はサイドバーの「最近アクセスしたページ」に表示する
  * 履歴の記録に失敗しても文書の表示には影響させたくないため、失敗は無視する
  */
 export async function recordViewHistory(slug: string[]): Promise<void> {
@@ -107,7 +108,14 @@ export async function recordViewHistory(slug: string[]): Promise<void> {
     await addViewHistory(slugToUrlPath(slug));
   } catch {
     // 無視する
+    return;
   }
+
+  // サイドバーの「最近アクセスしたページ」は全ページ共通の表示なので、
+  // すべてのページのキャッシュを破棄する
+  // これを呼ばないと、サイドバーにたった今開いたページが反映されず、
+  // 戻る/進むでも古い履歴が表示される
+  revalidatePath("/", "layout");
 }
 
 /**
@@ -170,6 +178,26 @@ export async function setShowSidebarSetting(
 
   // サイドバーは全ページ共通の表示なので、すべてのページのキャッシュを破棄する
   // これを呼ばないと、戻る/進むで以前の表示の状態になる
+  revalidatePath("/", "layout");
+
+  return { ok: true };
+}
+
+/**
+ * サイドバーの「最近アクセスしたページ」の一覧を開いているかどうかを保存する
+ * 保存できた場合は ok: true を返す
+ */
+export async function setShowRecentlyViewedPagesSetting(
+  show: boolean,
+): Promise<ActionResult> {
+  try {
+    await setShowRecentlyViewedPages(show);
+  } catch (error) {
+    return { ok: false, message: `設定の保存に失敗しました: ${String(error)}` };
+  }
+
+  // サイドバーは全ページ共通の表示なので、すべてのページのキャッシュを破棄する
+  // これを呼ばないと、戻る/進むで以前の開閉の状態が表示される
   revalidatePath("/", "layout");
 
   return { ok: true };

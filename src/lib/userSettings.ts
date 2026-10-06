@@ -153,6 +153,15 @@ export function addViewHistory(urlPath: string): Promise<void> {
 }
 
 /**
+ * 閲覧履歴（新しい順のURLパス）をすべて返す
+ * 文字列以外の要素が混ざっていた場合は取り除く
+ */
+export async function loadViewHistories(): Promise<string[]> {
+  const data = await readUserSettingsFile();
+  return toStringArray(data["view-histories"]);
+}
+
+/**
  * 保存済みのスター付きページ（URLパス）を返す
  * 文字列以外の要素が混ざっていた場合は取り除く
  */
@@ -194,6 +203,8 @@ export type SidebarSettings = {
   show: boolean;
   // 「スター付き」の一覧を開いているかどうか
   showStarredPages: boolean;
+  // 「最近アクセスしたページ」の一覧を開いているかどうか
+  showRecentlyViewedPages: boolean;
 };
 
 /**
@@ -212,6 +223,10 @@ export async function loadSidebarSettings(): Promise<SidebarSettings> {
     showStarredPages:
       typeof values["show-starred-pages"] === "boolean"
         ? values["show-starred-pages"]
+        : true,
+    showRecentlyViewedPages:
+      typeof values["show-recently-viewed-pages"] === "boolean"
+        ? values["show-recently-viewed-pages"]
         : true,
   };
 }
@@ -248,4 +263,11 @@ export function setShowSidebar(show: boolean): Promise<void> {
  */
 export function setShowStarredPages(show: boolean): Promise<void> {
   return setSidebarSetting("show-starred-pages", show);
+}
+
+/**
+ * 「最近アクセスしたページ」の一覧を開いているかどうかを保存する
+ */
+export function setShowRecentlyViewedPages(show: boolean): Promise<void> {
+  return setSidebarSetting("show-recently-viewed-pages", show);
 }

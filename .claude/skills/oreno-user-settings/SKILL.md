@@ -39,7 +39,7 @@ description: Orenoのユーザー設定(文書ルート/.oreno/user-settings.jso
 - 保持期限や最大件数は設けない
 - 存在しないページ(新規作成画面)は記録しない。保存前のページは履歴に残す意味が薄いため
 - `.oreno` 配下や不正なパスは記録しない(`resolveDocPath` で検証する)
-- 現時点では記録するだけで、画面での表示などには利用しない
+- サイドバーの「最近アクセスしたページ」に表示する(次節以降を参照)
 
 ### 記録の仕組み
 
@@ -85,14 +85,24 @@ Server Action は誰でも直接呼び出せるため、渡された slug を信
 {
   "sidebar-settings": {
     "show": true,
-    "show-starred-pages": true
+    "show-starred-pages": true,
+    "show-recently-viewed-pages": true
   }
 }
 ```
 
 - `show`: サイドバー自体を表示する(`true`)か非表示にする(`false`)か。ヘッダー左端のサイドバーアイコンのボタンで切り替える。アイコンの見た目は状態によって変えない
 - `show-starred-pages`: 「スター付き」の一覧を開いているか(`true`)閉じているか(`false`)
-- どちらも未設定、または真偽値以外の場合は `true` 扱いにする
+- `show-recently-viewed-pages`: 「最近アクセスしたページ」の一覧を開いているか(`true`)閉じているか(`false`)
+- いずれも未設定、または真偽値以外の場合は `true` 扱いにする
 - 更新時は `sidebar-settings` 内の他のキーを残す。すでに同じ値なら何も書き込まない
-- クリックで画面の状態を先に切り替え、Server Action(`setShowSidebarSetting`、`setShowStarredPagesSetting`。`src/app/actions.ts`)で保存する。失敗したら元に戻す
+- クリックで画面の状態を先に切り替え、Server Action(`setShowSidebarSetting`、`setShowStarredPagesSetting`、`setShowRecentlyViewedPagesSetting`。`src/app/actions.ts`)で保存する。失敗したら元に戻す
 - 全ページ共通の表示なので、保存後は `revalidatePath("/", "layout")` で全ページのキャッシュを破棄する
+
+### 「最近アクセスしたページ」の一覧
+
+- 閲覧履歴(`view-histories`)の先頭から表示する。最初は5件で、履歴が6件以上のときだけ一覧の最後に「もっと表示する」を出す。押すと20件まで増え、表示が「少なく表示する」に変わる(押すと5件に戻る)
+- 「もっと表示する」が有効なとき(最大20件を表示しているとき)は、21件目以降が実際にあるかに関わらず、一覧の末尾(「少なく表示する」の前)へ常に「(以下略)」を表示する。5件表示のときは表示しない。見た目はホバーしていない「もっと表示する」と同じ
+- 「もっと表示する」の状態は保存しない。ページを表示し直すと5件に戻る
+- 履歴が0件のときは、一覧の代わりに何も表示しない
+- 履歴を記録したあと(`recordViewHistory`)も、サイドバーに反映するため `revalidatePath("/", "layout")` を呼ぶ

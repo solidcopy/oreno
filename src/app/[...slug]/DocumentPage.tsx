@@ -53,6 +53,8 @@ type Props = {
   starredPages: string[];
   showSidebar: boolean;
   showStarredPages: boolean;
+  recentPages: string[];
+  showRecentlyViewedPages: boolean;
 };
 
 export default function DocumentPage({
@@ -66,6 +68,8 @@ export default function DocumentPage({
   starredPages,
   showSidebar,
   showStarredPages,
+  recentPages,
+  showRecentlyViewedPages,
 }: Props) {
   // プロジェクト名が設定されていればそちらを、未設定ならルートフォルダ名を表示する
   const rootLinkText = projectName
@@ -278,6 +282,8 @@ export default function DocumentPage({
           <Sidebar
             starredPages={starredPages}
             initialShowStarredPages={showStarredPages}
+            recentPages={recentPages}
+            initialShowRecentlyViewedPages={showRecentlyViewedPages}
           />
         )}
         <div className={styles.main}>

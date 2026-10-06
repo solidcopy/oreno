@@ -53,6 +53,23 @@
   transform: rotate(90deg);
 }
 
+/* 一覧どうしの間をあける */
+.section + .section {
+  margin-top: 1rem;
+}
+
+/* 時計のアイコン
+   星(黄色)のように目立たせず、文字より少し薄い色にする */
+.clockIcon {
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.7;
+}
+
 /* タイトルより一段下の要素だと分かるよう、左をインデントする */
 .list {
   list-style: none;
@@ -110,4 +127,34 @@
 .link:focus-visible + .tip {
   opacity: 1;
   visibility: visible;
+}
+
+/* 「(以下略)」
+   ホバーしていないときの「もっと表示する」と同じ見た目にする */
+.omitted {
+  padding: 0.35rem 0.5rem;
+  font-size: 0.8rem;
+  opacity: 0.6;
+}
+
+/* 「もっと表示する」「少なく表示する」
+   ページ移動ではなく表示の切り替えなのでbuttonだが、リンクより目立たない見た目にする */
+.moreButton {
+  display: block;
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.moreButton:hover {
+  background: var(--gray-alpha-100);
+  opacity: 1;
 }
