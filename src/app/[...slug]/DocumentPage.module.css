@@ -8,6 +8,23 @@
   min-height: 0;
 }
 
+/* ヘッダーの下の領域。左にサイドバー、右に文書(main)を並べる */
+.body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.main {
+  /* .page と同じ理由でflex列にしてflex:1。editorAreaまで高さが繋がる。
+     min-width:0 は、幅の広いコードブロックなどで横にはみ出さないようにする。 */
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
 .toolbar {
   display: flex;
   gap: 0.5rem;

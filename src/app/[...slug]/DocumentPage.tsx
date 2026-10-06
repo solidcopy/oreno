@@ -18,6 +18,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import styles from "./DocumentPage.module.css";
 import AppMenu from "./AppMenu";
+import Sidebar from "./Sidebar";
 import NewPageButton from "./NewPageButton";
 import { saveDocument, deleteDocument, recordViewHistory, setStared } from "../actions";
 import { truncateProjectNameForDisplay } from "@/lib/projectNameDisplay";
@@ -43,6 +44,7 @@ type Props = {
   initialHtml: string;
   initialExists: boolean;
   initialStared: boolean;
+  staredPages: string[];
 };
 
 export default function DocumentPage({
@@ -53,6 +55,7 @@ export default function DocumentPage({
   initialHtml,
   initialExists,
   initialStared,
+  staredPages,
 }: Props) {
   // プロジェクト名が設定されていればそちらを、未設定ならルートフォルダ名を表示する
   const rootLinkText = projectName
@@ -224,37 +227,42 @@ export default function DocumentPage({
         <AppMenu />
       </div>
 
-      {error && <p className={styles.error}>{error}</p>}
+      <div className={styles.body}>
+        <Sidebar staredPages={staredPages} />
+        <div className={styles.main}>
+          {error && <p className={styles.error}>{error}</p>}
 
-      {mode === "view" && exists && (
-        <button
-          type="button"
-          className={styles.starButton}
-          onClick={handleToggleStar}
-          aria-pressed={stared}
-          aria-label={stared ? "スターを外す" : "スターを付ける"}
-          title={stared ? "スターを外す" : "スターを付ける"}
-        >
-          <StarIcon filled={stared} />
-        </button>
-      )}
+          {mode === "view" && exists && (
+            <button
+              type="button"
+              className={styles.starButton}
+              onClick={handleToggleStar}
+              aria-pressed={stared}
+              aria-label={stared ? "スターを外す" : "スターを付ける"}
+              title={stared ? "スターを外す" : "スターを付ける"}
+            >
+              <StarIcon filled={stared} />
+            </button>
+          )}
 
-      {mode === "view" ? (
-        <div
-          className={`markdown-body ${styles.content}`}
-          // rehype-sanitize で危険なタグ・属性は取り除いた上で変換した HTML なので、
-          // ここで dangerouslySetInnerHTML を使って直接埋め込んでいる
-          dangerouslySetInnerHTML={{ __html: html }}
-        />
-      ) : (
-        <div className={styles.editorArea}>
-          <MarkdownEditor
-            key={editorInstanceKey}
-            ref={editorRef}
-            defaultValue={markdown}
-          />
+          {mode === "view" ? (
+            <div
+              className={`markdown-body ${styles.content}`}
+              // rehype-sanitize で危険なタグ・属性は取り除いた上で変換した HTML なので、
+              // ここで dangerouslySetInnerHTML を使って直接埋め込んでいる
+              dangerouslySetInnerHTML={{ __html: html }}
+            />
+          ) : (
+            <div className={styles.editorArea}>
+              <MarkdownEditor
+                key={editorInstanceKey}
+                ref={editorRef}
+                defaultValue={markdown}
+              />
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

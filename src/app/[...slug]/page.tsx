@@ -13,7 +13,7 @@ import { resolveDocPath, getRootDirName, slugToUrlPath } from "@/lib/docPath";
 import { loadDocument } from "@/lib/document";
 import { markdownToHtml } from "@/lib/markdown";
 import { loadProjectSettings } from "@/lib/projectSettings";
-import { isPageStared } from "@/lib/userSettings";
+import { isPageStared, loadStaredPages } from "@/lib/userSettings";
 import DocumentPage from "./DocumentPage";
 
 // [...slug] という名前のディレクトリが「catch-all セグメント」
@@ -49,6 +49,7 @@ export default async function DocumentRoute(props: PageProps<"/[...slug]">) {
   const html = exists ? await markdownToHtml(markdown) : "";
   const { projectName } = await loadProjectSettings();
   const stared = await isPageStared(slugToUrlPath(slug));
+  const staredPages = await loadStaredPages();
 
   // ここから先は Client Component（"use client" がついたコンポーネント）に処理を渡す
   // 表示/編集の切り替えのようなブラウザ上でのインタラクションは
@@ -62,6 +63,7 @@ export default async function DocumentRoute(props: PageProps<"/[...slug]">) {
       initialHtml={html}
       initialExists={exists}
       initialStared={stared}
+      staredPages={staredPages}
     />
   );
 }
