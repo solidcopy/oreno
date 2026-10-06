@@ -1,0 +1,13 @@
+.off {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.on {
+  fill: #f5c518;
+  stroke: #f5c518;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}

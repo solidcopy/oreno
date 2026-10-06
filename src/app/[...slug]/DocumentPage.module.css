@@ -101,20 +101,6 @@
   background: var(--gray-alpha-100);
 }
 
-.starOff {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.5;
-  stroke-linejoin: round;
-}
-
-.starOn {
-  fill: #f5c518;
-  stroke: #f5c518;
-  stroke-width: 1.5;
-  stroke-linejoin: round;
-}
-
 .editorArea {
   /* .page と同じ理由でflex:1。MarkdownEditor側・globals.cssの
      .milkdown / .ProseMirror へのflex:1と繋がって、Milkdownの

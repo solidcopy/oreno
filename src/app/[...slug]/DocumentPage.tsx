@@ -21,6 +21,7 @@ import AppMenu from "./AppMenu";
 import NewPageButton from "./NewPageButton";
 import { saveDocument, deleteDocument, recordViewHistory, setStared } from "../actions";
 import { truncateProjectNameForDisplay } from "@/lib/projectNameDisplay";
+import StarIcon from "@/components/StarIcon";
 import type { MarkdownEditorHandle } from "@/components/MarkdownEditor";
 
 // Milkdown のエディタ本体はブラウザの document に依存しているため、
@@ -234,14 +235,7 @@ export default function DocumentPage({
           aria-label={stared ? "スターを外す" : "スターを付ける"}
           title={stared ? "スターを外す" : "スターを付ける"}
         >
-          <svg
-            viewBox="0 0 24 24"
-            width="20"
-            height="20"
-            className={stared ? styles.starOn : styles.starOff}
-          >
-            <polygon points="12,2.5 14.8,8.9 21.7,9.5 16.5,14.1 18.1,21 12,17.4 5.9,21 7.5,14.1 2.3,9.5 9.2,8.9" />
-          </svg>
+          <StarIcon filled={stared} />
         </button>
       )}
 
