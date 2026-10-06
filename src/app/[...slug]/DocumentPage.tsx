@@ -19,7 +19,7 @@ import { useRouter } from "next/navigation";
 import styles from "./DocumentPage.module.css";
 import AppMenu from "./AppMenu";
 import NewPageButton from "./NewPageButton";
-import { saveDocument, deleteDocument, recordViewHistory } from "../actions";
+import { saveDocument, deleteDocument, recordViewHistory, setStared } from "../actions";
 import { truncateProjectNameForDisplay } from "@/lib/projectNameDisplay";
 import type { MarkdownEditorHandle } from "@/components/MarkdownEditor";
 
@@ -41,6 +41,7 @@ type Props = {
   initialMarkdown: string;
   initialHtml: string;
   initialExists: boolean;
+  initialStared: boolean;
 };
 
 export default function DocumentPage({
@@ -50,6 +51,7 @@ export default function DocumentPage({
   initialMarkdown,
   initialHtml,
   initialExists,
+  initialStared,
 }: Props) {
   // プロジェクト名が設定されていればそちらを、未設定ならルートフォルダ名を表示する
   const rootLinkText = projectName
@@ -95,6 +97,21 @@ export default function DocumentPage({
   // key が変わると React はコンポーネントを一度破棄して新しく作り直すため、
   // Milkdown のエディタが新しい初期値で作り直される
   const [editorInstanceKey, setEditorInstanceKey] = useState(0);
+
+  // スター付きかどうか
+  // ボタンの見た目をすぐ切り替えるため、先に画面の状態を変えてから
+  // Server Action で保存し、失敗したら元に戻す
+  const [stared, setStaredState] = useState(initialStared);
+
+  async function handleToggleStar() {
+    const next = !stared;
+    setStaredState(next);
+    const result = await setStared(slug, next);
+    if (!result.ok) {
+      setStaredState(!next);
+      setError(result.message);
+    }
+  }
 
   function handleEdit() {
     setError(null);
@@ -207,6 +224,26 @@ export default function DocumentPage({
       </div>
 
       {error && <p className={styles.error}>{error}</p>}
+
+      {mode === "view" && exists && (
+        <button
+          type="button"
+          className={styles.starButton}
+          onClick={handleToggleStar}
+          aria-pressed={stared}
+          aria-label={stared ? "スターを外す" : "スターを付ける"}
+          title={stared ? "スターを外す" : "スターを付ける"}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="20"
+            height="20"
+            className={stared ? styles.starOn : styles.starOff}
+          >
+            <polygon points="12,2.5 14.8,8.9 21.7,9.5 16.5,14.1 18.1,21 12,17.4 5.9,21 7.5,14.1 2.3,9.5 9.2,8.9" />
+          </svg>
+        </button>
+      )}
 
       {mode === "view" ? (
         <div

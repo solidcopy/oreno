@@ -21,7 +21,7 @@ import path from "node:path";
 import { resolveDocPath, slugToUrlPath } from "@/lib/docPath";
 import { documentExists } from "@/lib/document";
 import { markdownToHtml } from "@/lib/markdown";
-import { addViewHistory } from "@/lib/userSettings";
+import { addViewHistory, setPageStared } from "@/lib/userSettings";
 
 export type ActionResult = { ok: true } | { ok: false; message: string };
 export type SaveResult =
@@ -103,4 +103,29 @@ export async function recordViewHistory(slug: string[]): Promise<void> {
   } catch {
     // 無視する
   }
+}
+
+/**
+ * 指定した slug のページのスター付きの状態を設定する
+ * 保存できた場合は ok: true を返す
+ */
+export async function setStared(
+  slug: string[],
+  stared: boolean,
+): Promise<ActionResult> {
+  if (!resolveDocPath(slug)) {
+    return { ok: false, message: "不正なページです。" };
+  }
+
+  try {
+    await setPageStared(slugToUrlPath(slug), stared);
+  } catch (error) {
+    return { ok: false, message: `スターの更新に失敗しました: ${String(error)}` };
+  }
+
+  // ブラウザ側には、移動前に取得した描画結果（スター無しの状態）がキャッシュされている
+  // これを破棄しないと、ブラウザの戻るボタンで戻ったときに古いスターの状態が表示される
+  revalidatePath(slugToUrlPath(slug));
+
+  return { ok: true };
 }

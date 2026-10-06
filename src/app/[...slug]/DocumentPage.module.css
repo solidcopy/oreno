@@ -74,6 +74,45 @@
   /* 編集モード(Milkdown)は中央揃えではなく左寄せなので、
      表示モードもそれに合わせて左寄せにしている。 */
   padding: 1.5rem;
+  /* 右上に固定したスターボタンと文章が重ならないようにする */
+  padding-right: 4rem;
+}
+
+/* 文書の表示領域の右上に固定するスターボタン
+   ヘッダー(sticky)の高さ分だけ下げ、スクロールしても動かない */
+.starButton {
+  position: fixed;
+  top: 4.5rem;
+  right: 1rem;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid var(--gray-alpha-200);
+  background: var(--background);
+  cursor: pointer;
+}
+
+.starButton:hover {
+  background: var(--gray-alpha-100);
+}
+
+.starOff {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.starOn {
+  fill: #f5c518;
+  stroke: #f5c518;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
 }
 
 .editorArea {

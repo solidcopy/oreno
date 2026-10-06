@@ -4,11 +4,12 @@ import { getRootDir } from "@/lib/docPath";
 
 /**
  * ユーザー設定（(文書フォルダのルート)/.oreno/user-settings.json）のうち、
- * 閲覧履歴（view-histories）の読み込み・更新をまとめるモジュール
+ * 閲覧履歴（view-histories）とスター付きページ（stared-pages）の
+ * 読み込み・更新をまとめるモジュール
  * 閲覧履歴は、後にアクセスしたものほど先頭に並ぶ
  *
  * 将来ほかのキーが増えても消えないよう、保存時は既存のJSONを読み込んで
- * view-histories だけを差し替えている
+ * 更新するキーだけを差し替えている
  */
 
 type UserSettingsFile = Record<string, unknown>;
@@ -92,14 +93,12 @@ async function readUserSettingsFile(): Promise<UserSettingsFile> {
 }
 
 /**
- * 保存済みの閲覧履歴を、新しい順で返す
- * 文字列以外の要素が混ざっていた場合は取り除く
+ * 設定値を文字列の配列として取り出す
+ * 配列でない場合は空配列、文字列以外の要素は取り除く
  */
-export async function loadViewHistories(): Promise<string[]> {
-  const data = await readUserSettingsFile();
-  const histories = data["view-histories"];
-  if (!Array.isArray(histories)) return [];
-  return histories.filter((h): h is string => typeof h === "string");
+function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((v): v is string => typeof v === "string");
 }
 
 // 読み込み→書き込みの途中で別の記録が割り込むと履歴が欠けるため、
@@ -107,19 +106,18 @@ export async function loadViewHistories(): Promise<string[]> {
 let queue: Promise<void> = Promise.resolve();
 
 /**
- * 閲覧履歴の先頭に urlPath（例: "/spec/entities"）を追加する
- * すでに履歴にあるパスは、元の位置から取り除いて先頭へ移動する
- * 文書の保存と同様、ここでは git commit は行わない
+ * ユーザー設定ファイルを「読み込み → 変更 → 書き込み」で更新する共通処理
+ * mutate には、読み込んだ設定を受け取って、変更したい箇所だけ書き換える関数を渡す
+ * mutate は、設定を変更したら true、変更しなかったら false を返す
+ * false の場合は書き込まない
  * ファイルを新規作成するときは、Gitの管理対象から外すため .gitignore にも追記する
  */
-export function addViewHistory(urlPath: string): Promise<void> {
+function updateUserSettings(
+  mutate: (data: UserSettingsFile) => boolean,
+): Promise<void> {
   const task = queue.then(async () => {
     const data = await readUserSettingsFile();
-    const histories = await loadViewHistories();
-    data["view-histories"] = [
-      urlPath,
-      ...histories.filter((h) => h !== urlPath),
-    ];
+    if (!mutate(data)) return;
 
     const filePath = getUserSettingsPath();
 
@@ -135,4 +133,54 @@ export function addViewHistory(urlPath: string): Promise<void> {
   // 失敗しても後続の記録を止めないようにする
   queue = task.catch(() => {});
   return task;
+}
+
+/**
+ * 閲覧履歴の先頭に urlPath（例: "/spec/entities"）を追加する
+ * すでに履歴にあるパスは、元の位置から取り除いて先頭へ移動する
+ * 文書の保存と同様、ここでは git commit は行わない
+ * ファイルを新規作成するときは、Gitの管理対象から外すため .gitignore にも追記する
+ */
+export function addViewHistory(urlPath: string): Promise<void> {
+  return updateUserSettings((data) => {
+    const histories = toStringArray(data["view-histories"]);
+    data["view-histories"] = [
+      urlPath,
+      ...histories.filter((h) => h !== urlPath),
+    ];
+    return true;
+  });
+}
+
+/**
+ * 保存済みのスター付きページ（URLパス）を返す
+ * 文字列以外の要素が混ざっていた場合は取り除く
+ */
+export async function loadStaredPages(): Promise<string[]> {
+  const data = await readUserSettingsFile();
+  return toStringArray(data["stared-pages"]);
+}
+
+/**
+ * urlPath のスター付きの状態を設定する
+ * すでに同じ状態であれば何も書き込まない
+ * 閲覧履歴の記録と同じキューに載せて、更新が同時に走らないようにしている
+ */
+export function setPageStared(urlPath: string, stared: boolean): Promise<void> {
+  return updateUserSettings((data) => {
+    const pages = toStringArray(data["stared-pages"]);
+    if (pages.includes(urlPath) === stared) return false;
+
+    data["stared-pages"] = stared
+      ? [...pages, urlPath]
+      : pages.filter((p) => p !== urlPath);
+    return true;
+  });
+}
+
+/**
+ * urlPath がスター付きかどうかを返す
+ */
+export async function isPageStared(urlPath: string): Promise<boolean> {
+  return (await loadStaredPages()).includes(urlPath);
 }
