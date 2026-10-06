@@ -69,6 +69,7 @@ export default async function DocumentRoute(props: PageProps<"/[...slug]">) {
       initialExists={exists}
       initialStarred={starred}
       starredPages={starredPages}
+      showSidebar={sidebarSettings.show}
       showStarredPages={sidebarSettings.showStarredPages}
     />
   );

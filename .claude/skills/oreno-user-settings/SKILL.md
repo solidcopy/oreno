@@ -84,13 +84,15 @@ Server Action は誰でも直接呼び出せるため、渡された slug を信
 ```json
 {
   "sidebar-settings": {
+    "show": true,
     "show-starred-pages": true
   }
 }
 ```
 
+- `show`: サイドバー自体を表示する(`true`)か非表示にする(`false`)か。ヘッダー左端のサイドバーアイコンのボタンで切り替える。アイコンの見た目は状態によって変えない
 - `show-starred-pages`: 「スター付き」の一覧を開いているか(`true`)閉じているか(`false`)
-- 未設定、または真偽値以外の場合は開いている(`true`)扱いにする
+- どちらも未設定、または真偽値以外の場合は `true` 扱いにする
 - 更新時は `sidebar-settings` 内の他のキーを残す。すでに同じ値なら何も書き込まない
-- 見出しのクリックで画面の状態を先に切り替え、Server Action `setShowStarredPagesSetting`(`src/app/actions.ts`)で保存する。失敗したら元に戻す
+- クリックで画面の状態を先に切り替え、Server Action(`setShowSidebarSetting`、`setShowStarredPagesSetting`。`src/app/actions.ts`)で保存する。失敗したら元に戻す
 - 全ページ共通の表示なので、保存後は `revalidatePath("/", "layout")` で全ページのキャッシュを破棄する

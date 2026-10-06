@@ -24,6 +24,7 @@ import { markdownToHtml } from "@/lib/markdown";
 import {
   addViewHistory,
   setPageStarred,
+  setShowSidebar,
   setShowStarredPages,
 } from "@/lib/userSettings";
 
@@ -149,6 +150,26 @@ export async function setShowStarredPagesSetting(
 
   // サイドバーは全ページ共通の表示なので、すべてのページのキャッシュを破棄する
   // これを呼ばないと、戻る/進むで以前の開閉の状態が表示される
+  revalidatePath("/", "layout");
+
+  return { ok: true };
+}
+
+/**
+ * サイドバーを表示するかどうかを保存する
+ * 保存できた場合は ok: true を返す
+ */
+export async function setShowSidebarSetting(
+  show: boolean,
+): Promise<ActionResult> {
+  try {
+    await setShowSidebar(show);
+  } catch (error) {
+    return { ok: false, message: `設定の保存に失敗しました: ${String(error)}` };
+  }
+
+  // サイドバーは全ページ共通の表示なので、すべてのページのキャッシュを破棄する
+  // これを呼ばないと、戻る/進むで以前の表示の状態になる
   revalidatePath("/", "layout");
 
   return { ok: true };

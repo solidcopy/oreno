@@ -20,7 +20,13 @@ import styles from "./DocumentPage.module.css";
 import AppMenu from "./AppMenu";
 import Sidebar from "./Sidebar";
 import NewPageButton from "./NewPageButton";
-import { saveDocument, deleteDocument, recordViewHistory, setStarred } from "../actions";
+import {
+  saveDocument,
+  deleteDocument,
+  recordViewHistory,
+  setStarred,
+  setShowSidebarSetting,
+} from "../actions";
 import { truncateProjectNameForDisplay } from "@/lib/projectNameDisplay";
 import StarIcon from "@/components/StarIcon";
 import type { MarkdownEditorHandle } from "@/components/MarkdownEditor";
@@ -45,6 +51,7 @@ type Props = {
   initialExists: boolean;
   initialStarred: boolean;
   starredPages: string[];
+  showSidebar: boolean;
   showStarredPages: boolean;
 };
 
@@ -57,6 +64,7 @@ export default function DocumentPage({
   initialExists,
   initialStarred,
   starredPages,
+  showSidebar,
   showStarredPages,
 }: Props) {
   // プロジェクト名が設定されていればそちらを、未設定ならルートフォルダ名を表示する
@@ -115,6 +123,20 @@ export default function DocumentPage({
     const result = await setStarred(slug, next);
     if (!result.ok) {
       setStarredState(!next);
+      setError(result.message);
+    }
+  }
+
+  // サイドバーを表示するかどうか（全ページ共通の設定として保存する）
+  // スターと同じく、先に画面の状態を変えてから保存し、失敗したら元に戻す
+  const [sidebarVisible, setSidebarVisible] = useState(showSidebar);
+
+  async function handleToggleSidebar() {
+    const next = !sidebarVisible;
+    setSidebarVisible(next);
+    const result = await setShowSidebarSetting(next);
+    if (!result.ok) {
+      setSidebarVisible(!next);
       setError(result.message);
     }
   }
@@ -182,6 +204,28 @@ export default function DocumentPage({
   return (
     <div className={styles.page}>
       <div className={styles.toolbar}>
+        <button
+          type="button"
+          className={styles.iconButton}
+          onClick={handleToggleSidebar}
+          aria-label="サイドバーの表示を切り替える"
+          aria-expanded={sidebarVisible}
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="2.5" y="3.5" width="15" height="13" rx="2" />
+            <path d="M7.5 3.5v13" />
+          </svg>
+        </button>
         <Link href="/index" className={styles.rootLink}>
           {rootLinkText}
         </Link>
@@ -230,10 +274,12 @@ export default function DocumentPage({
       </div>
 
       <div className={styles.body}>
-        <Sidebar
-          starredPages={starredPages}
-          initialShowStarredPages={showStarredPages}
-        />
+        {sidebarVisible && (
+          <Sidebar
+            starredPages={starredPages}
+            initialShowStarredPages={showStarredPages}
+          />
+        )}
         <div className={styles.main}>
           {error && <p className={styles.error}>{error}</p>}
 

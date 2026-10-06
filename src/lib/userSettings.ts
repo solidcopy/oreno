@@ -190,43 +190,62 @@ export async function isPageStarred(urlPath: string): Promise<boolean> {
  * キー名のケバブケースへの変換は、このモジュールの中に閉じ込めている
  */
 export type SidebarSettings = {
+  // サイドバーを表示するかどうか
+  show: boolean;
   // 「スター付き」の一覧を開いているかどうか
   showStarredPages: boolean;
 };
 
 /**
  * 保存済みのサイドバーの設定を返す
- * 未設定の項目は、「スター付き」を開いた状態にする
+ * 未設定の項目は、どちらも「表示する・開いている」状態にする
  */
 export async function loadSidebarSettings(): Promise<SidebarSettings> {
   const data = await readUserSettingsFile();
   const sidebar = data["sidebar-settings"];
-  const showStarredPages =
+  const values =
     typeof sidebar === "object" && sidebar !== null
-      ? (sidebar as Record<string, unknown>)["show-starred-pages"]
-      : undefined;
+      ? (sidebar as Record<string, unknown>)
+      : {};
   return {
+    show: typeof values["show"] === "boolean" ? values["show"] : true,
     showStarredPages:
-      typeof showStarredPages === "boolean" ? showStarredPages : true,
+      typeof values["show-starred-pages"] === "boolean"
+        ? values["show-starred-pages"]
+        : true,
   };
 }
 
 /**
- * 「スター付き」の一覧を開いているかどうかを保存する
+ * sidebar-settings の key（ケバブケース）の値を設定する
  * sidebar-settings の中の他のキーは残す
- * すでに同じ状態であれば何も書き込まない
+ * すでに同じ値であれば何も書き込まない
  */
-export function setShowStarredPages(show: boolean): Promise<void> {
+function setSidebarSetting(key: string, value: boolean): Promise<void> {
   return updateUserSettings((data) => {
     const current = data["sidebar-settings"];
     const sidebar: Record<string, unknown> =
       typeof current === "object" && current !== null && !Array.isArray(current)
         ? { ...(current as Record<string, unknown>) }
         : {};
-    if (sidebar["show-starred-pages"] === show) return false;
+    if (sidebar[key] === value) return false;
 
-    sidebar["show-starred-pages"] = show;
+    sidebar[key] = value;
     data["sidebar-settings"] = sidebar;
     return true;
   });
+}
+
+/**
+ * サイドバーを表示するかどうかを保存する
+ */
+export function setShowSidebar(show: boolean): Promise<void> {
+  return setSidebarSetting("show", show);
+}
+
+/**
+ * 「スター付き」の一覧を開いているかどうかを保存する
+ */
+export function setShowStarredPages(show: boolean): Promise<void> {
+  return setSidebarSetting("show-starred-pages", show);
 }
