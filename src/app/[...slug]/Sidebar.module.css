@@ -153,3 +153,58 @@
   background: var(--gray-alpha-100);
   opacity: 1;
 }
+
+/* 文書・ページのアイコン
+   時計のアイコンと同じく、文字より少し薄い線画にする */
+.softIcon {
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.7;
+}
+
+/* フォルダのアイコン
+   ページの線画と見分けやすいよう、塗りつぶす */
+.folderIcon {
+  composes: softIcon;
+  fill: currentColor;
+}
+
+/* 「ページ」の一覧の項目
+   アイコンと名前を横に並べる。名前が長いときは末尾を省略する */
+.entry {
+  composes: link;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+/* 表示中のページの行は、背景を濃くして目立たせる
+   文字の見た目は他のページと同じにする
+   composes は入れ子（entry の中の link）が引き継がれないため、link も直接指定する */
+.entryCurrent {
+  composes: link entry;
+  background: color-mix(in srgb, var(--foreground) 9%, transparent);
+}
+
+/* フォルダの行（「..」を含む）
+   リンクではなく button なので、見た目をリンクに揃える */
+.entryButton {
+  composes: link entry;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.entryName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

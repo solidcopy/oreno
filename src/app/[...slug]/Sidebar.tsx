@@ -2,7 +2,7 @@
 
 /**
  * サイドバー
- * スター付きページと、最近アクセスしたページの一覧を表示する
+ * スター付きページ、最近アクセスしたページ、フォルダ内のページの一覧を表示する
  *
  * 開閉の状態はブラウザ上で切り替わる値なので、useState を使うために
  * Client Component にしている
@@ -14,7 +14,10 @@ import { useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
 import StarIcon from "@/components/StarIcon";
 import { encodeUrlPath } from "@/lib/encodeUrlPath";
+import type { FolderEntries } from "@/lib/folder";
 import {
+  loadFolderEntries,
+  setShowPagesSetting,
   setShowRecentlyViewedPagesSetting,
   setShowStarredPagesSetting,
 } from "../actions";
@@ -29,6 +32,12 @@ type Props = {
   recentPages: string[];
   // 「最近アクセスしたページ」の一覧を開いているかどうかの保存済みの値
   initialShowRecentlyViewedPages: boolean;
+  // 表示中のページのslug（例: ["spec", "entities", "reservation"]）
+  slug: string[];
+  // 表示中のページがあるフォルダの中身
+  folderEntries: FolderEntries;
+  // 「ページ」の一覧を開いているかどうかの保存済みの値
+  initialShowPages: boolean;
 };
 
 // 「最近アクセスしたページ」で最初に表示する件数
@@ -50,6 +59,52 @@ function ClockIcon() {
     >
       <circle cx="12" cy="12" r="9" />
       <path d="M12 7v5l3.5 2" />
+    </svg>
+  );
+}
+
+// 文書のアイコン（紙の中に横線を描いたもの）
+function DocumentIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      className={styles.softIcon}
+    >
+      <path d="M6 3h8l4 4v14H6z" />
+      <path d="M14 3v4h4" />
+      <path d="M9 12h6M9 16h6" />
+    </svg>
+  );
+}
+
+// 一覧の項目に付ける、ページのアイコン（折り目のある紙の輪郭だけ）
+// フォルダのアイコン（塗りつぶし）と見分けやすいよう、塗らずに線だけで描く
+function PageEntryIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      className={styles.softIcon}
+    >
+      <path d="M6 3h8l4 4v14H6z" />
+      <path d="M14 3v4h4" />
+    </svg>
+  );
+}
+
+// 一覧の項目に付ける、フォルダのアイコン（塗りつぶし）
+function FolderEntryIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      className={styles.folderIcon}
+    >
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
     </svg>
   );
 }
@@ -135,6 +190,9 @@ export default function Sidebar({
   initialShowStarredPages,
   recentPages,
   initialShowRecentlyViewedPages,
+  slug,
+  folderEntries,
+  initialShowPages,
 }: Props) {
   // 各一覧を開いているかどうか
   // 開閉の状態は全ページ共通の設定としてユーザー設定に保存する
@@ -143,6 +201,31 @@ export default function Sidebar({
   const [recentOpen, setRecentOpen] = useState(
     initialShowRecentlyViewedPages,
   );
+  const [pagesOpen, setPagesOpen] = useState(initialShowPages);
+
+  // 「ページ」の一覧に表示しているフォルダ
+  // フォルダをクリックしたときだけ、移動先のフォルダとその中身を入れる
+  // null のときは、表示中のページがあるフォルダ（props で受け取った中身）を表示する
+  const [browsed, setBrowsed] = useState<{
+    folder: string[];
+    entries: FolderEntries;
+  } | null>(null);
+
+  // 別のページに移動したら、一覧を新しいページのフォルダに戻す
+  // Sidebar はページを移動しても作り直されず state が残るため、
+  // 描画中に前回のページと比べて、変わっていたら state を初期化している
+  // （useEffect で初期化すると、古い一覧が一瞬表示されてしまう）
+  const slugKey = slug.join("/");
+  const [prevSlugKey, setPrevSlugKey] = useState(slugKey);
+  if (prevSlugKey !== slugKey) {
+    setPrevSlugKey(slugKey);
+    setBrowsed(null);
+  }
+
+  // 表示中のページがあるフォルダ（ページ名を除いたもの）
+  const currentFolder = slug.slice(0, -1);
+  const shownFolder = browsed ? browsed.folder : currentFolder;
+  const shownEntries = browsed ? browsed.entries : folderEntries;
 
   // 「最近アクセスしたページ」を5件より多く表示しているかどうか
   // 保存はせず、ページを表示し直すと5件に戻る
@@ -165,6 +248,24 @@ export default function Sidebar({
     const result = await setShowRecentlyViewedPagesSetting(next);
     if (!result.ok) {
       setRecentOpen(!next);
+    }
+  }
+
+  async function handleTogglePages() {
+    const next = !pagesOpen;
+    setPagesOpen(next);
+    const result = await setShowPagesSetting(next);
+    if (!result.ok) {
+      setPagesOpen(!next);
+    }
+  }
+
+  // フォルダをクリックしたとき、そのフォルダの中身をサーバーから取得して一覧を切り替える
+  // 表示中のページは変わらない
+  async function handleOpenFolder(folder: string[]) {
+    const result = await loadFolderEntries(folder);
+    if (result.ok) {
+      setBrowsed({ folder, entries: result.entries });
     }
   }
 
@@ -233,6 +334,68 @@ export default function Sidebar({
             )}
           </ul>
         )}
+      </section>
+
+      <section className={styles.section}>
+        <SectionHeading
+          open={pagesOpen}
+          onToggle={handleTogglePages}
+          icon={<DocumentIcon />}
+          title="ページ"
+        />
+
+        {pagesOpen && (
+          <ul className={styles.list}>
+            {/* ルートフォルダには上の階層がないので、「..」は出さない */}
+            {shownFolder.length > 0 && (
+              <li>
+                <button
+                  type="button"
+                  className={styles.entryButton}
+                  onClick={() => handleOpenFolder(shownFolder.slice(0, -1))}
+                >
+                  <FolderEntryIcon />
+                  <span className={styles.entryName}>..</span>
+                </button>
+              </li>
+            )}
+            {shownEntries.folders.map((name) => (
+              <li key={name}>
+                <button
+                  type="button"
+                  className={styles.entryButton}
+                  onClick={() => handleOpenFolder([...shownFolder, name])}
+                >
+                  <FolderEntryIcon />
+                  <span className={styles.entryName}>{name}</span>
+                </button>
+              </li>
+            ))}
+            {shownEntries.pages.map((name) => {
+              const pageSlug = [...shownFolder, name];
+              // 表示中のページの行は強調する
+              const isCurrent = pageSlug.join("/") === slugKey;
+              return (
+                <li key={name}>
+                  <Link
+                    href={encodeUrlPath("/" + pageSlug.join("/"))}
+                    className={isCurrent ? styles.entryCurrent : styles.entry}
+                    aria-current={isCurrent ? "page" : undefined}
+                  >
+                    <PageEntryIcon />
+                    <span className={styles.entryName}>{name}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        {pagesOpen &&
+          shownEntries.folders.length === 0 &&
+          shownEntries.pages.length === 0 && (
+            <p className={styles.empty}>ページはありません</p>
+          )}
       </section>
     </aside>
   );

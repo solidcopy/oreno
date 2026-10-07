@@ -20,10 +20,12 @@ import { writeFile, mkdir, unlink } from "node:fs/promises";
 import path from "node:path";
 import { resolveDocPath, slugToUrlPath } from "@/lib/docPath";
 import { documentExists } from "@/lib/document";
+import { listFolder, type FolderEntries } from "@/lib/folder";
 import { markdownToHtml } from "@/lib/markdown";
 import {
   addViewHistory,
   setPageStarred,
+  setShowPages,
   setShowRecentlyViewedPages,
   setShowSidebar,
   setShowStarredPages,
@@ -201,4 +203,42 @@ export async function setShowRecentlyViewedPagesSetting(
   revalidatePath("/", "layout");
 
   return { ok: true };
+}
+
+/**
+ * サイドバーの「ページ」の一覧を開いているかどうかを保存する
+ * 保存できた場合は ok: true を返す
+ */
+export async function setShowPagesSetting(
+  show: boolean,
+): Promise<ActionResult> {
+  try {
+    await setShowPages(show);
+  } catch (error) {
+    return { ok: false, message: `設定の保存に失敗しました: ${String(error)}` };
+  }
+
+  // サイドバーは全ページ共通の表示なので、すべてのページのキャッシュを破棄する
+  // これを呼ばないと、戻る/進むで以前の開閉の状態が表示される
+  revalidatePath("/", "layout");
+
+  return { ok: true };
+}
+
+/**
+ * 指定したフォルダの中にあるサブフォルダとページの一覧を返す
+ * サイドバーの「ページ」で、フォルダをクリックしたときに呼ばれる
+ * folder は文書ルートからのフォルダのパス（空配列ならルート）
+ * 渡された folder を信用せず、listFolder の中で検証し直している
+ */
+export async function loadFolderEntries(
+  folder: string[],
+): Promise<
+  { ok: true; entries: FolderEntries } | { ok: false; message: string }
+> {
+  try {
+    return { ok: true, entries: await listFolder(folder) };
+  } catch (error) {
+    return { ok: false, message: `一覧の取得に失敗しました: ${String(error)}` };
+  }
 }

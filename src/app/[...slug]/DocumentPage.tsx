@@ -18,6 +18,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import styles from "./DocumentPage.module.css";
 import AppMenu from "./AppMenu";
+import type { FolderEntries } from "@/lib/folder";
 import Sidebar from "./Sidebar";
 import NewPageButton from "./NewPageButton";
 import {
@@ -55,6 +56,8 @@ type Props = {
   showStarredPages: boolean;
   recentPages: string[];
   showRecentlyViewedPages: boolean;
+  folderEntries: FolderEntries;
+  showPages: boolean;
 };
 
 export default function DocumentPage({
@@ -70,6 +73,8 @@ export default function DocumentPage({
   showStarredPages,
   recentPages,
   showRecentlyViewedPages,
+  folderEntries,
+  showPages,
 }: Props) {
   // プロジェクト名が設定されていればそちらを、未設定ならルートフォルダ名を表示する
   const rootLinkText = projectName
@@ -284,6 +289,9 @@ export default function DocumentPage({
             initialShowStarredPages={showStarredPages}
             recentPages={recentPages}
             initialShowRecentlyViewedPages={showRecentlyViewedPages}
+            slug={slug}
+            folderEntries={folderEntries}
+            initialShowPages={showPages}
           />
         )}
         <div className={styles.main}>

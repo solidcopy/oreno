@@ -86,7 +86,8 @@ Server Action は誰でも直接呼び出せるため、渡された slug を信
   "sidebar-settings": {
     "show": true,
     "show-starred-pages": true,
-    "show-recently-viewed-pages": true
+    "show-recently-viewed-pages": true,
+    "show-pages": true
   }
 }
 ```
@@ -94,9 +95,10 @@ Server Action は誰でも直接呼び出せるため、渡された slug を信
 - `show`: サイドバー自体を表示する(`true`)か非表示にする(`false`)か。ヘッダー左端のサイドバーアイコンのボタンで切り替える。アイコンの見た目は状態によって変えない
 - `show-starred-pages`: 「スター付き」の一覧を開いているか(`true`)閉じているか(`false`)
 - `show-recently-viewed-pages`: 「最近アクセスしたページ」の一覧を開いているか(`true`)閉じているか(`false`)
+- `show-pages`: 「ページ」の一覧を開いているか(`true`)閉じているか(`false`)
 - いずれも未設定、または真偽値以外の場合は `true` 扱いにする
 - 更新時は `sidebar-settings` 内の他のキーを残す。すでに同じ値なら何も書き込まない
-- クリックで画面の状態を先に切り替え、Server Action(`setShowSidebarSetting`、`setShowStarredPagesSetting`、`setShowRecentlyViewedPagesSetting`。`src/app/actions.ts`)で保存する。失敗したら元に戻す
+- クリックで画面の状態を先に切り替え、Server Action(`setShowSidebarSetting`、`setShowStarredPagesSetting`、`setShowRecentlyViewedPagesSetting`、`setShowPagesSetting`。`src/app/actions.ts`)で保存する。失敗したら元に戻す
 - 全ページ共通の表示なので、保存後は `revalidatePath("/", "layout")` で全ページのキャッシュを破棄する
 
 ### 「最近アクセスしたページ」の一覧
@@ -106,3 +108,15 @@ Server Action は誰でも直接呼び出せるため、渡された slug を信
 - 「もっと表示する」の状態は保存しない。ページを表示し直すと5件に戻る
 - 履歴が0件のときは、一覧の代わりに何も表示しない
 - 履歴を記録したあと(`recordViewHistory`)も、サイドバーに反映するため `revalidatePath("/", "layout")` を呼ぶ
+
+### 「ページ」の一覧
+
+表示中のページがあるフォルダの、サブフォルダとページ(Markdownファイル)を表示する。中身の取得は `src/lib/folder.ts` の `listFolder` に集約している。
+
+- 並び順はサブフォルダ、ページの順で、それぞれ名前の昇順
+- Markdown以外のファイル、`.` から始まる名前(`.git`、`.oreno` など)は表示しない。ページの名前は拡張子 `.md` を除いたもの
+- フォルダ行のアイコンは塗りつぶし、ページ行は線だけの輪郭にして見分けられるようにする
+- 表示中のページの行は背景を濃くして強調する
+- 一覧の先頭に「..」を出し、クリックすると1つ上のフォルダの一覧に切り替える。ルートフォルダでは出さない
+- フォルダ(「..」を含む)をクリックしても表示中のページは変わらず、一覧だけが切り替わる。切り替え先の中身はServer Action `loadFolderEntries` で取得する。別のページへ移動すると、一覧は新しいページのフォルダに戻る
+- 一覧が空のときは「ページはありません」を表示する

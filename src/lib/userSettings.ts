@@ -209,6 +209,8 @@ export type SidebarSettings = {
   showStarredPages: boolean;
   // 「最近アクセスしたページ」の一覧を開いているかどうか
   showRecentlyViewedPages: boolean;
+  // 「ページ」の一覧を開いているかどうか
+  showPages: boolean;
 };
 
 /**
@@ -232,6 +234,8 @@ export async function loadSidebarSettings(): Promise<SidebarSettings> {
       typeof values["show-recently-viewed-pages"] === "boolean"
         ? values["show-recently-viewed-pages"]
         : true,
+    showPages:
+      typeof values["show-pages"] === "boolean" ? values["show-pages"] : true,
   };
 }
 
@@ -274,4 +278,11 @@ export function setShowStarredPages(show: boolean): Promise<void> {
  */
 export function setShowRecentlyViewedPages(show: boolean): Promise<void> {
   return setSidebarSetting("show-recently-viewed-pages", show);
+}
+
+/**
+ * 「ページ」の一覧を開いているかどうかを保存する
+ */
+export function setShowPages(show: boolean): Promise<void> {
+  return setSidebarSetting("show-pages", show);
 }

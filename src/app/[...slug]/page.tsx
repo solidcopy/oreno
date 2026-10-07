@@ -11,6 +11,7 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { resolveDocPath, getRootDirName, slugToUrlPath } from "@/lib/docPath";
 import { loadDocument } from "@/lib/document";
+import { listFolder } from "@/lib/folder";
 import { markdownToHtml } from "@/lib/markdown";
 import { loadProjectSettings } from "@/lib/projectSettings";
 import {
@@ -70,6 +71,8 @@ export default async function DocumentRoute(props: PageProps<"/[...slug]">) {
   const starredPages = await loadStarredPages();
   const sidebarSettings = await loadSidebarSettings();
   const recentPages = await loadViewHistories();
+  // サイドバーの「ページ」に最初に表示する、表示中のページがあるフォルダの中身
+  const folderEntries = await listFolder(slug.slice(0, -1));
 
   // ここから先は Client Component（"use client" がついたコンポーネント）に処理を渡す
   // 表示/編集の切り替えのようなブラウザ上でのインタラクションは
@@ -88,6 +91,8 @@ export default async function DocumentRoute(props: PageProps<"/[...slug]">) {
       showStarredPages={sidebarSettings.showStarredPages}
       recentPages={recentPages}
       showRecentlyViewedPages={sidebarSettings.showRecentlyViewedPages}
+      folderEntries={folderEntries}
+      showPages={sidebarSettings.showPages}
     />
   );
 }
