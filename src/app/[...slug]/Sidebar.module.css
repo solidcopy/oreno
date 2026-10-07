@@ -88,11 +88,6 @@
   opacity: 0.55;
 }
 
-/* ツールチップの位置の基準にする */
-.item {
-  position: relative;
-}
-
 .link {
   display: block;
   padding: 0.35rem 0.5rem;
@@ -107,11 +102,11 @@
   background: var(--gray-alpha-100);
 }
 
+/* 位置(left, top)は Sidebar.tsx がホバー時に指定する
+   fixed にすることで、サイドバーの overflow に切り取られずページ内容の上に重なる */
 .tip {
-  position: absolute;
-  left: 0.5rem;
-  top: calc(100% + 2px);
-  z-index: 2;
+  position: fixed;
+  z-index: 20;
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
   background: var(--foreground);
