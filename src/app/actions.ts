@@ -26,7 +26,7 @@ import {
   addViewHistory,
   setPageStarred,
   setShowPages,
-  setShowRecentlyViewedPages,
+  setShowHistories,
   setShowSidebar,
   setShowStarredPages,
 } from "@/lib/userSettings";
@@ -99,7 +99,7 @@ export async function deleteDocument(slug: string[]): Promise<ActionResult> {
 
 /**
  * 指定した slug のページを閲覧履歴の先頭に記録する
- * 履歴はサイドバーの「最近アクセスしたページ」に表示する
+ * 履歴はサイドバーの「履歴」に表示する
  * 履歴の記録に失敗しても文書の表示には影響させたくないため、失敗は無視する
  */
 export async function recordViewHistory(slug: string[]): Promise<void> {
@@ -113,7 +113,7 @@ export async function recordViewHistory(slug: string[]): Promise<void> {
     return;
   }
 
-  // サイドバーの「最近アクセスしたページ」は全ページ共通の表示なので、
+  // サイドバーの「履歴」は全ページ共通の表示なので、
   // すべてのページのキャッシュを破棄する
   // これを呼ばないと、サイドバーにたった今開いたページが反映されず、
   // 戻る/進むでも古い履歴が表示される
@@ -186,14 +186,14 @@ export async function setShowSidebarSetting(
 }
 
 /**
- * サイドバーの「最近アクセスしたページ」の一覧を開いているかどうかを保存する
+ * サイドバーの「履歴」の一覧を開いているかどうかを保存する
  * 保存できた場合は ok: true を返す
  */
-export async function setShowRecentlyViewedPagesSetting(
+export async function setShowHistoriesSetting(
   show: boolean,
 ): Promise<ActionResult> {
   try {
-    await setShowRecentlyViewedPages(show);
+    await setShowHistories(show);
   } catch (error) {
     return { ok: false, message: `設定の保存に失敗しました: ${String(error)}` };
   }

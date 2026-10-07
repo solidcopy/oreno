@@ -2,7 +2,7 @@
 
 /**
  * サイドバー
- * スター付きページ、最近アクセスしたページ、フォルダ内のページの一覧を表示する
+ * スター付きページ、履歴、フォルダ内のページの一覧を表示する
  *
  * 開閉の状態はブラウザ上で切り替わる値なので、useState を使うために
  * Client Component にしている
@@ -18,7 +18,7 @@ import type { FolderEntries } from "@/lib/folder";
 import {
   loadFolderEntries,
   setShowPagesSetting,
-  setShowRecentlyViewedPagesSetting,
+  setShowHistoriesSetting,
   setShowStarredPagesSetting,
 } from "../actions";
 import styles from "./Sidebar.module.css";
@@ -28,10 +28,10 @@ type Props = {
   starredPages: string[];
   // 「スター付き」の一覧を開いているかどうかの保存済みの値
   initialShowStarredPages: boolean;
-  // 最近アクセスしたページのURLパス（新しい順。「もっと表示する」で見せる分まで）
-  recentPages: string[];
-  // 「最近アクセスしたページ」の一覧を開いているかどうかの保存済みの値
-  initialShowRecentlyViewedPages: boolean;
+  // 履歴のURLパス（新しい順。「もっと表示する」で見せる分まで）
+  histories: string[];
+  // 「履歴」の一覧を開いているかどうかの保存済みの値
+  initialShowHistories: boolean;
   // 表示中のページのslug（例: ["spec", "entities", "reservation"]）
   slug: string[];
   // 表示中のページがあるフォルダの中身
@@ -40,8 +40,8 @@ type Props = {
   initialShowPages: boolean;
 };
 
-// 「最近アクセスしたページ」で最初に表示する件数
-const RECENT_PAGES_INITIAL_COUNT = 5;
+// 「履歴」で最初に表示する件数
+const HISTORIES_INITIAL_COUNT = 5;
 
 // URLパスの最後の要素（例: "/spec/entities/reservation" なら "reservation"）
 function lastSegment(urlPath: string): string {
@@ -188,8 +188,8 @@ function PageItem({ urlPath }: { urlPath: string }) {
 export default function Sidebar({
   starredPages,
   initialShowStarredPages,
-  recentPages,
-  initialShowRecentlyViewedPages,
+  histories,
+  initialShowHistories,
   slug,
   folderEntries,
   initialShowPages,
@@ -198,8 +198,8 @@ export default function Sidebar({
   // 開閉の状態は全ページ共通の設定としてユーザー設定に保存する
   // useState の初期値は最初の描画でだけ使われる
   const [starredOpen, setStarredOpen] = useState(initialShowStarredPages);
-  const [recentOpen, setRecentOpen] = useState(
-    initialShowRecentlyViewedPages,
+  const [historiesOpen, setHistoriesOpen] = useState(
+    initialShowHistories,
   );
   const [pagesOpen, setPagesOpen] = useState(initialShowPages);
 
@@ -227,9 +227,9 @@ export default function Sidebar({
   const shownFolder = browsed ? browsed.folder : currentFolder;
   const shownEntries = browsed ? browsed.entries : folderEntries;
 
-  // 「最近アクセスしたページ」を5件より多く表示しているかどうか
+  // 「履歴」を5件より多く表示しているかどうか
   // 保存はせず、ページを表示し直すと5件に戻る
-  const [recentExpanded, setRecentExpanded] = useState(false);
+  const [historiesExpanded, setHistoriesExpanded] = useState(false);
 
   // 見た目をすぐ切り替えるため、先に画面の状態を変えてから
   // Server Action で保存し、失敗したら元に戻す
@@ -242,12 +242,12 @@ export default function Sidebar({
     }
   }
 
-  async function handleToggleRecent() {
-    const next = !recentOpen;
-    setRecentOpen(next);
-    const result = await setShowRecentlyViewedPagesSetting(next);
+  async function handleToggleHistories() {
+    const next = !historiesOpen;
+    setHistoriesOpen(next);
+    const result = await setShowHistoriesSetting(next);
     if (!result.ok) {
-      setRecentOpen(!next);
+      setHistoriesOpen(!next);
     }
   }
 
@@ -269,11 +269,11 @@ export default function Sidebar({
     }
   }
 
-  const visibleRecentPages = recentExpanded
-    ? recentPages
-    : recentPages.slice(0, RECENT_PAGES_INITIAL_COUNT);
+  const visibleHistories = historiesExpanded
+    ? histories
+    : histories.slice(0, HISTORIES_INITIAL_COUNT);
   // 履歴が6件以上あるときだけ「もっと表示する」を出す
-  const hasMoreRecentPages = recentPages.length > RECENT_PAGES_INITIAL_COUNT;
+  const hasMoreHistories = histories.length > HISTORIES_INITIAL_COUNT;
 
   return (
     <aside className={styles.sidebar}>
@@ -304,31 +304,31 @@ export default function Sidebar({
 
       <section className={styles.section}>
         <SectionHeading
-          open={recentOpen}
-          onToggle={handleToggleRecent}
+          open={historiesOpen}
+          onToggle={handleToggleHistories}
           icon={<ClockIcon />}
-          title="最近アクセスしたページ"
+          title="履歴"
         />
 
         {/* 履歴が0件のときは、一覧の代わりに何も表示しない */}
-        {recentOpen && recentPages.length > 0 && (
+        {historiesOpen && histories.length > 0 && (
           <ul className={styles.list}>
-            {visibleRecentPages.map((urlPath) => (
+            {visibleHistories.map((urlPath) => (
               <PageItem key={urlPath} urlPath={urlPath} />
             ))}
             {/* 最大20件を表示しているときは、21件目以降があるかに関わらず
                 常に「(以下略)」を表示する */}
-            {recentExpanded && (
+            {historiesExpanded && (
               <li className={styles.omitted}>(以下略)</li>
             )}
-            {hasMoreRecentPages && (
+            {hasMoreHistories && (
               <li>
                 <button
                   type="button"
                   className={styles.moreButton}
-                  onClick={() => setRecentExpanded(!recentExpanded)}
+                  onClick={() => setHistoriesExpanded(!historiesExpanded)}
                 >
-                  {recentExpanded ? "少なく表示する" : "もっと表示する"}
+                  {historiesExpanded ? "少なく表示する" : "もっと表示する"}
                 </button>
               </li>
             )}

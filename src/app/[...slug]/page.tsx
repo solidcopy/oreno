@@ -70,7 +70,7 @@ export default async function DocumentRoute(props: PageProps<"/[...slug]">) {
   const starred = await isPageStarred(slugToUrlPath(slug));
   const starredPages = await loadStarredPages();
   const sidebarSettings = await loadSidebarSettings();
-  const recentPages = await loadViewHistories();
+  const histories = await loadViewHistories();
   // サイドバーの「ページ」に最初に表示する、表示中のページがあるフォルダの中身
   const folderEntries = await listFolder(slug.slice(0, -1));
 
@@ -89,8 +89,8 @@ export default async function DocumentRoute(props: PageProps<"/[...slug]">) {
       starredPages={starredPages}
       showSidebar={sidebarSettings.show}
       showStarredPages={sidebarSettings.showStarredPages}
-      recentPages={recentPages}
-      showRecentlyViewedPages={sidebarSettings.showRecentlyViewedPages}
+      histories={histories}
+      showHistories={sidebarSettings.showHistories}
       folderEntries={folderEntries}
       showPages={sidebarSettings.showPages}
     />

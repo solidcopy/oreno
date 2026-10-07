@@ -54,8 +54,8 @@ type Props = {
   starredPages: string[];
   showSidebar: boolean;
   showStarredPages: boolean;
-  recentPages: string[];
-  showRecentlyViewedPages: boolean;
+  histories: string[];
+  showHistories: boolean;
   folderEntries: FolderEntries;
   showPages: boolean;
 };
@@ -71,8 +71,8 @@ export default function DocumentPage({
   starredPages,
   showSidebar,
   showStarredPages,
-  recentPages,
-  showRecentlyViewedPages,
+  histories,
+  showHistories,
   folderEntries,
   showPages,
 }: Props) {
@@ -287,8 +287,8 @@ export default function DocumentPage({
           <Sidebar
             starredPages={starredPages}
             initialShowStarredPages={showStarredPages}
-            recentPages={recentPages}
-            initialShowRecentlyViewedPages={showRecentlyViewedPages}
+            histories={histories}
+            initialShowHistories={showHistories}
             slug={slug}
             folderEntries={folderEntries}
             initialShowPages={showPages}
