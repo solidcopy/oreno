@@ -8,6 +8,7 @@ import styles from "./NewPageButton.module.css";
 import { checkDocumentExists } from "../actions";
 import { useClosePopoverOnOutsideClick } from "./useClosePopoverOnOutsideClick";
 import { APP_RESERVED_SEGMENT, isAppReservedPath } from "@/lib/appReservedPath";
+import { encodeUrlPath } from "@/lib/encodeUrlPath";
 
 const RESERVED_PATH_ERROR = `"${APP_RESERVED_SEGMENT}" から始まるパスにはページを作成できません。`;
 
@@ -106,6 +107,13 @@ export default function NewPageButton({ slug }: Props) {
   }
 
   function handlePathKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    // 漢字変換の確定で押した Enter は、作成の操作として扱わない
+    // isComposing は変換中なら true になる
+    // Safari では確定の Enter の keydown 時点で isComposing が false になっているため、
+    // 変換中のキーイベントに付く keyCode 229 でも判定する
+    // keyCode は非推奨だが、この用途では今も使われている
+    if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+
     if (event.key === "Enter") {
       event.preventDefault();
       handleCreate();
@@ -134,7 +142,7 @@ export default function NewPageButton({ slug }: Props) {
     }
 
     handleClose();
-    router.push("/" + segments.join("/"));
+    router.push(encodeUrlPath("/" + segments.join("/")));
   }
 
   return (

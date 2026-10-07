@@ -31,7 +31,20 @@ import DocumentPage from "./DocumentPage";
 export default async function DocumentRoute(props: PageProps<"/[...slug]">) {
   // Next.js 16 では params は Promise
   // await して中身を取り出す
-  const { slug } = await props.params;
+  const { slug: encodedSlug } = await props.params;
+
+  // Next.js は URL のセグメントをパーセントエンコードされたまま渡してくる
+  // （例: "あ" は "%E3%81%82"）
+  // 日本語のファイル名をそのまま扱えるよう、検証より前にデコードする
+  // "%2F" や "%2e%2e" もここで "/" や ".." に戻るが、
+  // resolveDocPath が戻した後の値を検証するため404にできる
+  let slug: string[];
+  try {
+    slug = encodedSlug.map(decodeURIComponent);
+  } catch {
+    // "%E3" のような不正なエンコードは decodeURIComponent が例外を投げる
+    notFound();
+  }
 
   const filePath = resolveDocPath(slug);
   if (!filePath) {

@@ -13,6 +13,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import StarIcon from "@/components/StarIcon";
+import { encodeUrlPath } from "@/lib/encodeUrlPath";
 import {
   setShowRecentlyViewedPagesSetting,
   setShowStarredPagesSetting,
@@ -98,7 +99,7 @@ function SectionHeading({
 function PageItem({ urlPath }: { urlPath: string }) {
   return (
     <li className={styles.item}>
-      <Link href={urlPath} className={styles.link}>
+      <Link href={encodeUrlPath(urlPath)} className={styles.link}>
         {lastSegment(urlPath)}
       </Link>
       {/* 最後の要素だけでは同名のページを見分けられないため、
