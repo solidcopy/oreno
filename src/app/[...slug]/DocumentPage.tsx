@@ -21,7 +21,7 @@ import AppMenu from "./AppMenu";
 import type { FolderEntries } from "@/lib/folder";
 import type { SidebarSettings } from "@/lib/userSettings";
 import { extractHeadings } from "@/lib/headings";
-import Sidebar from "./Sidebar";
+import Sidebar from "./Sidebar/Sidebar";
 import NewPageButton from "./NewPageButton";
 import { useSavedToggle } from "./useSavedToggle";
 import {
