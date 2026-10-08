@@ -15,11 +15,13 @@ import Link from "next/link";
 import StarIcon from "@/components/StarIcon";
 import { encodeUrlPath } from "@/lib/encodeUrlPath";
 import type { FolderEntries } from "@/lib/folder";
+import type { Heading } from "@/lib/headings";
 import {
   loadFolderEntries,
   setShowPagesSetting,
   setShowHistoriesSetting,
   setShowStarredPagesSetting,
+  setShowTocSetting,
 } from "../actions";
 import styles from "./Sidebar.module.css";
 
@@ -38,6 +40,13 @@ type Props = {
   folderEntries: FolderEntries;
   // 「ページ」の一覧を開いているかどうかの保存済みの値
   initialShowPages: boolean;
+  // 表示中のページの見出し（文書の上からの順）
+  headings: Heading[];
+  // 「目次」の一覧を開いているかどうかの保存済みの値
+  initialShowToc: boolean;
+  // 目次の項目がクリックされたときに、何番目の見出しかを渡して呼ぶ
+  // Server Component からは呼ばれないため、警告（TS71007）は無視してよい
+  onSelectHeading: (index: number) => void;
 };
 
 // 「履歴」で最初に表示する件数
@@ -75,6 +84,20 @@ function DocumentIcon() {
       <path d="M6 3h8l4 4v14H6z" />
       <path d="M14 3v4h4" />
       <path d="M9 12h6M9 16h6" />
+    </svg>
+  );
+}
+
+// 目次のアイコン（点と横線を3行並べた箇条書きの形）
+function TocIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      className={styles.softIcon}
+    >
+      <path d="M4 6h.01M4 12h.01M4 18h.01M9 6h11M9 12h11M9 18h11" />
     </svg>
   );
 }
@@ -193,6 +216,9 @@ export default function Sidebar({
   slug,
   folderEntries,
   initialShowPages,
+  headings,
+  initialShowToc,
+  onSelectHeading,
 }: Props) {
   // 各一覧を開いているかどうか
   // 開閉の状態は全ページ共通の設定としてユーザー設定に保存する
@@ -202,6 +228,7 @@ export default function Sidebar({
     initialShowHistories,
   );
   const [pagesOpen, setPagesOpen] = useState(initialShowPages);
+  const [tocOpen, setTocOpen] = useState(initialShowToc);
 
   // 「ページ」の一覧に表示しているフォルダ
   // フォルダをクリックしたときだけ、移動先のフォルダとその中身を入れる
@@ -257,6 +284,15 @@ export default function Sidebar({
     const result = await setShowPagesSetting(next);
     if (!result.ok) {
       setPagesOpen(!next);
+    }
+  }
+
+  async function handleToggleToc() {
+    const next = !tocOpen;
+    setTocOpen(next);
+    const result = await setShowTocSetting(next);
+    if (!result.ok) {
+      setTocOpen(!next);
     }
   }
 
@@ -396,6 +432,42 @@ export default function Sidebar({
           shownEntries.pages.length === 0 && (
             <p className={styles.empty}>ページはありません</p>
           )}
+      </section>
+
+      <section className={styles.section}>
+        <SectionHeading
+          open={tocOpen}
+          onToggle={handleToggleToc}
+          icon={<TocIcon />}
+          title="目次"
+        />
+
+        {tocOpen && headings.length === 0 && (
+          <p className={styles.empty}>見出しはありません</p>
+        )}
+
+        {tocOpen && headings.length > 0 && (
+          <ul className={styles.list}>
+            {/* 見出しは同じ文字列が複数ありうるため、順番（index）を key にする
+                見出しの並びは文書が変わったときに丸ごと入れ替わるので、これで問題ない */}
+            {headings.map((heading, index) => (
+              <li key={index}>
+                <button
+                  type="button"
+                  className={styles.tocButton}
+                  // レベルが1つ深くなるごとに左へインデントする
+                  // レベルによって値が変わるため、CSSではなくここで指定している
+                  style={{
+                    paddingLeft: `${0.5 + (heading.level - 1) * 0.875}rem`,
+                  }}
+                  onClick={() => onSelectHeading(index)}
+                >
+                  {heading.text}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </aside>
   );

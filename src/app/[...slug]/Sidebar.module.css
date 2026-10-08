@@ -204,6 +204,21 @@
   cursor: pointer;
 }
 
+/* 「目次」の項目
+   リンクではなく button なので、見た目をリンクに揃える
+   左の余白は見出しのレベルに応じて Sidebar.tsx がインラインで指定する */
+.tocButton {
+  composes: link;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+
 .entryName {
   overflow: hidden;
   text-overflow: ellipsis;

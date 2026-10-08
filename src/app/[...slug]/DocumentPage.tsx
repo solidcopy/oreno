@@ -12,13 +12,14 @@
  * すべてブラウザ側の状態としてこのコンポーネントが管理する
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import styles from "./DocumentPage.module.css";
 import AppMenu from "./AppMenu";
 import type { FolderEntries } from "@/lib/folder";
+import { extractHeadings } from "@/lib/headings";
 import Sidebar from "./Sidebar";
 import NewPageButton from "./NewPageButton";
 import {
@@ -58,6 +59,7 @@ type Props = {
   showHistories: boolean;
   folderEntries: FolderEntries;
   showPages: boolean;
+  showToc: boolean;
 };
 
 export default function DocumentPage({
@@ -75,6 +77,7 @@ export default function DocumentPage({
   showHistories,
   folderEntries,
   showPages,
+  showToc,
 }: Props) {
   // プロジェクト名が設定されていればそちらを、未設定ならルートフォルダ名を表示する
   const rootLinkText = projectName
@@ -148,6 +151,22 @@ export default function DocumentPage({
       setSidebarVisible(!next);
       setError(result.message);
     }
+  }
+
+  // 「目次」に表示する見出し
+  // 保存済みの内容（markdown）から取り出すため、編集中の変更は保存するまで反映されない
+  // useMemo は、markdown が変わったときだけ計算し直すためのフック
+  const headings = useMemo(() => extractHeadings(markdown), [markdown]);
+
+  // 本文の領域（表示モードの HTML も編集モードのエディタもこの中にある）
+  const mainRef = useRef<HTMLDivElement>(null);
+
+  // 目次の項目がクリックされたとき、index 番目の見出しの位置までスクロールする
+  // 目次と本文の見出しはどちらも文書の上からの順に並んでいるため、
+  // 本文の中の見出し要素を順番で探せば対応する要素が見つかる
+  function handleSelectHeading(index: number) {
+    const elements = mainRef.current?.querySelectorAll("h1, h2, h3, h4, h5, h6");
+    elements?.[index]?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   function handleEdit() {
@@ -292,9 +311,12 @@ export default function DocumentPage({
             slug={slug}
             folderEntries={folderEntries}
             initialShowPages={showPages}
+            headings={headings}
+            initialShowToc={showToc}
+            onSelectHeading={handleSelectHeading}
           />
         )}
-        <div className={styles.main}>
+        <div className={styles.main} ref={mainRef}>
           {error && <p className={styles.error}>{error}</p>}
 
           {mode === "view" && exists && (

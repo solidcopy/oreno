@@ -29,6 +29,7 @@ import {
   setShowHistories,
   setShowSidebar,
   setShowStarredPages,
+  setShowToc,
 } from "@/lib/userSettings";
 
 export type ActionResult = { ok: true } | { ok: false; message: string };
@@ -214,6 +215,26 @@ export async function setShowPagesSetting(
 ): Promise<ActionResult> {
   try {
     await setShowPages(show);
+  } catch (error) {
+    return { ok: false, message: `設定の保存に失敗しました: ${String(error)}` };
+  }
+
+  // サイドバーは全ページ共通の表示なので、すべてのページのキャッシュを破棄する
+  // これを呼ばないと、戻る/進むで以前の開閉の状態が表示される
+  revalidatePath("/", "layout");
+
+  return { ok: true };
+}
+
+/**
+ * サイドバーの「目次」の一覧を開いているかどうかを保存する
+ * 保存できた場合は ok: true を返す
+ */
+export async function setShowTocSetting(
+  show: boolean,
+): Promise<ActionResult> {
+  try {
+    await setShowToc(show);
   } catch (error) {
     return { ok: false, message: `設定の保存に失敗しました: ${String(error)}` };
   }

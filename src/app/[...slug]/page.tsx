@@ -93,6 +93,7 @@ export default async function DocumentRoute(props: PageProps<"/[...slug]">) {
       showHistories={sidebarSettings.showHistories}
       folderEntries={folderEntries}
       showPages={sidebarSettings.showPages}
+      showToc={sidebarSettings.showToc}
     />
   );
 }

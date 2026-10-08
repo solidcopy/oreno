@@ -211,6 +211,8 @@ export type SidebarSettings = {
   showHistories: boolean;
   // 「ページ」の一覧を開いているかどうか
   showPages: boolean;
+  // 「目次」の一覧を開いているかどうか
+  showToc: boolean;
 };
 
 /**
@@ -236,6 +238,8 @@ export async function loadSidebarSettings(): Promise<SidebarSettings> {
         : true,
     showPages:
       typeof values["show-pages"] === "boolean" ? values["show-pages"] : true,
+    showToc:
+      typeof values["show-toc"] === "boolean" ? values["show-toc"] : true,
   };
 }
 
@@ -285,4 +289,11 @@ export function setShowHistories(show: boolean): Promise<void> {
  */
 export function setShowPages(show: boolean): Promise<void> {
   return setSidebarSetting("show-pages", show);
+}
+
+/**
+ * 「目次」の一覧を開いているかどうかを保存する
+ */
+export function setShowToc(show: boolean): Promise<void> {
+  return setSidebarSetting("show-toc", show);
 }

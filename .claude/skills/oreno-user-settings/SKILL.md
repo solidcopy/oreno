@@ -87,7 +87,8 @@ Server Action は誰でも直接呼び出せるため、渡された slug を信
     "show": true,
     "show-starred-pages": true,
     "show-histories": true,
-    "show-pages": true
+    "show-pages": true,
+    "show-toc": true
   }
 }
 ```
@@ -96,9 +97,10 @@ Server Action は誰でも直接呼び出せるため、渡された slug を信
 - `show-starred-pages`: 「スター付き」の一覧を開いているか(`true`)閉じているか(`false`)
 - `show-histories`: 「履歴」の一覧を開いているか(`true`)閉じているか(`false`)
 - `show-pages`: 「ページ」の一覧を開いているか(`true`)閉じているか(`false`)
+- `show-toc`: 「目次」の一覧を開いているか(`true`)閉じているか(`false`)
 - いずれも未設定、または真偽値以外の場合は `true` 扱いにする
 - 更新時は `sidebar-settings` 内の他のキーを残す。すでに同じ値なら何も書き込まない
-- クリックで画面の状態を先に切り替え、Server Action(`setShowSidebarSetting`、`setShowStarredPagesSetting`、`setShowHistoriesSetting`、`setShowPagesSetting`。`src/app/actions.ts`)で保存する。失敗したら元に戻す
+- クリックで画面の状態を先に切り替え、Server Action(`setShowSidebarSetting`、`setShowStarredPagesSetting`、`setShowHistoriesSetting`、`setShowPagesSetting`、`setShowTocSetting`。`src/app/actions.ts`)で保存する。失敗したら元に戻す
 - 全ページ共通の表示なので、保存後は `revalidatePath("/", "layout")` で全ページのキャッシュを破棄する
 
 ### 「履歴」の一覧
@@ -120,3 +122,12 @@ Server Action は誰でも直接呼び出せるため、渡された slug を信
 - 一覧の先頭に「..」を出し、クリックすると1つ上のフォルダの一覧に切り替える。ルートフォルダでは出さない
 - フォルダ(「..」を含む)をクリックしても表示中のページは変わらず、一覧だけが切り替わる。切り替え先の中身はServer Action `loadFolderEntries` で取得する。別のページへ移動すると、一覧は新しいページのフォルダに戻る
 - 一覧が空のときは「ページはありません」を表示する
+
+### 「目次」の一覧
+
+表示中のページの見出し(Markdownで1つ以上の `#` で書くもの)を、文書の上から順に表示する。見出しの取り出しは `src/lib/headings.ts` の `extractHeadings` に集約している。
+
+- 見出しのレベルはインデントで表し、文字のサイズや太さは変えない。ツリーの開閉と、現在位置に合わせた強調表示はしない
+- クリックすると、本文の中の同じ順番の見出しまでスクロールする(表示モード・編集モードどちらも)
+- 保存済みの内容から作るため、編集中の変更は保存するまで反映されない
+- 見出しが無いときは「見出しはありません」を表示する
