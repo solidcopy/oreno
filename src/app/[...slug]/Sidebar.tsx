@@ -204,34 +204,122 @@ function PageItem({ urlPath }: { urlPath: string }) {
   );
 }
 
-export default function Sidebar({
-  starredPages,
-  histories,
-  slug,
-  folderEntries,
-  headings,
-  settings,
-  onSelectHeading,
-}: Props) {
-  // 各一覧を開いているかどうかと、それを切り替える関数
+/**
+ * 「スター付き」の一覧
+ */
+function StarredSection({
+  pages,
+  initialOpen,
+}: {
+  pages: string[];
+  initialOpen: boolean;
+}) {
   // 開閉の状態は全ページ共通の設定としてユーザー設定に保存する
   // 切り替えると先に画面が変わり、保存に失敗したら元に戻る（useSavedToggle の中身）
-  const [starredOpen, toggleStarred] = useSavedToggle(
-    settings.showStarredPages,
+  const [open, toggle] = useSavedToggle(
+    initialOpen,
     setShowStarredPagesSetting,
   );
-  const [historiesOpen, toggleHistories] = useSavedToggle(
-    settings.showHistories,
-    setShowHistoriesSetting,
+
+  return (
+    <section className={styles.section}>
+      <SectionHeading
+        open={open}
+        onToggle={toggle}
+        icon={<StarIcon filled />}
+        title="スター付き"
+      />
+
+      {/* 開いているときだけ一覧を描画する
+          React では、条件が false のものは何も描画されない */}
+      {open && pages.length === 0 && (
+        <p className={styles.empty}>スターの付いたページはありません</p>
+      )}
+
+      {open && pages.length > 0 && (
+        <ul className={styles.list}>
+          {/* 配列から要素を作るときは、要素を区別するための key が必要
+              URLパスは重複しないので、そのまま key に使える */}
+          {pages.map((urlPath) => (
+            <PageItem key={urlPath} urlPath={urlPath} />
+          ))}
+        </ul>
+      )}
+    </section>
   );
-  const [pagesOpen, togglePages] = useSavedToggle(
-    settings.showPages,
-    setShowPagesSetting,
+}
+
+/**
+ * 「履歴」の一覧
+ */
+function HistorySection({
+  histories,
+  initialOpen,
+}: {
+  histories: string[];
+  initialOpen: boolean;
+}) {
+  const [open, toggle] = useSavedToggle(initialOpen, setShowHistoriesSetting);
+
+  // 「履歴」を5件より多く表示しているかどうか
+  // 保存はせず、ページを表示し直すと5件に戻る
+  const [expanded, setExpanded] = useState(false);
+
+  const visibleHistories = expanded
+    ? histories
+    : histories.slice(0, HISTORIES_INITIAL_COUNT);
+  // 履歴が6件以上あるときだけ「もっと表示する」を出す
+  const hasMoreHistories = histories.length > HISTORIES_INITIAL_COUNT;
+
+  return (
+    <section className={styles.section}>
+      <SectionHeading
+        open={open}
+        onToggle={toggle}
+        icon={<ClockIcon />}
+        title="履歴"
+      />
+
+      {/* 履歴が0件のときは、一覧の代わりに何も表示しない */}
+      {open && histories.length > 0 && (
+        <ul className={styles.list}>
+          {visibleHistories.map((urlPath) => (
+            <PageItem key={urlPath} urlPath={urlPath} />
+          ))}
+          {/* 最大20件を表示しているときは、21件目以降があるかに関わらず
+              常に「(以下略)」を表示する */}
+          {expanded && <li className={styles.omitted}>(以下略)</li>}
+          {hasMoreHistories && (
+            <li>
+              <button
+                type="button"
+                className={styles.moreButton}
+                onClick={() => setExpanded(!expanded)}
+              >
+                {expanded ? "少なく表示する" : "もっと表示する"}
+              </button>
+            </li>
+          )}
+        </ul>
+      )}
+    </section>
   );
-  const [tocOpen, toggleToc] = useSavedToggle(
-    settings.showToc,
-    setShowTocSetting,
-  );
+}
+
+/**
+ * 「ページ」の一覧
+ * 表示中のページがあるフォルダの中身を表示し、フォルダをたどって移動できる
+ */
+function PagesSection({
+  slug,
+  folderEntries,
+  initialOpen,
+}: {
+  slug: string[];
+  folderEntries: FolderEntries;
+  initialOpen: boolean;
+}) {
+  const [open, toggle] = useSavedToggle(initialOpen, setShowPagesSetting);
 
   // 「ページ」の一覧に表示しているフォルダ
   // フォルダをクリックしたときだけ、移動先のフォルダとその中身を入れる
@@ -257,10 +345,6 @@ export default function Sidebar({
   const shownFolder = browsed ? browsed.folder : currentFolder;
   const shownEntries = browsed ? browsed.entries : folderEntries;
 
-  // 「履歴」を5件より多く表示しているかどうか
-  // 保存はせず、ページを表示し直すと5件に戻る
-  const [historiesExpanded, setHistoriesExpanded] = useState(false);
-
   // フォルダをクリックしたとき、そのフォルダの中身をサーバーから取得して一覧を切り替える
   // 表示中のページは変わらない
   async function handleOpenFolder(folder: string[]) {
@@ -270,170 +354,153 @@ export default function Sidebar({
     }
   }
 
-  const visibleHistories = historiesExpanded
-    ? histories
-    : histories.slice(0, HISTORIES_INITIAL_COUNT);
-  // 履歴が6件以上あるときだけ「もっと表示する」を出す
-  const hasMoreHistories = histories.length > HISTORIES_INITIAL_COUNT;
+  return (
+    <section className={styles.section}>
+      <SectionHeading
+        open={open}
+        onToggle={toggle}
+        icon={<DocumentIcon />}
+        title="ページ"
+      />
+
+      {open && (
+        <ul className={styles.list}>
+          {/* ルートフォルダには上の階層がないので、「..」は出さない */}
+          {shownFolder.length > 0 && (
+            <li>
+              <button
+                type="button"
+                className={styles.entryButton}
+                onClick={() => handleOpenFolder(shownFolder.slice(0, -1))}
+              >
+                <FolderEntryIcon />
+                <span className={styles.entryName}>..</span>
+              </button>
+            </li>
+          )}
+          {shownEntries.folders.map((name) => (
+            <li key={name}>
+              <button
+                type="button"
+                className={styles.entryButton}
+                onClick={() => handleOpenFolder([...shownFolder, name])}
+              >
+                <FolderEntryIcon />
+                <span className={styles.entryName}>{name}</span>
+              </button>
+            </li>
+          ))}
+          {shownEntries.pages.map((name) => {
+            const pageSlug = [...shownFolder, name];
+            // 表示中のページの行は強調する
+            const isCurrent = pageSlug.join("/") === slugKey;
+            return (
+              <li key={name}>
+                <Link
+                  href={encodeUrlPath("/" + pageSlug.join("/"))}
+                  className={isCurrent ? styles.entryCurrent : styles.entry}
+                  aria-current={isCurrent ? "page" : undefined}
+                >
+                  <PageEntryIcon />
+                  <span className={styles.entryName}>{name}</span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {open &&
+        shownEntries.folders.length === 0 &&
+        shownEntries.pages.length === 0 && (
+          <p className={styles.empty}>ページはありません</p>
+        )}
+    </section>
+  );
+}
+
+/**
+ * 「目次」の一覧
+ */
+function TocSection({
+  headings,
+  initialOpen,
+  onSelectHeading,
+}: {
+  headings: Heading[];
+  initialOpen: boolean;
+  onSelectHeading: (index: number) => void;
+}) {
+  const [open, toggle] = useSavedToggle(initialOpen, setShowTocSetting);
 
   return (
+    <section className={styles.section}>
+      <SectionHeading
+        open={open}
+        onToggle={toggle}
+        icon={<TocIcon />}
+        title="目次"
+      />
+
+      {open && headings.length === 0 && (
+        <p className={styles.empty}>見出しはありません</p>
+      )}
+
+      {open && headings.length > 0 && (
+        <ul className={styles.list}>
+          {/* 見出しは同じ文字列が複数ありうるため、順番（index）を key にする
+              見出しの並びは文書が変わったときに丸ごと入れ替わるので、これで問題ない */}
+          {headings.map((heading, index) => (
+            <li key={index}>
+              <button
+                type="button"
+                className={styles.tocButton}
+                // レベルが1つ深くなるごとに左へインデントする
+                // レベルによって値が変わるため、CSSではなくここで指定している
+                style={{
+                  paddingLeft: `${0.5 + (heading.level - 1) * 0.875}rem`,
+                }}
+                onClick={() => onSelectHeading(index)}
+              >
+                {heading.text}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+export default function Sidebar({
+  starredPages,
+  histories,
+  slug,
+  folderEntries,
+  headings,
+  settings,
+  onSelectHeading,
+}: Props) {
+  return (
     <aside className={styles.sidebar}>
-      <section className={styles.section}>
-        <SectionHeading
-          open={starredOpen}
-          onToggle={toggleStarred}
-          icon={<StarIcon filled />}
-          title="スター付き"
-        />
-
-        {/* 開いているときだけ一覧を描画する
-            React では、条件が false のものは何も描画されない */}
-        {starredOpen && starredPages.length === 0 && (
-          <p className={styles.empty}>スターの付いたページはありません</p>
-        )}
-
-        {starredOpen && starredPages.length > 0 && (
-          <ul className={styles.list}>
-            {/* 配列から要素を作るときは、要素を区別するための key が必要
-                URLパスは重複しないので、そのまま key に使える */}
-            {starredPages.map((urlPath) => (
-              <PageItem key={urlPath} urlPath={urlPath} />
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className={styles.section}>
-        <SectionHeading
-          open={historiesOpen}
-          onToggle={toggleHistories}
-          icon={<ClockIcon />}
-          title="履歴"
-        />
-
-        {/* 履歴が0件のときは、一覧の代わりに何も表示しない */}
-        {historiesOpen && histories.length > 0 && (
-          <ul className={styles.list}>
-            {visibleHistories.map((urlPath) => (
-              <PageItem key={urlPath} urlPath={urlPath} />
-            ))}
-            {/* 最大20件を表示しているときは、21件目以降があるかに関わらず
-                常に「(以下略)」を表示する */}
-            {historiesExpanded && (
-              <li className={styles.omitted}>(以下略)</li>
-            )}
-            {hasMoreHistories && (
-              <li>
-                <button
-                  type="button"
-                  className={styles.moreButton}
-                  onClick={() => setHistoriesExpanded(!historiesExpanded)}
-                >
-                  {historiesExpanded ? "少なく表示する" : "もっと表示する"}
-                </button>
-              </li>
-            )}
-          </ul>
-        )}
-      </section>
-
-      <section className={styles.section}>
-        <SectionHeading
-          open={pagesOpen}
-          onToggle={togglePages}
-          icon={<DocumentIcon />}
-          title="ページ"
-        />
-
-        {pagesOpen && (
-          <ul className={styles.list}>
-            {/* ルートフォルダには上の階層がないので、「..」は出さない */}
-            {shownFolder.length > 0 && (
-              <li>
-                <button
-                  type="button"
-                  className={styles.entryButton}
-                  onClick={() => handleOpenFolder(shownFolder.slice(0, -1))}
-                >
-                  <FolderEntryIcon />
-                  <span className={styles.entryName}>..</span>
-                </button>
-              </li>
-            )}
-            {shownEntries.folders.map((name) => (
-              <li key={name}>
-                <button
-                  type="button"
-                  className={styles.entryButton}
-                  onClick={() => handleOpenFolder([...shownFolder, name])}
-                >
-                  <FolderEntryIcon />
-                  <span className={styles.entryName}>{name}</span>
-                </button>
-              </li>
-            ))}
-            {shownEntries.pages.map((name) => {
-              const pageSlug = [...shownFolder, name];
-              // 表示中のページの行は強調する
-              const isCurrent = pageSlug.join("/") === slugKey;
-              return (
-                <li key={name}>
-                  <Link
-                    href={encodeUrlPath("/" + pageSlug.join("/"))}
-                    className={isCurrent ? styles.entryCurrent : styles.entry}
-                    aria-current={isCurrent ? "page" : undefined}
-                  >
-                    <PageEntryIcon />
-                    <span className={styles.entryName}>{name}</span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-
-        {pagesOpen &&
-          shownEntries.folders.length === 0 &&
-          shownEntries.pages.length === 0 && (
-            <p className={styles.empty}>ページはありません</p>
-          )}
-      </section>
-
-      <section className={styles.section}>
-        <SectionHeading
-          open={tocOpen}
-          onToggle={toggleToc}
-          icon={<TocIcon />}
-          title="目次"
-        />
-
-        {tocOpen && headings.length === 0 && (
-          <p className={styles.empty}>見出しはありません</p>
-        )}
-
-        {tocOpen && headings.length > 0 && (
-          <ul className={styles.list}>
-            {/* 見出しは同じ文字列が複数ありうるため、順番（index）を key にする
-                見出しの並びは文書が変わったときに丸ごと入れ替わるので、これで問題ない */}
-            {headings.map((heading, index) => (
-              <li key={index}>
-                <button
-                  type="button"
-                  className={styles.tocButton}
-                  // レベルが1つ深くなるごとに左へインデントする
-                  // レベルによって値が変わるため、CSSではなくここで指定している
-                  style={{
-                    paddingLeft: `${0.5 + (heading.level - 1) * 0.875}rem`,
-                  }}
-                  onClick={() => onSelectHeading(index)}
-                >
-                  {heading.text}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <StarredSection
+        pages={starredPages}
+        initialOpen={settings.showStarredPages}
+      />
+      <HistorySection
+        histories={histories}
+        initialOpen={settings.showHistories}
+      />
+      <PagesSection
+        slug={slug}
+        folderEntries={folderEntries}
+        initialOpen={settings.showPages}
+      />
+      <TocSection
+        headings={headings}
+        initialOpen={settings.showToc}
+        onSelectHeading={onSelectHeading}
+      />
     </aside>
   );
 }
