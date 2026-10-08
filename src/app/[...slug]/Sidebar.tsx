@@ -16,6 +16,7 @@ import StarIcon from "@/components/StarIcon";
 import { encodeUrlPath } from "@/lib/encodeUrlPath";
 import type { FolderEntries } from "@/lib/folder";
 import type { Heading } from "@/lib/headings";
+import type { SidebarSettings } from "@/lib/userSettings";
 import {
   loadFolderEntries,
   setShowPagesSetting,
@@ -29,22 +30,16 @@ import styles from "./Sidebar.module.css";
 type Props = {
   // スター付きページのURLパス（例: "/spec/entities/reservation"）
   starredPages: string[];
-  // 「スター付き」の一覧を開いているかどうかの保存済みの値
-  initialShowStarredPages: boolean;
   // 履歴のURLパス（新しい順。「もっと表示する」で見せる分まで）
   histories: string[];
-  // 「履歴」の一覧を開いているかどうかの保存済みの値
-  initialShowHistories: boolean;
   // 表示中のページのslug（例: ["spec", "entities", "reservation"]）
   slug: string[];
   // 表示中のページがあるフォルダの中身
   folderEntries: FolderEntries;
-  // 「ページ」の一覧を開いているかどうかの保存済みの値
-  initialShowPages: boolean;
   // 表示中のページの見出し（文書の上からの順）
   headings: Heading[];
-  // 「目次」の一覧を開いているかどうかの保存済みの値
-  initialShowToc: boolean;
+  // 各一覧を開いているかどうかの保存済みの値
+  settings: SidebarSettings;
   // 目次の項目がクリックされたときに、何番目の見出しかを渡して呼ぶ
   // Server Component からは呼ばれないため、警告（TS71007）は無視してよい
   onSelectHeading: (index: number) => void;
@@ -211,33 +206,30 @@ function PageItem({ urlPath }: { urlPath: string }) {
 
 export default function Sidebar({
   starredPages,
-  initialShowStarredPages,
   histories,
-  initialShowHistories,
   slug,
   folderEntries,
-  initialShowPages,
   headings,
-  initialShowToc,
+  settings,
   onSelectHeading,
 }: Props) {
   // 各一覧を開いているかどうかと、それを切り替える関数
   // 開閉の状態は全ページ共通の設定としてユーザー設定に保存する
   // 切り替えると先に画面が変わり、保存に失敗したら元に戻る（useSavedToggle の中身）
   const [starredOpen, toggleStarred] = useSavedToggle(
-    initialShowStarredPages,
+    settings.showStarredPages,
     setShowStarredPagesSetting,
   );
   const [historiesOpen, toggleHistories] = useSavedToggle(
-    initialShowHistories,
+    settings.showHistories,
     setShowHistoriesSetting,
   );
   const [pagesOpen, togglePages] = useSavedToggle(
-    initialShowPages,
+    settings.showPages,
     setShowPagesSetting,
   );
   const [tocOpen, toggleToc] = useSavedToggle(
-    initialShowToc,
+    settings.showToc,
     setShowTocSetting,
   );
 

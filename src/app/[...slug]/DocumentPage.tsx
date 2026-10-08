@@ -19,6 +19,7 @@ import { useRouter } from "next/navigation";
 import styles from "./DocumentPage.module.css";
 import AppMenu from "./AppMenu";
 import type { FolderEntries } from "@/lib/folder";
+import type { SidebarSettings } from "@/lib/userSettings";
 import { extractHeadings } from "@/lib/headings";
 import Sidebar from "./Sidebar";
 import NewPageButton from "./NewPageButton";
@@ -54,13 +55,10 @@ type Props = {
   initialExists: boolean;
   initialStarred: boolean;
   starredPages: string[];
-  showSidebar: boolean;
-  showStarredPages: boolean;
   histories: string[];
-  showHistories: boolean;
   folderEntries: FolderEntries;
-  showPages: boolean;
-  showToc: boolean;
+  // サイドバーの表示・開閉の保存済みの設定
+  sidebarSettings: SidebarSettings;
 };
 
 export default function DocumentPage({
@@ -72,13 +70,9 @@ export default function DocumentPage({
   initialExists,
   initialStarred,
   starredPages,
-  showSidebar,
-  showStarredPages,
   histories,
-  showHistories,
   folderEntries,
-  showPages,
-  showToc,
+  sidebarSettings,
 }: Props) {
   // プロジェクト名が設定されていればそちらを、未設定ならルートフォルダ名を表示する
   const rootLinkText = projectName
@@ -143,7 +137,7 @@ export default function DocumentPage({
   // サイドバーを表示するかどうかと、それを切り替える関数（全ページ共通の設定として保存する）
   // スターと同じく、先に画面の状態を変えてから保存し、失敗したら元に戻す
   const [sidebarVisible, handleToggleSidebar] = useSavedToggle(
-    showSidebar,
+    sidebarSettings.show,
     setShowSidebarSetting,
     setError,
   );
@@ -300,14 +294,11 @@ export default function DocumentPage({
         {sidebarVisible && (
           <Sidebar
             starredPages={starredPages}
-            initialShowStarredPages={showStarredPages}
             histories={histories}
-            initialShowHistories={showHistories}
             slug={slug}
             folderEntries={folderEntries}
-            initialShowPages={showPages}
             headings={headings}
-            initialShowToc={showToc}
+            settings={sidebarSettings}
             onSelectHeading={handleSelectHeading}
           />
         )}
