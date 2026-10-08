@@ -22,6 +22,7 @@ import type { FolderEntries } from "@/lib/folder";
 import { extractHeadings } from "@/lib/headings";
 import Sidebar from "./Sidebar";
 import NewPageButton from "./NewPageButton";
+import { useSavedToggle } from "./useSavedToggle";
 import {
   saveDocument,
   deleteDocument,
@@ -139,19 +140,13 @@ export default function DocumentPage({
     }
   }
 
-  // サイドバーを表示するかどうか（全ページ共通の設定として保存する）
+  // サイドバーを表示するかどうかと、それを切り替える関数（全ページ共通の設定として保存する）
   // スターと同じく、先に画面の状態を変えてから保存し、失敗したら元に戻す
-  const [sidebarVisible, setSidebarVisible] = useState(showSidebar);
-
-  async function handleToggleSidebar() {
-    const next = !sidebarVisible;
-    setSidebarVisible(next);
-    const result = await setShowSidebarSetting(next);
-    if (!result.ok) {
-      setSidebarVisible(!next);
-      setError(result.message);
-    }
-  }
+  const [sidebarVisible, handleToggleSidebar] = useSavedToggle(
+    showSidebar,
+    setShowSidebarSetting,
+    setError,
+  );
 
   // 「目次」に表示する見出し
   // 保存済みの内容（markdown）から取り出すため、編集中の変更は保存するまで反映されない

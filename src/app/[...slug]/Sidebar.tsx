@@ -23,6 +23,7 @@ import {
   setShowStarredPagesSetting,
   setShowTocSetting,
 } from "../actions";
+import { useSavedToggle } from "./useSavedToggle";
 import styles from "./Sidebar.module.css";
 
 type Props = {
@@ -220,15 +221,25 @@ export default function Sidebar({
   initialShowToc,
   onSelectHeading,
 }: Props) {
-  // 各一覧を開いているかどうか
+  // 各一覧を開いているかどうかと、それを切り替える関数
   // 開閉の状態は全ページ共通の設定としてユーザー設定に保存する
-  // useState の初期値は最初の描画でだけ使われる
-  const [starredOpen, setStarredOpen] = useState(initialShowStarredPages);
-  const [historiesOpen, setHistoriesOpen] = useState(
-    initialShowHistories,
+  // 切り替えると先に画面が変わり、保存に失敗したら元に戻る（useSavedToggle の中身）
+  const [starredOpen, toggleStarred] = useSavedToggle(
+    initialShowStarredPages,
+    setShowStarredPagesSetting,
   );
-  const [pagesOpen, setPagesOpen] = useState(initialShowPages);
-  const [tocOpen, setTocOpen] = useState(initialShowToc);
+  const [historiesOpen, toggleHistories] = useSavedToggle(
+    initialShowHistories,
+    setShowHistoriesSetting,
+  );
+  const [pagesOpen, togglePages] = useSavedToggle(
+    initialShowPages,
+    setShowPagesSetting,
+  );
+  const [tocOpen, toggleToc] = useSavedToggle(
+    initialShowToc,
+    setShowTocSetting,
+  );
 
   // 「ページ」の一覧に表示しているフォルダ
   // フォルダをクリックしたときだけ、移動先のフォルダとその中身を入れる
@@ -258,44 +269,6 @@ export default function Sidebar({
   // 保存はせず、ページを表示し直すと5件に戻る
   const [historiesExpanded, setHistoriesExpanded] = useState(false);
 
-  // 見た目をすぐ切り替えるため、先に画面の状態を変えてから
-  // Server Action で保存し、失敗したら元に戻す
-  async function handleToggleStarred() {
-    const next = !starredOpen;
-    setStarredOpen(next);
-    const result = await setShowStarredPagesSetting(next);
-    if (!result.ok) {
-      setStarredOpen(!next);
-    }
-  }
-
-  async function handleToggleHistories() {
-    const next = !historiesOpen;
-    setHistoriesOpen(next);
-    const result = await setShowHistoriesSetting(next);
-    if (!result.ok) {
-      setHistoriesOpen(!next);
-    }
-  }
-
-  async function handleTogglePages() {
-    const next = !pagesOpen;
-    setPagesOpen(next);
-    const result = await setShowPagesSetting(next);
-    if (!result.ok) {
-      setPagesOpen(!next);
-    }
-  }
-
-  async function handleToggleToc() {
-    const next = !tocOpen;
-    setTocOpen(next);
-    const result = await setShowTocSetting(next);
-    if (!result.ok) {
-      setTocOpen(!next);
-    }
-  }
-
   // フォルダをクリックしたとき、そのフォルダの中身をサーバーから取得して一覧を切り替える
   // 表示中のページは変わらない
   async function handleOpenFolder(folder: string[]) {
@@ -316,7 +289,7 @@ export default function Sidebar({
       <section className={styles.section}>
         <SectionHeading
           open={starredOpen}
-          onToggle={handleToggleStarred}
+          onToggle={toggleStarred}
           icon={<StarIcon filled />}
           title="スター付き"
         />
@@ -341,7 +314,7 @@ export default function Sidebar({
       <section className={styles.section}>
         <SectionHeading
           open={historiesOpen}
-          onToggle={handleToggleHistories}
+          onToggle={toggleHistories}
           icon={<ClockIcon />}
           title="履歴"
         />
@@ -375,7 +348,7 @@ export default function Sidebar({
       <section className={styles.section}>
         <SectionHeading
           open={pagesOpen}
-          onToggle={handleTogglePages}
+          onToggle={togglePages}
           icon={<DocumentIcon />}
           title="ページ"
         />
@@ -437,7 +410,7 @@ export default function Sidebar({
       <section className={styles.section}>
         <SectionHeading
           open={tocOpen}
-          onToggle={handleToggleToc}
+          onToggle={toggleToc}
           icon={<TocIcon />}
           title="目次"
         />
