@@ -1,0 +1,87 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* アプリメニューのポップオーバーが下のコンテンツより手前に出るよう、
+   他の画面のヘッダーと同じく z-index を指定する */
+.toolbar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--gray-alpha-200);
+  position: sticky;
+  top: 0;
+  background: var(--background);
+  z-index: 2;
+}
+
+.rootLink {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.rootLink:hover {
+  text-decoration: underline;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.content {
+  padding: 1.5rem 1rem 3rem;
+  max-width: 760px;
+}
+
+.empty {
+  opacity: 0.6;
+  font-size: 0.9rem;
+}
+
+.list {
+  list-style: none;
+}
+
+/* 入れ子の ul（フォルダの中身）はインデントし、
+   縦のガイド線で親子関係を示す */
+.list .list {
+  margin-left: 0.95rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid var(--gray-alpha-200);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+/* フォルダの行。クリックできないので、ホバー表示もカーソル変化も付けない */
+.folderRow {
+  composes: row;
+  cursor: default;
+}
+
+/* ページの行。リンクなのでホバーで背景を付ける */
+.pageRow {
+  composes: row;
+}
+
+.pageRow:hover {
+  background: var(--gray-alpha-100);
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -65,6 +65,60 @@ export async function listFolder(folder: string[]): Promise<FolderEntries> {
     }
   }
 
-  const byName = (a: string, b: string) => a.localeCompare(b, "ja");
-  return { folders: folders.sort(byName), pages: pages.sort(byName) };
+  return { folders: folders.sort(compareNames), pages: pages.sort(compareNames) };
+}
+
+/**
+ * 名前の昇順（日本語の照合順）で比較する
+ */
+function compareNames(a: string, b: string): number {
+  return a.localeCompare(b, "ja");
+}
+
+/**
+ * 「すべてのページ」のツリーの1項目
+ * path は文書ルートからのセグメントの配列で、ページならURL（"/" 区切り）にそのまま使える
+ */
+export type TreeNode =
+  | { kind: "folder"; name: string; path: string[]; children: TreeNode[] }
+  | { kind: "page"; name: string; path: string[] };
+
+/**
+ * 同じフォルダに並ぶ項目同士の並び順を決める比較関数
+ * フォルダ先・ページ先のような並びを選べるようにするときは、
+ * この型の関数を差し替えて listAllPages に渡す
+ */
+export type TreeNodeComparator = (a: TreeNode, b: TreeNode) => number;
+
+/**
+ * フォルダとページを区別せず、名前の昇順に並べる
+ */
+export const compareByName: TreeNodeComparator = (a, b) =>
+  compareNames(a.name, b.name);
+
+/**
+ * 文書ルート以下のすべてのフォルダとページをツリーにして返す（ルート直下の項目の配列）
+ * 各フォルダの中身は listFolder で調べるので、無視するファイルや名前の扱いはサイドバーと同じ
+ * 並び順は compare で決まる
+ */
+export async function listAllPages(
+  compare: TreeNodeComparator = compareByName,
+  folder: string[] = [],
+): Promise<TreeNode[]> {
+  const { folders, pages } = await listFolder(folder);
+
+  const nodes: TreeNode[] = [];
+  for (const name of folders) {
+    const path = [...folder, name];
+    nodes.push({
+      kind: "folder",
+      name,
+      path,
+      children: await listAllPages(compare, path),
+    });
+  }
+  for (const name of pages) {
+    nodes.push({ kind: "page", name, path: [...folder, name] });
+  }
+  return nodes.sort(compare);
 }

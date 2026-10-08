@@ -50,6 +50,15 @@ export default function AppMenu() {
           </a>
           <div className={styles.divider} />
           <Link
+            href="/.oreno/all_pages"
+            role="menuitem"
+            className={styles.menuItem}
+            onClick={handleClose}
+          >
+            すべてのページ
+          </Link>
+          <div className={styles.divider} />
+          <Link
             href="/.oreno/project_settings"
             role="menuitem"
             className={styles.menuItem}
