@@ -37,7 +37,9 @@
   position: sticky;
   top: 0;
   background: var(--background);
-  z-index: 1;
+  /* アプリメニューのポップオーバーがスターボタン(z-index: 1)より
+     手前に出るよう、スターボタンより大きい値にする */
+  z-index: 2;
 }
 
 .spacer {
