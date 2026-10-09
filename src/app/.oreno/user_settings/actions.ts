@@ -1,7 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { setOrderSetting, type OrderSetting } from "@/lib/userSettings";
+import {
+  isOrderSetting,
+  setOrderSetting,
+  type OrderSetting,
+} from "@/lib/userSettings";
 
 export type SaveUserSettingsResult =
   | { ok: true }
@@ -11,11 +15,7 @@ export async function saveUserSettingsAction(
   order: OrderSetting,
 ): Promise<SaveUserSettingsResult> {
   // Server Action は誰でも直接呼び出せるため、渡された値を信用せず検証し直す
-  if (
-    order !== "by-name" &&
-    order !== "folders-first" &&
-    order !== "pages-first"
-  ) {
+  if (!isOrderSetting(order)) {
     return { ok: false, message: "並び順の値が不正です" };
   }
 

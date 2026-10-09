@@ -327,7 +327,7 @@ export type OrderSetting = "by-name" | "folders-first" | "pages-first";
 
 const ORDER_DEFAULT: OrderSetting = "by-name";
 
-function isOrderSetting(value: unknown): value is OrderSetting {
+export function isOrderSetting(value: unknown): value is OrderSetting {
   return (
     value === "by-name" || value === "folders-first" || value === "pages-first"
   );
