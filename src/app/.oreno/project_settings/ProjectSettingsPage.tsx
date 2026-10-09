@@ -4,12 +4,20 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import styles from "./ProjectSettingsPage.module.css";
 import AppMenu from "@/app/[...slug]/AppMenu";
+import Sidebar from "@/app/[...slug]/Sidebar/Sidebar";
+import SidebarToggleButton from "@/app/[...slug]/SidebarToggleButton";
+import { useSavedToggle } from "@/app/[...slug]/useSavedToggle";
+import { setShowSidebarSetting } from "@/app/actions";
 import { saveProjectSettingsAction } from "./actions";
+import type { SidebarSettings } from "@/lib/userSettings";
 import { truncateProjectNameForDisplay } from "@/lib/projectNameDisplay";
 
 type Props = {
   rootDirName: string;
   initialProjectName: string;
+  sidebarSettings: SidebarSettings;
+  starredPages: string[];
+  histories: string[];
 };
 
 // 保存通知を表示しておく時間
@@ -18,6 +26,9 @@ const NOTICE_DISPLAY_MS = 3000;
 export default function ProjectSettingsPage({
   rootDirName,
   initialProjectName,
+  sidebarSettings,
+  starredPages,
+  histories,
 }: Props) {
   const [projectName, setProjectName] = useState(initialProjectName);
   // ヘッダーのリンクには「保存済みの」プロジェクト名を表示したいので、
@@ -26,6 +37,13 @@ export default function ProjectSettingsPage({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showNotice, setShowNotice] = useState(false);
+
+  // サイドバーを表示するかどうかと、それを切り替える関数（全ページ共通の設定として保存する）
+  const [sidebarVisible, handleToggleSidebar] = useSavedToggle(
+    sidebarSettings.show,
+    setShowSidebarSetting,
+    setError,
+  );
 
   // 通知を一定時間後に消すための setTimeout の ID
   // 連続して保存したときに前のタイマーが後から発火して通知を消してしまわないよう、
@@ -57,6 +75,10 @@ export default function ProjectSettingsPage({
   return (
     <div className={styles.page}>
       <div className={styles.toolbar}>
+        <SidebarToggleButton
+          visible={sidebarVisible}
+          onToggle={handleToggleSidebar}
+        />
         <Link href="/index" className={styles.rootLink}>
           {savedProjectName
             ? truncateProjectNameForDisplay(savedProjectName)
@@ -67,28 +89,41 @@ export default function ProjectSettingsPage({
         <AppMenu />
       </div>
 
-      {showNotice && <div className={styles.notice}>設定を保存しました。</div>}
-      {error && <p className={styles.error}>{error}</p>}
-
-      <div className={styles.content}>
-        <label className={styles.field}>
-          <span className={styles.label}>プロジェクト名</span>
-          <input
-            type="text"
-            className={styles.input}
-            value={projectName}
-            onChange={(event) => setProjectName(event.target.value)}
+      <div className={styles.body}>
+        {sidebarVisible && (
+          <Sidebar
+            settings={sidebarSettings}
+            starredPages={starredPages}
+            histories={histories}
           />
-        </label>
+        )}
+        <div className={styles.main}>
+          {showNotice && (
+            <div className={styles.notice}>設定を保存しました。</div>
+          )}
+          {error && <p className={styles.error}>{error}</p>}
 
-        <button
-          type="button"
-          className={styles.saveButton}
-          onClick={handleSave}
-          disabled={saving}
-        >
-          {saving ? "保存中…" : "設定を保存する"}
-        </button>
+          <div className={styles.content}>
+            <label className={styles.field}>
+              <span className={styles.label}>プロジェクト名</span>
+              <input
+                type="text"
+                className={styles.input}
+                value={projectName}
+                onChange={(event) => setProjectName(event.target.value)}
+              />
+            </label>
+
+            <button
+              type="button"
+              className={styles.saveButton}
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saving ? "保存中…" : "設定を保存する"}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

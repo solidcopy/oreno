@@ -22,6 +22,7 @@ import type { FolderEntries } from "@/lib/folder";
 import type { SidebarSettings } from "@/lib/userSettings";
 import { extractHeadings } from "@/lib/headings";
 import Sidebar from "./Sidebar/Sidebar";
+import SidebarToggleButton from "./SidebarToggleButton";
 import NewPageButton from "./NewPageButton";
 import { useSavedToggle } from "./useSavedToggle";
 import {
@@ -54,11 +55,11 @@ type Props = {
   initialHtml: string;
   initialExists: boolean;
   initialStarred: boolean;
+  // サイドバーの表示・開閉の保存済みの設定
+  sidebarSettings: SidebarSettings;
   starredPages: string[];
   histories: string[];
   folderEntries: FolderEntries;
-  // サイドバーの表示・開閉の保存済みの設定
-  sidebarSettings: SidebarSettings;
 };
 
 export default function DocumentPage({
@@ -69,10 +70,10 @@ export default function DocumentPage({
   initialHtml,
   initialExists,
   initialStarred,
+  sidebarSettings,
   starredPages,
   histories,
   folderEntries,
-  sidebarSettings,
 }: Props) {
   // プロジェクト名が設定されていればそちらを、未設定ならルートフォルダ名を表示する
   const rootLinkText = projectName
@@ -221,28 +222,10 @@ export default function DocumentPage({
   return (
     <div className={styles.page}>
       <div className={styles.toolbar}>
-        <button
-          type="button"
-          className={styles.iconButton}
-          onClick={handleToggleSidebar}
-          aria-label="サイドバーの表示を切り替える"
-          aria-expanded={sidebarVisible}
-        >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 20 20"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <rect x="2.5" y="3.5" width="15" height="13" rx="2" />
-            <path d="M7.5 3.5v13" />
-          </svg>
-        </button>
+        <SidebarToggleButton
+          visible={sidebarVisible}
+          onToggle={handleToggleSidebar}
+        />
         <Link href="/index" className={styles.rootLink}>
           {rootLinkText}
         </Link>
@@ -293,13 +276,11 @@ export default function DocumentPage({
       <div className={styles.body}>
         {sidebarVisible && (
           <Sidebar
+            settings={sidebarSettings}
             starredPages={starredPages}
             histories={histories}
-            slug={slug}
-            folderEntries={folderEntries}
-            headings={headings}
-            settings={sidebarSettings}
-            onSelectHeading={handleSelectHeading}
+            pages={{ slug, folderEntries }}
+            toc={{ headings, onSelectHeading: handleSelectHeading }}
           />
         )}
         <div className={styles.main} ref={mainRef}>

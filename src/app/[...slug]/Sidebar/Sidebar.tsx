@@ -2,7 +2,9 @@
 
 /**
  * サイドバー
- * スター付きページ、履歴、フォルダ内のページの一覧を表示する
+ * スター付きページ、履歴、フォルダ内のページ、目次の一覧を表示する
+ * 文書以外の画面（プロジェクト設定など）では pages と toc を渡さず、
+ * 「ページ」と「目次」をそれぞれタイトルごと省く
  *
  * 開閉の状態はブラウザ上で切り替わる値なので、useState を使うために
  * Client Component にしている
@@ -19,32 +21,42 @@ import StarredSection from "./StarredSection";
 import TocSection from "./TocSection";
 import styles from "./Sidebar.module.css";
 
-type Props = {
-  // スター付きページのURLパス（例: "/spec/entities/reservation"）
-  starredPages: string[];
-  // 履歴のURLパス（新しい順。「もっと表示する」で見せる分まで）
-  histories: string[];
+// 「ページ」の一覧の表示に必要な情報
+type PagesInfo = {
   // 表示中のページのslug（例: ["spec", "entities", "reservation"]）
   slug: string[];
   // 表示中のページがあるフォルダの中身
   folderEntries: FolderEntries;
+};
+
+// 「目次」の一覧の表示に必要な情報
+type TocInfo = {
   // 表示中のページの見出し（文書の上からの順）
   headings: Heading[];
-  // 各一覧を開いているかどうかの保存済みの値
-  settings: SidebarSettings;
   // 目次の項目がクリックされたときに、何番目の見出しかを渡して呼ぶ
   // Server Component からは呼ばれないため、警告（TS71007）は無視してよい
   onSelectHeading: (index: number) => void;
 };
 
+type Props = {
+  // 各一覧を開いているかどうかの保存済みの値
+  settings: SidebarSettings;
+  // スター付きページのURLパス（例: "/spec/entities/reservation"）
+  starredPages: string[];
+  // 履歴のURLパス（新しい順。「もっと表示する」で見せる分まで）
+  histories: string[];
+  // 渡したときだけ「ページ」の一覧を表示する
+  pages?: PagesInfo;
+  // 渡したときだけ「目次」の一覧を表示する
+  toc?: TocInfo;
+};
+
 export default function Sidebar({
+  settings,
   starredPages,
   histories,
-  slug,
-  folderEntries,
-  headings,
-  settings,
-  onSelectHeading,
+  pages,
+  toc,
 }: Props) {
   return (
     <aside className={styles.sidebar}>
@@ -56,16 +68,20 @@ export default function Sidebar({
         histories={histories}
         initialOpen={settings.showHistories}
       />
-      <PagesSection
-        slug={slug}
-        folderEntries={folderEntries}
-        initialOpen={settings.showPages}
-      />
-      <TocSection
-        headings={headings}
-        initialOpen={settings.showToc}
-        onSelectHeading={onSelectHeading}
-      />
+      {pages && (
+        <PagesSection
+          slug={pages.slug}
+          folderEntries={pages.folderEntries}
+          initialOpen={settings.showPages}
+        />
+      )}
+      {toc && (
+        <TocSection
+          headings={toc.headings}
+          initialOpen={settings.showToc}
+          onSelectHeading={toc.onSelectHeading}
+        />
+      )}
     </aside>
   );
 }

@@ -1,7 +1,15 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
 import styles from "./AllPagesPage.module.css";
 import AppMenu from "@/app/[...slug]/AppMenu";
 import { FolderEntryIcon, PageEntryIcon } from "@/app/[...slug]/Sidebar/icons";
+import Sidebar from "@/app/[...slug]/Sidebar/Sidebar";
+import SidebarToggleButton from "@/app/[...slug]/SidebarToggleButton";
+import { useSavedToggle } from "@/app/[...slug]/useSavedToggle";
+import { setShowSidebarSetting } from "@/app/actions";
+import type { SidebarSettings } from "@/lib/userSettings";
 import { encodeUrlPath } from "@/lib/encodeUrlPath";
 import type { TreeNode } from "@/lib/folder";
 import { truncateProjectNameForDisplay } from "@/lib/projectNameDisplay";
@@ -10,6 +18,9 @@ type Props = {
   rootDirName: string;
   projectName: string;
   tree: TreeNode[];
+  sidebarSettings: SidebarSettings;
+  starredPages: string[];
+  histories: string[];
 };
 
 // ツリーの1階層分（ul）を描く
@@ -43,12 +54,31 @@ function TreeList({ nodes }: { nodes: TreeNode[] }) {
   );
 }
 
-// このコンポーネントは状態を持たず、AppMenu（Client Component）以外は
-// ブラウザ側での処理が要らないので、"use client" を付けない（Server Component）
-export default function AllPagesPage({ rootDirName, projectName, tree }: Props) {
+export default function AllPagesPage({
+  rootDirName,
+  projectName,
+  tree,
+  sidebarSettings,
+  starredPages,
+  histories,
+}: Props) {
+  // サイドバーのオンオフを保存できなかったときのエラーメッセージ
+  const [error, setError] = useState<string | null>(null);
+
+  // サイドバーを表示するかどうかと、それを切り替える関数（全ページ共通の設定として保存する）
+  const [sidebarVisible, handleToggleSidebar] = useSavedToggle(
+    sidebarSettings.show,
+    setShowSidebarSetting,
+    setError,
+  );
+
   return (
     <div className={styles.page}>
       <div className={styles.toolbar}>
+        <SidebarToggleButton
+          visible={sidebarVisible}
+          onToggle={handleToggleSidebar}
+        />
         <Link href="/index" className={styles.rootLink}>
           {projectName
             ? truncateProjectNameForDisplay(projectName)
@@ -59,12 +89,24 @@ export default function AllPagesPage({ rootDirName, projectName, tree }: Props) 
         <AppMenu />
       </div>
 
-      <div className={styles.content}>
-        {tree.length === 0 ? (
-          <p className={styles.empty}>ページがありません。</p>
-        ) : (
-          <TreeList nodes={tree} />
+      <div className={styles.body}>
+        {sidebarVisible && (
+          <Sidebar
+            settings={sidebarSettings}
+            starredPages={starredPages}
+            histories={histories}
+          />
         )}
+        <div className={styles.main}>
+          {error && <p className={styles.error}>{error}</p>}
+          <div className={styles.content}>
+            {tree.length === 0 ? (
+              <p className={styles.empty}>ページがありません。</p>
+            ) : (
+              <TreeList nodes={tree} />
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

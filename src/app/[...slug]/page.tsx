@@ -68,8 +68,8 @@ export default async function DocumentRoute(props: PageProps<"/[...slug]">) {
   const html = exists ? await markdownToHtml(markdown) : "";
   const { projectName } = await loadProjectSettings();
   const starred = await isPageStarred(slugToUrlPath(slug));
-  const starredPages = await loadStarredPages();
   const sidebarSettings = await loadSidebarSettings();
+  const starredPages = await loadStarredPages();
   const histories = await loadViewHistories();
   // サイドバーの「ページ」に最初に表示する、表示中のページがあるフォルダの中身
   const folderEntries = await listFolder(slug.slice(0, -1));
@@ -86,10 +86,10 @@ export default async function DocumentRoute(props: PageProps<"/[...slug]">) {
       initialHtml={html}
       initialExists={exists}
       initialStarred={starred}
+      sidebarSettings={sidebarSettings}
       starredPages={starredPages}
       histories={histories}
       folderEntries={folderEntries}
-      sidebarSettings={sidebarSettings}
     />
   );
 }

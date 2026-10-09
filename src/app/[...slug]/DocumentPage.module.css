@@ -70,17 +70,6 @@
   background: var(--gray-alpha-100);
 }
 
-.iconButton {
-  /* .button と同じpadding-block・border・font-sizeを土台にして高さを揃え、
-     横方向だけaspect-ratioで正方形にする */
-  composes: button;
-  padding: 0.4rem;
-  aspect-ratio: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
 .buttonPrimary {
   composes: button;
   border-color: transparent;

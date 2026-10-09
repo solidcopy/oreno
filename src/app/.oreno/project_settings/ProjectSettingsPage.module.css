@@ -17,6 +17,18 @@
   z-index: 1;
 }
 
+/* ヘッダーの下の領域。左にサイドバー、右に本文(main)を並べる */
+.body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+}
+
 .rootLink {
   color: inherit;
   font-weight: 600;
