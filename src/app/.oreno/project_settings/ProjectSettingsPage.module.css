@@ -15,13 +15,16 @@
 .main {
   flex: 1;
   min-width: 0;
+  /* 保存通知(.notice)の位置の基準にする */
+  position: relative;
 }
 
 .notice {
-  /* position: fixed でレイアウトのフローから外すことで、
-     表示/非表示が切り替わっても他の要素の位置がずれないようにしている */
-  position: fixed;
-  top: 4rem;
+  /* position: absolute でレイアウトのフローから外すことで、
+     表示/非表示が切り替わっても他の要素の位置がずれないようにしている
+     基準は .main なので、サイドバーの有無にかかわらずメイン部分の左上に出る */
+  position: absolute;
+  top: 1rem;
   left: 1rem;
   z-index: 2;
   padding: 0.6rem 1.2rem;
