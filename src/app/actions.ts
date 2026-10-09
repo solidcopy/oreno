@@ -30,6 +30,7 @@ import {
   setShowSidebar,
   setShowStarredPages,
   setShowToc,
+  setSidebarWidth,
 } from "@/lib/userSettings";
 
 export type ActionResult = { ok: true } | { ok: false; message: string };
@@ -241,6 +242,30 @@ export async function setShowTocSetting(
 
   // サイドバーは全ページ共通の表示なので、すべてのページのキャッシュを破棄する
   // これを呼ばないと、戻る/進むで以前の開閉の状態が表示される
+  revalidatePath("/", "layout");
+
+  return { ok: true };
+}
+
+/**
+ * サイドバーの幅（px）を保存する
+ * 保存できた場合は ok: true を返す
+ */
+export async function setSidebarWidthSetting(
+  width: number,
+): Promise<ActionResult> {
+  // Server Action は直接呼べるため、数値かどうかを検証し直す
+  if (typeof width !== "number" || !Number.isFinite(width)) {
+    return { ok: false, message: "不正な幅です。" };
+  }
+
+  try {
+    await setSidebarWidth(width);
+  } catch (error) {
+    return { ok: false, message: `設定の保存に失敗しました: ${String(error)}` };
+  }
+
+  // サイドバーは全ページ共通の表示なので、すべてのページのキャッシュを破棄する
   revalidatePath("/", "layout");
 
   return { ok: true };

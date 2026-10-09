@@ -12,6 +12,9 @@
  * props として渡してくる
  */
 
+import { useState, type PointerEvent } from "react";
+import { setSidebarWidthSetting } from "@/app/actions";
+import { clampSidebarWidth } from "@/lib/sidebarWidth";
 import type { FolderEntries } from "@/lib/folder";
 import type { Heading } from "@/lib/headings";
 import type { SidebarSettings } from "@/lib/userSettings";
@@ -58,30 +61,72 @@ export default function Sidebar({
   pages,
   toc,
 }: Props) {
+  // ドラッグ中の幅も含めた、画面に表示する幅
+  const [width, setWidth] = useState(settings.width);
+  const [dragging, setDragging] = useState(false);
+
+  // 境界を押したとき、ポインタをキャプチャして、
+  // 境界の外へ出てもドラッグが続くようにする
+  function handlePointerDown(e: PointerEvent<HTMLDivElement>) {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDragging(true);
+  }
+
+  // ドラッグ中は、サイドバーの左端からポインタまでの距離を幅にする
+  function handlePointerMove(e: PointerEvent<HTMLDivElement>) {
+    if (!dragging) return;
+    const left = e.currentTarget.parentElement!.getBoundingClientRect().left;
+    setWidth(clampSidebarWidth(e.clientX - left));
+  }
+
+  // 離したときに、最終的な幅を保存する（動かしている途中では保存しない）
+  async function handlePointerUp(e: PointerEvent<HTMLDivElement>) {
+    if (!dragging) return;
+    setDragging(false);
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    const previous = settings.width;
+    const result = await setSidebarWidthSetting(width);
+    if (!result.ok) {
+      // 保存できなかったら元の幅に戻す
+      setWidth(previous);
+    }
+  }
+
   return (
-    <aside className={styles.sidebar}>
-      <StarredSection
-        pages={starredPages}
-        initialOpen={settings.showStarredPages}
-      />
-      <HistorySection
-        histories={histories}
-        initialOpen={settings.showHistories}
-      />
-      {pages && (
-        <PagesSection
-          slug={pages.slug}
-          folderEntries={pages.folderEntries}
-          initialOpen={settings.showPages}
+    <div className={styles.container} style={{ width }}>
+      <aside className={styles.sidebar}>
+        <StarredSection
+          pages={starredPages}
+          initialOpen={settings.showStarredPages}
         />
-      )}
-      {toc && (
-        <TocSection
-          headings={toc.headings}
-          initialOpen={settings.showToc}
-          onSelectHeading={toc.onSelectHeading}
+        <HistorySection
+          histories={histories}
+          initialOpen={settings.showHistories}
         />
-      )}
-    </aside>
+        {pages && (
+          <PagesSection
+            slug={pages.slug}
+            folderEntries={pages.folderEntries}
+            initialOpen={settings.showPages}
+          />
+        )}
+        {toc && (
+          <TocSection
+            headings={toc.headings}
+            initialOpen={settings.showToc}
+            onSelectHeading={toc.onSelectHeading}
+          />
+        )}
+      </aside>
+      <div
+        className={dragging ? styles.resizerActive : styles.resizer}
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="サイドバーの幅"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+      />
+    </div>
   );
 }

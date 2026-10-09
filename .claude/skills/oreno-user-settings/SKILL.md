@@ -88,7 +88,8 @@ Server Action は誰でも直接呼び出せるため、渡された slug を信
     "show-starred-pages": true,
     "show-histories": true,
     "show-pages": true,
-    "show-toc": true
+    "show-toc": true,
+    "width": 240
   }
 }
 ```
@@ -98,7 +99,8 @@ Server Action は誰でも直接呼び出せるため、渡された slug を信
 - `show-histories`: 「履歴」の一覧を開いているか(`true`)閉じているか(`false`)
 - `show-pages`: 「ページ」の一覧を開いているか(`true`)閉じているか(`false`)
 - `show-toc`: 「目次」の一覧を開いているか(`true`)閉じているか(`false`)
-- いずれも未設定、または真偽値以外の場合は `true` 扱いにする
+- `width`: サイドバーの幅(px、整数)。サイドバーとメイン部分の境界をドラッグして変更する(マウスカーソルは左右矢印になる)。ドラッグ中は画面だけ更新し、マウスを離したときに Server Action `setSidebarWidthSetting` で保存する。160〜600の範囲に丸め、未設定・整数以外は240とする(範囲の定数は `src/lib/sidebarWidth.ts`)
+- `width` 以外は、未設定、または真偽値以外の場合は `true` 扱いにする
 - 更新時は `sidebar-settings` 内の他のキーを残す。すでに同じ値なら何も書き込まない
 - クリックで画面の状態を先に切り替え、Server Action(`setShowSidebarSetting`、`setShowStarredPagesSetting`、`setShowHistoriesSetting`、`setShowPagesSetting`、`setShowTocSetting`。`src/app/actions.ts`)で保存する。失敗したら元に戻す
 - 全ページ共通の表示なので、保存後は `revalidatePath("/", "layout")` で全ページのキャッシュを破棄する

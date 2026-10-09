@@ -1,6 +1,7 @@
 import { access, readFile, writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { getRootDir } from "@/lib/docPath";
+import { SIDEBAR_WIDTH_DEFAULT, clampSidebarWidth } from "@/lib/sidebarWidth";
 
 /**
  * ユーザー設定（(文書フォルダのルート)/.oreno/user-settings.json）のうち、
@@ -179,7 +180,10 @@ export async function loadStarredPages(): Promise<string[]> {
  * すでに同じ状態であれば何も書き込まない
  * 閲覧履歴の記録と同じキューに載せて、更新が同時に走らないようにしている
  */
-export function setPageStarred(urlPath: string, starred: boolean): Promise<void> {
+export function setPageStarred(
+  urlPath: string,
+  starred: boolean,
+): Promise<void> {
   return updateUserSettings((data) => {
     const pages = toStringArray(data["starred-pages"]);
     if (pages.includes(urlPath) === starred) return false;
@@ -213,6 +217,8 @@ export type SidebarSettings = {
   showPages: boolean;
   // 「目次」の一覧を開いているかどうか
   showToc: boolean;
+  // サイドバーの幅（px）
+  width: number;
 };
 
 /**
@@ -240,6 +246,10 @@ export async function loadSidebarSettings(): Promise<SidebarSettings> {
       typeof values["show-pages"] === "boolean" ? values["show-pages"] : true,
     showToc:
       typeof values["show-toc"] === "boolean" ? values["show-toc"] : true,
+    width:
+      typeof values["width"] === "number" && Number.isInteger(values["width"])
+        ? clampSidebarWidth(values["width"])
+        : SIDEBAR_WIDTH_DEFAULT,
   };
 }
 
@@ -248,7 +258,10 @@ export async function loadSidebarSettings(): Promise<SidebarSettings> {
  * sidebar-settings の中の他のキーは残す
  * すでに同じ値であれば何も書き込まない
  */
-function setSidebarSetting(key: string, value: boolean): Promise<void> {
+function setSidebarSetting(
+  key: string,
+  value: boolean | number,
+): Promise<void> {
   return updateUserSettings((data) => {
     const current = data["sidebar-settings"];
     const sidebar: Record<string, unknown> =
@@ -296,4 +309,12 @@ export function setShowPages(show: boolean): Promise<void> {
  */
 export function setShowToc(show: boolean): Promise<void> {
   return setSidebarSetting("show-toc", show);
+}
+
+/**
+ * サイドバーの幅（px）を保存する
+ * 整数でない値、範囲外の値は範囲内に丸める
+ */
+export function setSidebarWidth(width: number): Promise<void> {
+  return setSidebarSetting("width", clampSidebarWidth(width));
 }
