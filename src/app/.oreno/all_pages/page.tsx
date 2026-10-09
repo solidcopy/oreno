@@ -3,6 +3,7 @@ import { getRootDirName } from "@/lib/docPath";
 import { listAllPages } from "@/lib/folder";
 import { loadProjectSettings } from "@/lib/projectSettings";
 import {
+  loadOrderSetting,
   loadSidebarSettings,
   loadStarredPages,
   loadViewHistories,
@@ -16,8 +17,7 @@ export default async function AllPagesRoute() {
   await connection();
 
   const { projectName } = await loadProjectSettings();
-  // 並び順は既定（名前の昇順）
-  const tree = await listAllPages();
+  const tree = await listAllPages(await loadOrderSetting());
 
   const sidebarSettings = await loadSidebarSettings();
   const starredPages = await loadStarredPages();

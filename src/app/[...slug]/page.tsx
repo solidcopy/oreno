@@ -19,6 +19,7 @@ import {
   loadSidebarSettings,
   loadStarredPages,
   loadViewHistories,
+  loadOrderSetting,
 } from "@/lib/userSettings";
 import DocumentPage from "./DocumentPage";
 
@@ -72,7 +73,7 @@ export default async function DocumentRoute(props: PageProps<"/[...slug]">) {
   const starredPages = await loadStarredPages();
   const histories = await loadViewHistories();
   // サイドバーの「ページ」に最初に表示する、表示中のページがあるフォルダの中身
-  const folderEntries = await listFolder(slug.slice(0, -1));
+  const folderEntries = await listFolder(slug.slice(0, -1), await loadOrderSetting());
 
   // ここから先は Client Component（"use client" がついたコンポーネント）に処理を渡す
   // 表示/編集の切り替えのようなブラウザ上でのインタラクションは

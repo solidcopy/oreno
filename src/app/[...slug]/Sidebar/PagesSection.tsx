@@ -80,24 +80,26 @@ export default function PagesSection({
               </button>
             </li>
           )}
-          {shownEntries.folders.map((name) => (
-            <li key={name}>
-              <button
-                type="button"
-                className={styles.entryButton}
-                onClick={() => handleOpenFolder([...shownFolder, name])}
-              >
-                <FolderEntryIcon />
-                <span className={styles.entryName}>{name}</span>
-              </button>
-            </li>
-          ))}
-          {shownEntries.pages.map((name) => {
+          {shownEntries.map(({ kind, name }) => {
+            if (kind === "folder") {
+              return (
+                <li key={`folder:${name}`}>
+                  <button
+                    type="button"
+                    className={styles.entryButton}
+                    onClick={() => handleOpenFolder([...shownFolder, name])}
+                  >
+                    <FolderEntryIcon />
+                    <span className={styles.entryName}>{name}</span>
+                  </button>
+                </li>
+              );
+            }
             const pageSlug = [...shownFolder, name];
             // 表示中のページの行は強調する
             const isCurrent = pageSlug.join("/") === slugKey;
             return (
-              <li key={name}>
+              <li key={`page:${name}`}>
                 <Link
                   href={encodeUrlPath("/" + pageSlug.join("/"))}
                   className={isCurrent ? styles.entryCurrent : styles.entry}
@@ -112,11 +114,9 @@ export default function PagesSection({
         </ul>
       )}
 
-      {open &&
-        shownEntries.folders.length === 0 &&
-        shownEntries.pages.length === 0 && (
-          <p className={styles.empty}>ページはありません</p>
-        )}
+      {open && shownEntries.length === 0 && (
+        <p className={styles.empty}>ページはありません</p>
+      )}
     </section>
   );
 }

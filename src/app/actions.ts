@@ -31,6 +31,7 @@ import {
   setShowStarredPages,
   setShowToc,
   setSidebarWidth,
+  loadOrderSetting,
 } from "@/lib/userSettings";
 
 export type ActionResult = { ok: true } | { ok: false; message: string };
@@ -283,7 +284,8 @@ export async function loadFolderEntries(
   { ok: true; entries: FolderEntries } | { ok: false; message: string }
 > {
   try {
-    return { ok: true, entries: await listFolder(folder) };
+    const order = await loadOrderSetting();
+    return { ok: true, entries: await listFolder(folder, order) };
   } catch (error) {
     return { ok: false, message: `一覧の取得に失敗しました: ${String(error)}` };
   }

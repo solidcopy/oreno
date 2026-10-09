@@ -1,18 +1,21 @@
 import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { getRootDir, resolveDocPath } from "@/lib/docPath";
+import type { OrderSetting } from "@/lib/userSettings";
 
 /**
  * 文書ルート以下のフォルダの中身（サブフォルダとページ）を調べるモジュール
  * サイドバーの「ページ」の一覧に使う
  */
 
-export type FolderEntries = {
-  // サブフォルダの名前（昇順）
-  folders: string[];
-  // ページの名前。拡張子 ".md" は含まない（昇順）
-  pages: string[];
+export type FolderEntry = {
+  kind: "folder" | "page";
+  // フォルダ名、またはページ名（拡張子 ".md" は含まない）
+  name: string;
 };
+
+// フォルダの中身。並び順はユーザー設定の order に従う
+export type FolderEntries = FolderEntry[];
 
 /**
  * フォルダのパス（文書ルートからのセグメントの配列）を、実フォルダの絶対パスに変換する
@@ -29,14 +32,17 @@ function resolveFolderPath(folder: string[]): string | null {
 }
 
 /**
- * folder のフォルダにあるサブフォルダとページを返す
+ * folder のフォルダにあるサブフォルダとページを、order の並び順で返す
  * フォルダが存在しない場合（新規作成前のページのフォルダなど）や不正なパスの場合は、
  * エラーにせず空の一覧を返す
  * "." から始まる名前（.git や .oreno など）と、Markdown以外のファイルは無視する
  */
-export async function listFolder(folder: string[]): Promise<FolderEntries> {
+export async function listFolder(
+  folder: string[],
+  order: OrderSetting,
+): Promise<FolderEntries> {
   const folderPath = resolveFolderPath(folder);
-  if (!folderPath) return { folders: [], pages: [] };
+  if (!folderPath) return [];
 
   let dirents;
   try {
@@ -44,28 +50,27 @@ export async function listFolder(folder: string[]): Promise<FolderEntries> {
   } catch (error) {
     const err = error as NodeJS.ErrnoException;
     if (err.code === "ENOENT" || err.code === "ENOTDIR") {
-      return { folders: [], pages: [] };
+      return [];
     }
     throw error;
   }
 
-  const folders: string[] = [];
-  const pages: string[] = [];
+  const entries: FolderEntries = [];
   for (const dirent of dirents) {
     if (dirent.name.startsWith(".")) continue;
 
     if (dirent.isDirectory()) {
-      folders.push(dirent.name);
+      entries.push({ kind: "folder", name: dirent.name });
     } else if (dirent.isFile() && dirent.name.endsWith(".md")) {
       const name = dirent.name.slice(0, -".md".length);
       // URL にできない名前（"*" を含むなど）のページは、開けないので一覧に出さない
       if (name !== "" && resolveDocPath([...folder, name])) {
-        pages.push(name);
+        entries.push({ kind: "page", name });
       }
     }
   }
 
-  return { folders: folders.sort(compareNames), pages: pages.sort(compareNames) };
+  return entries.sort(compareByOrder(order));
 }
 
 /**
@@ -73,6 +78,26 @@ export async function listFolder(folder: string[]): Promise<FolderEntries> {
  */
 function compareNames(a: string, b: string): number {
   return a.localeCompare(b, "ja");
+}
+
+/**
+ * 同じフォルダに並ぶ項目同士の並び順を決める比較関数を、order から作る
+ * by-name: フォルダとページを区別せず名前の昇順（同名ならフォルダが先）
+ * folders-first / pages-first: 先にする種類を前に置き、それぞれ名前の昇順
+ */
+function compareByOrder(
+  order: OrderSetting,
+): (a: FolderEntry, b: FolderEntry) => number {
+  // 種類の順位。小さいほど前に並ぶ
+  const kindRank = (kind: FolderEntry["kind"]) =>
+    (kind === "folder") === (order !== "pages-first") ? 0 : 1;
+
+  return (a, b) => {
+    if (order === "by-name") {
+      return compareNames(a.name, b.name) || kindRank(a.kind) - kindRank(b.kind);
+    }
+    return kindRank(a.kind) - kindRank(b.kind) || compareNames(a.name, b.name);
+  };
 }
 
 /**
@@ -84,41 +109,29 @@ export type TreeNode =
   | { kind: "page"; name: string; path: string[] };
 
 /**
- * 同じフォルダに並ぶ項目同士の並び順を決める比較関数
- * フォルダ先・ページ先のような並びを選べるようにするときは、
- * この型の関数を差し替えて listAllPages に渡す
- */
-export type TreeNodeComparator = (a: TreeNode, b: TreeNode) => number;
-
-/**
- * フォルダとページを区別せず、名前の昇順に並べる
- */
-export const compareByName: TreeNodeComparator = (a, b) =>
-  compareNames(a.name, b.name);
-
-/**
  * 文書ルート以下のすべてのフォルダとページをツリーにして返す（ルート直下の項目の配列）
  * 各フォルダの中身は listFolder で調べるので、無視するファイルや名前の扱いはサイドバーと同じ
- * 並び順は compare で決まる
+ * 並び順は order で決まり、すべての階層に同じルールを適用する
  */
 export async function listAllPages(
-  compare: TreeNodeComparator = compareByName,
+  order: OrderSetting,
   folder: string[] = [],
 ): Promise<TreeNode[]> {
-  const { folders, pages } = await listFolder(folder);
+  const entries = await listFolder(folder, order);
 
   const nodes: TreeNode[] = [];
-  for (const name of folders) {
+  for (const { kind, name } of entries) {
     const path = [...folder, name];
-    nodes.push({
-      kind: "folder",
-      name,
-      path,
-      children: await listAllPages(compare, path),
-    });
+    if (kind === "folder") {
+      nodes.push({
+        kind,
+        name,
+        path,
+        children: await listAllPages(order, path),
+      });
+    } else {
+      nodes.push({ kind, name, path });
+    }
   }
-  for (const name of pages) {
-    nodes.push({ kind: "page", name, path: [...folder, name] });
-  }
-  return nodes.sort(compare);
+  return nodes;
 }
