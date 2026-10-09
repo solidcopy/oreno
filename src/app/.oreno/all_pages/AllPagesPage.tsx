@@ -3,16 +3,14 @@
 import Link from "next/link";
 import { useState } from "react";
 import styles from "./AllPagesPage.module.css";
-import AppMenu from "@/app/[...slug]/AppMenu";
+import Header from "@/app/[...slug]/Header";
 import { FolderEntryIcon, PageEntryIcon } from "@/app/[...slug]/Sidebar/icons";
 import Sidebar from "@/app/[...slug]/Sidebar/Sidebar";
-import SidebarToggleButton from "@/app/[...slug]/SidebarToggleButton";
 import { useSavedToggle } from "@/app/[...slug]/useSavedToggle";
 import { setShowSidebarSetting } from "@/app/actions";
 import type { SidebarSettings } from "@/lib/userSettings";
 import { encodeUrlPath } from "@/lib/encodeUrlPath";
 import type { TreeNode } from "@/lib/folder";
-import { truncateProjectNameForDisplay } from "@/lib/projectNameDisplay";
 
 type Props = {
   rootDirName: string;
@@ -74,20 +72,13 @@ export default function AllPagesPage({
 
   return (
     <div className={styles.page}>
-      <div className={styles.toolbar}>
-        <SidebarToggleButton
-          visible={sidebarVisible}
-          onToggle={handleToggleSidebar}
-        />
-        <Link href="/index" className={styles.rootLink}>
-          {projectName
-            ? truncateProjectNameForDisplay(projectName)
-            : rootDirName}
-        </Link>
-        <span>すべてのページ</span>
-        <div className={styles.spacer} />
-        <AppMenu />
-      </div>
+      <Header
+        projectName={projectName}
+        rootDirName={rootDirName}
+        sidebarVisible={sidebarVisible}
+        onToggleSidebar={handleToggleSidebar}
+        pageTitle="すべてのページ"
+      />
 
       <div className={styles.body}>
         {sidebarVisible && (

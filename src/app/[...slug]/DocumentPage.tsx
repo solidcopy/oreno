@@ -14,15 +14,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import styles from "./DocumentPage.module.css";
-import AppMenu from "./AppMenu";
 import type { FolderEntries } from "@/lib/folder";
 import type { SidebarSettings } from "@/lib/userSettings";
 import { extractHeadings } from "@/lib/headings";
 import Sidebar from "./Sidebar/Sidebar";
-import SidebarToggleButton from "./SidebarToggleButton";
+import Header from "./Header";
 import NewPageButton from "./NewPageButton";
 import { useSavedToggle } from "./useSavedToggle";
 import {
@@ -32,7 +30,6 @@ import {
   setStarred,
   setShowSidebarSetting,
 } from "../actions";
-import { truncateProjectNameForDisplay } from "@/lib/projectNameDisplay";
 import StarIcon from "@/components/StarIcon";
 import type { MarkdownEditorHandle } from "@/components/MarkdownEditor";
 
@@ -75,11 +72,6 @@ export default function DocumentPage({
   histories,
   folderEntries,
 }: Props) {
-  // プロジェクト名が設定されていればそちらを、未設定ならルートフォルダ名を表示する
-  const rootLinkText = projectName
-    ? truncateProjectNameForDisplay(projectName)
-    : rootDirName;
-
   const router = useRouter();
 
   // useEffect は「画面が表示されたあとに実行したい処理」を登録するための
@@ -221,57 +213,58 @@ export default function DocumentPage({
 
   return (
     <div className={styles.page}>
-      <div className={styles.toolbar}>
-        <SidebarToggleButton
-          visible={sidebarVisible}
-          onToggle={handleToggleSidebar}
-        />
-        <Link href="/index" className={styles.rootLink}>
-          {rootLinkText}
-        </Link>
-        <span>/{slug.join("/")}</span>
-        <div className={styles.spacer} />
-        {mode === "view" ? (
-          <>
-            <NewPageButton slug={slug} />
-            <button type="button" className={styles.button} onClick={handleEdit}>
-              編集
-            </button>
-          </>
-        ) : (
-          <>
-            {exists && (
+      <Header
+        projectName={projectName}
+        rootDirName={rootDirName}
+        sidebarVisible={sidebarVisible}
+        onToggleSidebar={handleToggleSidebar}
+        pageTitle={`/${slug.join("/")}`}
+        actions={
+          mode === "view" ? (
+            <>
+              <NewPageButton slug={slug} />
               <button
                 type="button"
                 className={styles.button}
-                onClick={handleCancel}
-                disabled={saving}
+                onClick={handleEdit}
               >
-                キャンセル
+                編集
               </button>
-            )}
-            {exists && (
+            </>
+          ) : (
+            <>
+              {exists && (
+                <button
+                  type="button"
+                  className={styles.button}
+                  onClick={handleCancel}
+                  disabled={saving}
+                >
+                  キャンセル
+                </button>
+              )}
+              {exists && (
+                <button
+                  type="button"
+                  className={styles.buttonDanger}
+                  onClick={handleDelete}
+                  disabled={saving}
+                >
+                  削除
+                </button>
+              )}
               <button
                 type="button"
-                className={styles.buttonDanger}
-                onClick={handleDelete}
+                className={styles.buttonPrimary}
+                onClick={handleSave}
                 disabled={saving}
               >
-                削除
+                {saving ? "保存中…" : "保存"}
               </button>
-            )}
-            <button
-              type="button"
-              className={styles.buttonPrimary}
-              onClick={handleSave}
-              disabled={saving}
-            >
-              {saving ? "保存中…" : "保存"}
-            </button>
-          </>
-        )}
-        <AppMenu />
-      </div>
+            </>
+          )
+        }
+      />
 
       <div className={styles.body}>
         {sidebarVisible && (

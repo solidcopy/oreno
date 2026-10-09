@@ -1,16 +1,13 @@
 "use client";
 
 import { useRef, useState } from "react";
-import Link from "next/link";
 import styles from "./ProjectSettingsPage.module.css";
-import AppMenu from "@/app/[...slug]/AppMenu";
+import Header from "@/app/[...slug]/Header";
 import Sidebar from "@/app/[...slug]/Sidebar/Sidebar";
-import SidebarToggleButton from "@/app/[...slug]/SidebarToggleButton";
 import { useSavedToggle } from "@/app/[...slug]/useSavedToggle";
 import { setShowSidebarSetting } from "@/app/actions";
 import { saveProjectSettingsAction } from "./actions";
 import type { SidebarSettings } from "@/lib/userSettings";
-import { truncateProjectNameForDisplay } from "@/lib/projectNameDisplay";
 
 type Props = {
   rootDirName: string;
@@ -74,20 +71,13 @@ export default function ProjectSettingsPage({
 
   return (
     <div className={styles.page}>
-      <div className={styles.toolbar}>
-        <SidebarToggleButton
-          visible={sidebarVisible}
-          onToggle={handleToggleSidebar}
-        />
-        <Link href="/index" className={styles.rootLink}>
-          {savedProjectName
-            ? truncateProjectNameForDisplay(savedProjectName)
-            : rootDirName}
-        </Link>
-        <span>プロジェクト設定</span>
-        <div className={styles.spacer} />
-        <AppMenu />
-      </div>
+      <Header
+        projectName={savedProjectName}
+        rootDirName={rootDirName}
+        sidebarVisible={sidebarVisible}
+        onToggleSidebar={handleToggleSidebar}
+        pageTitle="プロジェクト設定"
+      />
 
       <div className={styles.body}>
         {sidebarVisible && (

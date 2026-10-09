@@ -5,20 +5,6 @@
   min-height: 0;
 }
 
-/* アプリメニューのポップオーバーが下のコンテンツより手前に出るよう、
-   他の画面のヘッダーと同じく z-index を指定する */
-.toolbar {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--gray-alpha-200);
-  position: sticky;
-  top: 0;
-  background: var(--background);
-  z-index: 2;
-}
-
 /* ヘッダーの下の領域。左にサイドバー、右に本文(main)を並べる */
 .body {
   display: flex;
@@ -35,20 +21,6 @@
   padding: 0.5rem 1rem;
   color: #c1121f;
   font-size: 0.9rem;
-}
-
-.rootLink {
-  color: inherit;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.rootLink:hover {
-  text-decoration: underline;
-}
-
-.spacer {
-  flex: 1;
 }
 
 .content {
