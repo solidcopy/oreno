@@ -66,9 +66,14 @@ export default function AppMenu() {
           >
             プロジェクト設定
           </Link>
-          <button type="button" role="menuitem" className={styles.menuItem} onClick={handleClose}>
+          <Link
+            href="/.oreno/user_settings"
+            role="menuitem"
+            className={styles.menuItem}
+            onClick={handleClose}
+          >
             ユーザー設定
-          </button>
+          </Link>
         </div>
       )}
     </div>

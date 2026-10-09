@@ -318,3 +318,39 @@ export function setShowToc(show: boolean): Promise<void> {
 export function setSidebarWidth(width: number): Promise<void> {
   return setSidebarSetting("width", clampSidebarWidth(width));
 }
+
+/**
+ * 同じ階層にあるフォルダとページの並び順（order）
+ * by-name: 区別せず名前の昇順、folders-first: フォルダが先、pages-first: ページが先
+ */
+export type OrderSetting = "by-name" | "folders-first" | "pages-first";
+
+const ORDER_DEFAULT: OrderSetting = "by-name";
+
+function isOrderSetting(value: unknown): value is OrderSetting {
+  return (
+    value === "by-name" || value === "folders-first" || value === "pages-first"
+  );
+}
+
+/**
+ * 保存済みの並び順を返す
+ * 未設定、または不正な値のときは名前順にする
+ */
+export async function loadOrderSetting(): Promise<OrderSetting> {
+  const data = await readUserSettingsFile();
+  const value = data["order"];
+  return isOrderSetting(value) ? value : ORDER_DEFAULT;
+}
+
+/**
+ * 並び順を保存する
+ * すでに同じ値であれば何も書き込まない
+ */
+export function setOrderSetting(order: OrderSetting): Promise<void> {
+  return updateUserSettings((data) => {
+    if (data["order"] === order) return false;
+    data["order"] = order;
+    return true;
+  });
+}
