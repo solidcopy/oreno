@@ -84,7 +84,7 @@ export default function NewPageButton({ slug }: Props) {
     const token = ++existsCheckToken.current;
     existsCheckTimer.current = setTimeout(() => {
       const segments = trimmed.split("/").filter((segment) => segment.length > 0);
-      checkDocumentExists(segments).then((exists) => {
+      void checkDocumentExists(segments).then((exists) => {
         // 確認結果が返ってくるまでの間にさらに入力が進んでいたら、古い結果は無視する
         if (token !== existsCheckToken.current) return;
         setError(exists ? "ファイルはすでに存在します。" : null);
@@ -116,7 +116,7 @@ export default function NewPageButton({ slug }: Props) {
 
     if (event.key === "Enter") {
       event.preventDefault();
-      handleCreate();
+      void handleCreate();
     }
   }
 

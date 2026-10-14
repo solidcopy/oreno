@@ -73,7 +73,7 @@ export default function PagesSection({
               <button
                 type="button"
                 className={styles.entryButton}
-                onClick={() => handleOpenFolder(shownFolder.slice(0, -1))}
+                onClick={() => void handleOpenFolder(shownFolder.slice(0, -1))}
               >
                 <FolderEntryIcon />
                 <span className={styles.entryName}>..</span>
@@ -87,7 +87,7 @@ export default function PagesSection({
                   <button
                     type="button"
                     className={styles.entryButton}
-                    onClick={() => handleOpenFolder([...shownFolder, name])}
+                    onClick={() => void handleOpenFolder([...shownFolder, name])}
                   >
                     <FolderEntryIcon />
                     <span className={styles.entryName}>{name}</span>
