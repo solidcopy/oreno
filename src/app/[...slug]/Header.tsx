@@ -6,9 +6,9 @@ import styles from "./Header.module.css";
 import SidebarToggleButton from "./SidebarToggleButton";
 
 // 文書の保存の状態
-// idle: 保存済み（または未編集）、saving: 未保存の編集がある（保存待ちまたは保存中）、
+// idle: ページを開いてからまだ編集していない、saved: 編集内容が保存済み（次の編集まで表示し続ける）、saving: 未保存の編集がある（保存待ちまたは保存中）、
 // failed: 直近の保存に失敗した、new: 新規作成中でまだファイルがない（自動保存はしない）
-export type SaveStatus = "idle" | "saving" | "failed" | "new";
+export type SaveStatus = "idle" | "saved" | "saving" | "failed" | "new";
 
 /**
  * 全画面共通のヘッダー
@@ -64,6 +64,9 @@ export default function Header({
       <span>{pageTitle}</span>
       {saveStatus === "saving" && (
         <span className={styles.saveStatusSaving}>（保存中...）</span>
+      )}
+      {saveStatus === "saved" && (
+        <span className={styles.saveStatusSaving}>（保存済み）</span>
       )}
       {saveStatus === "new" && (
         <>

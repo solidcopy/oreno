@@ -224,7 +224,7 @@ export default function DocumentPage({
     clearSaveTimer();
     const target = latestMarkdownRef.current;
     if (target === savedMarkdownRef.current) {
-      setSaveStatus("idle");
+      setSaveStatus("saved");
       return;
     }
 
@@ -244,7 +244,7 @@ export default function DocumentPage({
     setMarkdown(target);
     setHtml(result.html);
     if (latestMarkdownRef.current === target) {
-      setSaveStatus("idle");
+      setSaveStatus("saved");
     }
   }
 
@@ -268,7 +268,7 @@ export default function DocumentPage({
     if (newMarkdown === savedMarkdownRef.current) {
       // 編集して元に戻した場合など、保存済みの内容と同じなら保存しない
       clearSaveTimer();
-      setSaveStatus("idle");
+      setSaveStatus("saved");
       return;
     }
     setSaveStatus("saving");
