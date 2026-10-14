@@ -406,9 +406,18 @@ export default function DocumentPage({
               >
                 編集モードに切り替え
               </button>
+              <button
+                type="button"
+                className={styles.buttonDanger}
+                onClick={handleDelete}
+                disabled={deleting}
+              >
+                削除
+              </button>
             </>
           ) : (
             <>
+              {exists && <NewPageButton slug={slug} />}
               {exists && (
                 <button
                   type="button"
