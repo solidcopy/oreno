@@ -39,6 +39,14 @@
   background: var(--gray-alpha-100);
 }
 
+.modeButton {
+  /* 「編集モードに切り替え」と「表示モードに切り替え」が同じ幅になるよう、
+     文字数に頼らず幅を固定している */
+  composes: button;
+  width: 11rem;
+  text-align: center;
+}
+
 .buttonPrimary {
   composes: button;
   border-color: transparent;
@@ -102,4 +110,26 @@
 .editorLoading {
   padding: 1.5rem;
   color: var(--gray-alpha-200);
+}
+
+/* 保存失敗のメッセージの置き場
+   高さ0のまま position: sticky でヘッダーの下に貼り付けることで、
+   表示/非表示が切り替わっても他の要素の位置をずらさず、
+   文書をスクロールしていても画面上部に出るようにしている */
+.noticeAnchor {
+  position: sticky;
+  top: 4.5rem;
+  height: 0;
+  z-index: 2;
+}
+
+.errorNotice {
+  position: absolute;
+  left: 1rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  background: #c1121f;
+  color: white;
+  font-size: 0.9rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }

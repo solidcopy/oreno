@@ -17,10 +17,10 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import styles from "./DocumentPage.module.css";
 import type { FolderEntries } from "@/lib/folder";
-import type { SidebarSettings } from "@/lib/userSettings";
+import type { Mode, SidebarSettings } from "@/lib/userSettings";
 import { extractHeadings } from "@/lib/headings";
 import Sidebar from "./Sidebar/Sidebar";
-import Header from "./Header";
+import Header, { type SaveStatus } from "./Header";
 import NewPageButton from "./NewPageButton";
 import { useSavedToggle } from "./useSavedToggle";
 import {
@@ -29,6 +29,8 @@ import {
   recordViewHistory,
   setStarred,
   setShowSidebarSetting,
+  setModeSetting,
+  type SaveResult,
 } from "../actions";
 import StarIcon from "@/components/StarIcon";
 import type { MarkdownEditorHandle } from "@/components/MarkdownEditor";
@@ -42,7 +44,13 @@ const MarkdownEditor = dynamic(() => import("@/components/MarkdownEditor"), {
   loading: () => <p className={styles.editorLoading}>エディタを読み込み中…</p>,
 });
 
-type Mode = "view" | "edit";
+// 編集が止まってから保存を始めるまでの待ち時間
+// 1文字入力するたびに保存が走らないよう、連続した編集をまとめる
+const AUTO_SAVE_DELAY_MS = 500;
+
+// 保存失敗のメッセージを表示しておく時間
+// ユーザー設定画面の保存通知と同じ秒数にしている
+const NOTICE_DISPLAY_MS = 3000;
 
 type Props = {
   slug: string[];
@@ -52,6 +60,8 @@ type Props = {
   initialHtml: string;
   initialExists: boolean;
   initialStarred: boolean;
+  // 保存済みのモード
+  initialMode: Mode;
   // サイドバーの表示・開閉の保存済みの設定
   sidebarSettings: SidebarSettings;
   starredPages: string[];
@@ -67,6 +77,7 @@ export default function DocumentPage({
   initialHtml,
   initialExists,
   initialStarred,
+  initialMode,
   sidebarSettings,
   starredPages,
   histories,
@@ -91,13 +102,15 @@ export default function DocumentPage({
   // 値が変わると、そのたびにこのコンポーネントが再実行され
   // 画面が更新される
   //
+  // 保存済みのモード（initialMode）で開く
   // ファイルが存在しない場合（initialExists === false）は、README.md の
-  // 「ページの新規作成」の仕様どおり最初から編集モードで開く
-  const [mode, setMode] = useState<Mode>(initialExists ? "view" : "edit");
+  // 「ページの新規作成」の仕様どおり、保存済みのモードに関わらず編集モードで開く
+  const [mode, setMode] = useState<Mode>(initialExists ? initialMode : "edit");
   const [markdown, setMarkdown] = useState(initialMarkdown);
   const [html, setHtml] = useState(initialHtml);
   const [exists, setExists] = useState(initialExists);
-  const [saving, setSaving] = useState(false);
+  // 削除中かどうか（削除中は削除ボタンの二重押しと、モードの切り替えを防ぐ）
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // MarkdownEditor（Client Component）が公開している getMarkdown() を
@@ -151,38 +164,188 @@ export default function DocumentPage({
     elements?.[index]?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  function handleEdit() {
-    setError(null);
-    setMode("edit");
-  }
-
-  function handleCancel() {
-    setError(null);
-    // 編集をキャンセルしたので、エディタの中身を保存前の状態に戻すために作り直す
-    setEditorInstanceKey((key) => key + 1);
-    setMode("view");
-  }
-
-  async function handleSave() {
-    const currentMarkdown = editorRef.current?.getMarkdown() ?? "";
-    setSaving(true);
-    setError(null);
-
-    const result = await saveDocument(slug, currentMarkdown);
-
-    setSaving(false);
+  // モードを切り替えて、ページを移動したりリロードしても変わらないよう保存する
+  // 保存に失敗しても、画面のモードはそのままにしてエラーだけ表示する
+  async function changeMode(next: Mode) {
+    setMode(next);
+    const result = await setModeSetting(next);
     if (!result.ok) {
       setError(result.message);
+    }
+  }
+
+  function handleEdit() {
+    setError(null);
+    void changeMode("edit");
+  }
+
+  // ---- 自動保存 ----
+  //
+  // 編集のたびに onChange（handleEditorChange）が呼ばれ、最後の編集から
+  // AUTO_SAVE_DELAY_MS 経ったら保存する
+  // 保存の途中で使う値は、変わっても画面を描き直す必要がないので
+  // useState ではなく useRef に入れている（ref は書き換えても再レンダーされない）
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const [showSaveFailedNotice, setShowSaveFailedNotice] = useState(false);
+
+  // エディタの最新の内容
+  const latestMarkdownRef = useRef(initialMarkdown);
+  // ファイルに保存済みの内容
+  const savedMarkdownRef = useRef(initialMarkdown);
+  // 保存待ちのタイマー
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 保存失敗のメッセージを消すタイマー
+  const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // ファイルが存在するかどうか
+  // 保存中の関数から最新の値を見たいので ref にも持つ（exists と同じ値）
+  const existsRef = useRef(initialExists);
+
+  function clearSaveTimer() {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+  }
+
+  // Server Action で文書を保存する
+  // 通信の失敗などで Server Action 自体が呼べなかった場合も、失敗の結果として返す
+  async function requestSave(target: string): Promise<SaveResult> {
+    try {
+      return await saveDocument(slug, target);
+    } catch (e) {
+      return { ok: false, message: String(e) };
+    }
+  }
+
+  // 最新の内容をファイルに保存する
+  // 保存を始めてから終わるまでの間にさらに編集されることがあるので、
+  // 保存が終わった時点で最新の内容が保存した内容と同じときだけ「保存済み」にする
+  async function saveNow() {
+    clearSaveTimer();
+    const target = latestMarkdownRef.current;
+    if (target === savedMarkdownRef.current) {
+      setSaveStatus("idle");
       return;
     }
 
-    setMarkdown(currentMarkdown);
+    const result = await requestSave(target);
+
+    if (!result.ok) {
+      console.error(result.message);
+      // 保存の途中でさらに編集されていたら、その編集の保存が改めて走るので失敗扱いにしない
+      if (latestMarkdownRef.current === target) {
+        setSaveStatus("failed");
+      }
+      showSaveFailedMessage();
+      return;
+    }
+
+    savedMarkdownRef.current = target;
+    setMarkdown(target);
     setHtml(result.html);
+    if (latestMarkdownRef.current === target) {
+      setSaveStatus("idle");
+    }
+  }
+
+  function showSaveFailedMessage() {
+    if (noticeTimerRef.current) {
+      clearTimeout(noticeTimerRef.current);
+    }
+    setShowSaveFailedNotice(true);
+    noticeTimerRef.current = setTimeout(() => {
+      setShowSaveFailedNotice(false);
+    }, NOTICE_DISPLAY_MS);
+  }
+
+  // エディタの内容が変わるたびに呼ばれる
+  // 前回の保存待ちを取り消して待ち直すことで、連続した編集を1回の保存にまとめる
+  // （保存に失敗したあとも自動では再試行せず、次にこれが呼ばれたとき保存を試みる）
+  function handleEditorChange(newMarkdown: string) {
+    latestMarkdownRef.current = newMarkdown;
+    // 新規作成中（まだファイルがない）は自動保存せず、「保存」ボタンで保存する
+    if (!existsRef.current) return;
+    if (newMarkdown === savedMarkdownRef.current) {
+      // 編集して元に戻した場合など、保存済みの内容と同じなら保存しない
+      clearSaveTimer();
+      setSaveStatus("idle");
+      return;
+    }
+    setSaveStatus("saving");
+    clearSaveTimer();
+    saveTimerRef.current = setTimeout(() => {
+      void saveNow();
+    }, AUTO_SAVE_DELAY_MS);
+  }
+
+  // エディタが画面から消えるとき（別のページへ移動したときなど）、
+  // 待っている保存を待たずに、その時点の内容を今すぐ保存する
+  // onChange は編集から少し遅れて呼ばれるため、直前の編集は latestMarkdownRef に
+  // 届いていないことがある
+  // そのため、エディタが消える直前に取り出した内容を使う
+  // 新規作成中（まだファイルがない）の内容と、ブラウザのタブを閉じる場合は対象外
+  // 削除のあとにエディタが作り直されるときも、ファイルがない状態なので保存されない
+  function handleEditorUnmount(unmountMarkdown: string) {
+    if (!existsRef.current) return;
+    latestMarkdownRef.current = unmountMarkdown;
+    if (unmountMarkdown !== savedMarkdownRef.current) {
+      clearSaveTimer();
+      void saveDocument(slug, unmountMarkdown);
+    }
+  }
+
+  // 新規作成中かどうか（保存の途中は「保存」「キャンセル」ボタンを押せなくする）
+  const [creating, setCreating] = useState(false);
+
+  // 新規作成の「保存」ボタン
+  // ここで初めてファイルを作る
+  // 保存したあとのモードは、ユーザー設定のモード（initialMode）に従う
+  // 失敗したときは、新規作成の画面のまま失敗のメッセージを出す
+  async function handleCreate() {
+    // onChange は編集から少し遅れて呼ばれるため、エディタから直接内容を取り出す
+    const content = editorRef.current?.getMarkdown() ?? latestMarkdownRef.current;
+    setCreating(true);
+    setError(null);
+
+    const result = await requestSave(content);
+
+    setCreating(false);
+    if (!result.ok) {
+      console.error(result.message);
+      showSaveFailedMessage();
+      return;
+    }
+
+    latestMarkdownRef.current = content;
+    savedMarkdownRef.current = content;
+    setMarkdown(content);
+    setHtml(result.html);
+    existsRef.current = true;
     setExists(true);
-    setMode("view");
-    // サーバー側（page.tsx）が次にこのURLを描画するときのために、
-    // Next.js が持っているキャッシュ済みのレンダリング結果を破棄しておく
-    router.refresh();
+    setMode(initialMode);
+  }
+
+  // 新規作成の「キャンセル」ボタン
+  // 直前まで表示していたページに戻る
+  // 履歴がない（URLを直接開いた）ときは、戻る先がないのでルートへ移動する
+  function handleCancelNew() {
+    if (window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/index");
+    }
+  }
+
+  // 表示モードに切り替える
+  // 保存待ちの編集があれば、待たずに今すぐ保存してから切り替える
+  // 保存に失敗したときは、編集が失われないよう編集モードのままにする
+  async function handleSwitchToView() {
+    setError(null);
+    if (latestMarkdownRef.current !== savedMarkdownRef.current) {
+      await saveNow();
+      if (latestMarkdownRef.current !== savedMarkdownRef.current) return;
+    }
+    void changeMode("view");
   }
 
   async function handleDelete() {
@@ -190,12 +353,18 @@ export default function DocumentPage({
       return;
     }
 
-    setSaving(true);
+    // 保存待ちの編集が削除のあとに保存されて、ファイルが復活しないようにする
+    clearSaveTimer();
+    latestMarkdownRef.current = "";
+    savedMarkdownRef.current = "";
+    setSaveStatus("idle");
+
+    setDeleting(true);
     setError(null);
 
     const result = await deleteDocument(slug);
 
-    setSaving(false);
+    setDeleting(false);
     if (!result.ok) {
       setError(result.message);
       return;
@@ -206,6 +375,7 @@ export default function DocumentPage({
     setMarkdown("");
     setHtml("");
     setExists(false);
+    existsRef.current = false;
     setEditorInstanceKey((key) => key + 1);
     setMode("edit");
     router.refresh();
@@ -219,16 +389,22 @@ export default function DocumentPage({
         sidebarVisible={sidebarVisible}
         onToggleSidebar={handleToggleSidebar}
         pageTitle={`/${slug.join("/")}`}
+        saveStatus={exists ? saveStatus : "new"}
+        newPageActions={{
+          onSave: handleCreate,
+          onCancel: handleCancelNew,
+          disabled: creating,
+        }}
         actions={
           mode === "view" ? (
             <>
               <NewPageButton slug={slug} />
               <button
                 type="button"
-                className={styles.button}
+                className={styles.modeButton}
                 onClick={handleEdit}
               >
-                編集
+                編集モードに切り替え
               </button>
             </>
           ) : (
@@ -236,11 +412,11 @@ export default function DocumentPage({
               {exists && (
                 <button
                   type="button"
-                  className={styles.button}
-                  onClick={handleCancel}
-                  disabled={saving}
+                  className={styles.modeButton}
+                  onClick={handleSwitchToView}
+                  disabled={deleting}
                 >
-                  キャンセル
+                  表示モードに切り替え
                 </button>
               )}
               {exists && (
@@ -248,19 +424,11 @@ export default function DocumentPage({
                   type="button"
                   className={styles.buttonDanger}
                   onClick={handleDelete}
-                  disabled={saving}
+                  disabled={deleting}
                 >
                   削除
                 </button>
               )}
-              <button
-                type="button"
-                className={styles.buttonPrimary}
-                onClick={handleSave}
-                disabled={saving}
-              >
-                {saving ? "保存中…" : "保存"}
-              </button>
             </>
           )
         }
@@ -277,6 +445,11 @@ export default function DocumentPage({
           />
         )}
         <div className={styles.main} ref={mainRef}>
+          {showSaveFailedNotice && (
+            <div className={styles.noticeAnchor}>
+              <div className={styles.errorNotice}>文書の保存に失敗しました。</div>
+            </div>
+          )}
           {error && <p className={styles.error}>{error}</p>}
 
           {mode === "view" && exists && (
@@ -305,6 +478,8 @@ export default function DocumentPage({
                 key={editorInstanceKey}
                 ref={editorRef}
                 defaultValue={markdown}
+                onChange={handleEditorChange}
+                onUnmount={handleEditorUnmount}
               />
             </div>
           )}

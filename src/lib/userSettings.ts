@@ -354,3 +354,38 @@ export function setOrderSetting(order: OrderSetting): Promise<void> {
     return true;
   });
 }
+
+/**
+ * 文書の表示モード（mode）
+ * ページを移動したりリロードしても、表示モードと編集モードが変わらないように保存する
+ * view: 表示モード、edit: 編集モード
+ */
+export type Mode = "view" | "edit";
+
+const MODE_DEFAULT: Mode = "view";
+
+export function isMode(value: unknown): value is Mode {
+  return value === "view" || value === "edit";
+}
+
+/**
+ * 保存済みのモードを返す
+ * 未設定、または不正な値のときは表示モードにする
+ */
+export async function loadMode(): Promise<Mode> {
+  const data = await readUserSettingsFile();
+  const value = data["mode"];
+  return isMode(value) ? value : MODE_DEFAULT;
+}
+
+/**
+ * モードを保存する
+ * すでに同じ値であれば何も書き込まない
+ */
+export function setMode(mode: Mode): Promise<void> {
+  return updateUserSettings((data) => {
+    if (data["mode"] === mode) return false;
+    data["mode"] = mode;
+    return true;
+  });
+}

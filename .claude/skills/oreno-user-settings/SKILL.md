@@ -92,6 +92,23 @@ Server Action は誰でも直接呼び出せるため、渡された slug を信
 - 読み書きは `userSettings.ts` の `loadOrderSetting` / `setOrderSetting`。保存後は `revalidatePath("/", "layout")` で全ページのキャッシュを破棄する
 - 「すべてのページ」とサイドバーの「ページ」に適用する(「..」は常に先頭)。比較は `folder.ts` の `listFolder` に集約し、「すべてのページ」は全階層に同じ並び順を使う
 
+## モード(mode)
+
+文書の表示モードと編集モードのどちらで開くかを保存する。ページを移動したりリロードしても、モードが変わらないようにするための設定で、全ページ共通である。
+
+```json
+{
+  "mode": "edit"
+}
+```
+
+- 値は `view`(表示モード)か `edit`(編集モード)のどちらか(`DocumentPage.tsx` の `Mode` と同じ。型は `userSettings.ts` の `Mode`)
+- 未設定、または上記以外の値のときは `view` 扱いにする
+- 読み書きは `userSettings.ts` の `loadMode` / `setMode`。すでに同じ値なら何も書き込まない
+- `page.tsx` が表示のたびに `loadMode` で読み込み、`DocumentPage.tsx` へ `initialMode` として渡す
+- 「編集モードに切り替え」「表示モードに切り替え」を押すたびに、Server Action `setModeSetting`(`src/app/actions.ts`)で保存する。保存に失敗しても画面のモードは変えず、エラーだけ表示する。保存後は `revalidatePath("/", "layout")` で全ページのキャッシュを破棄する
+- 存在しないページ(新規作成画面)は、保存済みのモードに関わらず編集モードで開き、このときは書き込まない。「保存」ボタンでファイルを作ったときも書き込まず、保存済みのモードに従って、編集モードのままにするか表示モードにする
+
 ## サイドバーの設定(sidebar-settings)
 
 サイドバーの表示状態を保存する。ページごとではなく全ページ共通の設定である。

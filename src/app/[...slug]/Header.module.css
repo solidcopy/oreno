@@ -28,3 +28,41 @@
 .spacer {
   flex: 1;
 }
+
+/* ヘッダーのパスの右に出す保存状態 */
+.saveStatusSaving {
+  /* 文字色は継承したまま薄くして、やや目立たなくする */
+  opacity: 0.6;
+  font-size: 0.9rem;
+}
+
+.saveStatusFailed {
+  color: #c1121f;
+  font-size: 0.9rem;
+}
+
+.saveStatusNew {
+  composes: saveStatusSaving;
+}
+
+/* （新規）の右に出す「保存」「キャンセル」ボタン */
+.button {
+  padding: 0.4rem 0.9rem;
+  border-radius: 6px;
+  border: 1px solid var(--gray-alpha-200);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.button:hover {
+  background: var(--gray-alpha-100);
+}
+
+.buttonPrimary {
+  composes: button;
+  border-color: transparent;
+  background: #383838;
+  color: white;
+}

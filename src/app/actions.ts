@@ -25,6 +25,8 @@ import { markdownToHtml } from "@/lib/markdown";
 import {
   addViewHistory,
   setPageStarred,
+  setMode,
+  type Mode,
   setShowPages,
   setShowHistories,
   setShowSidebar,
@@ -163,6 +165,24 @@ export async function setShowStarredPagesSetting(
 
   // サイドバーは全ページ共通の表示なので、すべてのページのキャッシュを破棄する
   // これを呼ばないと、戻る/進むで以前の開閉の状態が表示される
+  revalidatePath("/", "layout");
+
+  return { ok: true };
+}
+
+/**
+ * モード（"view" なら表示モード、"edit" なら編集モード）を保存する
+ * 保存できた場合は ok: true を返す
+ */
+export async function setModeSetting(mode: Mode): Promise<ActionResult> {
+  try {
+    await setMode(mode);
+  } catch (error) {
+    return { ok: false, message: `設定の保存に失敗しました: ${String(error)}` };
+  }
+
+  // 全ページ共通の設定なので、すべてのページのキャッシュを破棄する
+  // これを呼ばないと、戻る/進むで以前のモードの状態になる
   revalidatePath("/", "layout");
 
   return { ok: true };
