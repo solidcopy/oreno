@@ -308,6 +308,16 @@ html .milkdown .ProseMirror h6 {
   background: transparent;
 }
 
+/*
+ * 上の全体指定 a { text-decoration: none } はヘッダーなどのUI用リンクのための
+ * もので、そのままだと本文中のリンクにも下線が付かない
+ * 編集モードのリンクには下線があるため、表示モードの本文中のリンクも
+ * 下線を付けて揃える
+ */
+.markdown-body a {
+  text-decoration: underline;
+}
+
 .markdown-body table {
   border-collapse: collapse;
   margin: 0.75em 0;
