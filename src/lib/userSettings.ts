@@ -1,4 +1,4 @@
-import { access, readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { getRootDir } from "@/lib/docPath";
 import { SIDEBAR_WIDTH_DEFAULT, clampSidebarWidth } from "@/lib/sidebarWidth";
@@ -15,54 +15,8 @@ import { SIDEBAR_WIDTH_DEFAULT, clampSidebarWidth } from "@/lib/sidebarWidth";
 
 type UserSettingsFile = Record<string, unknown>;
 
-// .gitignore に書く行
-// 途中に "/" を含むパターンは、.gitignore のあるフォルダからの相対パスとして扱われる
-const GITIGNORE_ENTRY = ".oreno/user-settings.json";
-
 function getUserSettingsPath(): string {
   return path.join(getRootDir(), ".oreno", "user-settings.json");
-}
-
-async function pathExists(target: string): Promise<boolean> {
-  try {
-    await access(target);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * user-settings.json をGitの管理対象から外すため、文書ルートの .gitignore に追記する
- * ユーザーごとの設定をリポジトリに含めないための処理
- *
- * 文書ルートに .gitignore が無い場合は何もしない
- * （Gitで管理されていない、または文書ルートがGit管理のルートではない場合を含む）
- * すでに同じ行があれば追記しない
- */
-async function ignoreUserSettingsInGit(): Promise<void> {
-  const gitignorePath = path.join(getRootDir(), ".gitignore");
-  let current: string;
-  try {
-    current = await readFile(gitignorePath, "utf-8");
-  } catch (error) {
-    const err = error as NodeJS.ErrnoException;
-    if (err.code === "ENOENT") return;
-    throw error;
-  }
-
-  const alreadyIgnored = current
-    .split(/\r?\n/)
-    .some((line) => line.trim() === GITIGNORE_ENTRY);
-  if (alreadyIgnored) return;
-
-  // 末尾が改行で終わっていないと、最後の行とくっついてしまうため補う
-  const separator = current === "" || current.endsWith("\n") ? "" : "\n";
-  await writeFile(
-    gitignorePath,
-    current + separator + GITIGNORE_ENTRY + "\n",
-    "utf-8",
-  );
 }
 
 /**
@@ -111,7 +65,6 @@ let queue: Promise<void> = Promise.resolve();
  * mutate には、読み込んだ設定を受け取って、変更したい箇所だけ書き換える関数を渡す
  * mutate は、設定を変更したら true、変更しなかったら false を返す
  * false の場合は書き込まない
- * ファイルを新規作成するときは、Gitの管理対象から外すため .gitignore にも追記する
  */
 function updateUserSettings(
   mutate: (data: UserSettingsFile) => boolean,
@@ -121,12 +74,6 @@ function updateUserSettings(
     if (!mutate(data)) return;
 
     const filePath = getUserSettingsPath();
-
-    // 新規作成するときだけ .gitignore を更新する
-    // 先に更新しておくと、失敗した場合はファイルが作られず、次の記録でやり直せる
-    if (!(await pathExists(filePath))) {
-      await ignoreUserSettingsInGit();
-    }
 
     await mkdir(path.dirname(filePath), { recursive: true });
     await writeFile(filePath, JSON.stringify(data, null, 2), "utf-8");
@@ -144,7 +91,6 @@ const VIEW_HISTORIES_MAX = 20;
  * すでに履歴にあるパスは、元の位置から取り除いて先頭へ移動する
  * 最大件数を超えた分は、古いものから削除する
  * 文書の保存と同様、ここでは git commit は行わない
- * ファイルを新規作成するときは、Gitの管理対象から外すため .gitignore にも追記する
  */
 export function addViewHistory(urlPath: string): Promise<void> {
   return updateUserSettings((data) => {
