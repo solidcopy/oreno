@@ -2,11 +2,57 @@
 
 import { useEffect, useImperativeHandle, useRef } from "react";
 import { Crepe } from "@milkdown/crepe";
+import {
+  blockquoteKeymap,
+  bulletListKeymap,
+  codeBlockKeymap,
+  headingKeymap,
+  orderedListKeymap,
+} from "@milkdown/kit/preset/commonmark";
+import type { Ctx, SliceType } from "@milkdown/kit/ctx";
+import type { KeymapConfig } from "@milkdown/kit/utils";
+import { strikethroughKeymap } from "@milkdown/kit/preset/gfm";
 
 // Milkdown（Crepe）の見た目を決める CSS
 // "common/style.css" が土台のスタイル、"frame.css" がテーマ（枠線付きの見た目）
 import "@milkdown/crepe/theme/common/style.css";
 import "@milkdown/crepe/theme/frame.css";
+
+/**
+ * キーマップのうち、指定した操作のショートカットを別のキーに変更する
+ * 型引数の考え方は disableShortcuts と同じ
+ */
+function changeShortcut<K extends string>(
+  ctx: Ctx,
+  keymap: { key: SliceType<KeymapConfig<K>> },
+  action: NoInfer<K>,
+  shortcut: string,
+) {
+  ctx.update(keymap.key, (current) => ({
+    ...current,
+    [action]: { ...current[action], shortcuts: shortcut },
+  }));
+}
+
+/**
+ * キーマップのうち、指定した操作のショートカットを無効にする
+ * 型引数 K はキーマップが持つ操作名の型で、キーマップごとに異なる
+ * （"TurnIntoH1" など）
+ * actions は K の一部だけを指定できるよう NoInfer にしている
+ */
+function disableShortcuts<K extends string>(
+  ctx: Ctx,
+  keymap: { key: SliceType<KeymapConfig<K>> },
+  actions: NoInfer<K>[],
+) {
+  ctx.update(keymap.key, (current) => {
+    const next = { ...current };
+    for (const action of actions) {
+      next[action] = { ...next[action], shortcuts: [] };
+    }
+    return next;
+  });
+}
 
 type Props = {
   /** 編集を開始する時点でのマークダウン文字列 */
@@ -86,6 +132,31 @@ export default function MarkdownEditor({
       defaultValue,
     });
     crepeRef.current = crepe;
+
+    // 文字修飾や要素挿入のショートカットを、変更または無効にする
+    // Milkdown のキーマップは「操作名 → ショートカット」の設定として
+    // コンテキスト（ctx）に保存されている
+    // ショートカットを別のキーの文字列にすると変更、空の配列にすると
+    // そのキーには何も割り当てられなくなる（無効）
+    // キーマップ設定は create() より前に書き換える必要がある
+    // 見出しのキーマップには見出しレベルを変える操作が複数あるため、
+    // 操作名を指定して無効にしている
+    crepe.editor.config((ctx) => {
+      changeShortcut(ctx, strikethroughKeymap, "ToggleStrikethrough", "Mod-s");
+      disableShortcuts(ctx, headingKeymap, [
+        "TurnIntoH1",
+        "TurnIntoH2",
+        "TurnIntoH3",
+        "TurnIntoH4",
+        "TurnIntoH5",
+        "TurnIntoH6",
+        "DowngradeHeading",
+      ]);
+      disableShortcuts(ctx, bulletListKeymap, ["WrapInBulletList"]);
+      disableShortcuts(ctx, orderedListKeymap, ["WrapInOrderedList"]);
+      disableShortcuts(ctx, blockquoteKeymap, ["WrapInBlockquote"]);
+      disableShortcuts(ctx, codeBlockKeymap, ["CreateCodeBlock"]);
+    });
 
     // 日本語入力などの変換中（未確定の文字がある間）かどうか
     // 変換中の文字もエディタの内容には含まれるため、そのまま通知すると
