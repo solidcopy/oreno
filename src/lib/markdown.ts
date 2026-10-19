@@ -3,6 +3,7 @@ import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
 import remarkRehype from "remark-rehype";
 import rehypeHighlight from "rehype-highlight";
+import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import rehypeStringify from "rehype-stringify";
 
@@ -22,6 +23,8 @@ sanitizeSchema.attributes.code = [
   ...(sanitizeSchema.attributes.code ?? []),
   "className",
 ];
+// 下線の <u> を許可する（既定のスキーマには含まれていない）
+sanitizeSchema.tagNames = [...(sanitizeSchema.tagNames ?? []), "u"];
 sanitizeSchema.attributes.span = [
   ...(sanitizeSchema.attributes.span ?? []),
   "className",
@@ -44,6 +47,10 @@ sanitizeSchema.attributes.span = [
  * dangerouslySetInnerHTML を使ってそのまま描画するため
  * 文書ファイルは誰でも編集できる想定なので、悪意のあるスクリプトが
  * 埋め込まれても実行されないようにしている
+ * マークダウン中の生のHTML（下線の <u> など）は、remarkRehype に
+ * allowDangerousHtml を指定して HTML の構文木へ残し、rehypeRaw で
+ * 要素として解釈させる
+ * 危険な要素は、後段の rehypeSanitize が取り除く
  * rehypeHighlight を rehypeSanitize より前に置いているのは、
  * サニタイズ後の構文木には自由な HTML 要素を追加しにくいため
  * （サニタイズ前に済ませ、その結果だけを上のスキーマで許可する）
@@ -52,7 +59,8 @@ export async function markdownToHtml(markdown: string): Promise<string> {
   const file = await unified()
     .use(remarkParse)
     .use(remarkGfm)
-    .use(remarkRehype)
+    .use(remarkRehype, { allowDangerousHtml: true })
+    .use(rehypeRaw)
     .use(rehypeHighlight)
     .use(rehypeSanitize, sanitizeSchema)
     .use(rehypeStringify)

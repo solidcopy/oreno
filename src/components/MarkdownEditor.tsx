@@ -1,22 +1,47 @@
 "use client";
 
 import { useEffect, useImperativeHandle, useRef } from "react";
-import { Crepe } from "@milkdown/crepe";
+import { Crepe, CrepeFeature } from "@milkdown/crepe";
+import { keymapRef } from "@milkdown/crepe/feature/toolbar";
+import { commandsCtx } from "@milkdown/kit/core";
 import {
   blockquoteKeymap,
   bulletListKeymap,
   codeBlockKeymap,
   headingKeymap,
+  isMarkSelectedCommand,
   orderedListKeymap,
 } from "@milkdown/kit/preset/commonmark";
 import type { Ctx, SliceType } from "@milkdown/kit/ctx";
 import type { KeymapConfig } from "@milkdown/kit/utils";
 import { strikethroughKeymap } from "@milkdown/kit/preset/gfm";
+import {
+  toggleUnderlineCommand,
+  underlineKeymap,
+  underlinePlugin,
+  underlineSchema,
+} from "./underlinePlugin";
 
 // Milkdown（Crepe）の見た目を決める CSS
 // "common/style.css" が土台のスタイル、"frame.css" がテーマ（枠線付きの見た目）
 import "@milkdown/crepe/theme/common/style.css";
 import "@milkdown/crepe/theme/frame.css";
+
+// ツールバーに追加する下線ボタンのアイコン
+// 「U」の文字と下線を塗りつぶしの図形で描いている（他のアイコンと同じ形式）
+const underlineIcon = `
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+  >
+    <path
+      d="M7.5 5h2v7.2c0 1.9 1 2.8 2.5 2.8s2.5-.9 2.5-2.8V5h2v7.2c0 3-1.8 4.8-4.5 4.8s-4.5-1.8-4.5-4.8z"
+    />
+    <rect x="6.5" y="18.5" width="11" height="1.6" />
+  </svg>
+`;
 
 /**
  * キーマップのうち、指定した操作のショートカットを別のキーに変更する
@@ -130,7 +155,28 @@ export default function MarkdownEditor({
     const crepe = new Crepe({
       root: containerRef.current,
       defaultValue,
+      featureConfigs: {
+        // 既定の文字修飾（太字・斜体・取り消し線）の並びの最後に下線ボタンを足す
+        [CrepeFeature.Toolbar]: {
+          buildToolbar: (builder) => {
+            builder.getGroup("formatting").addItem("underline", {
+              icon: underlineIcon,
+              label: "Underline",
+              keymap: keymapRef(underlineKeymap.key, "ToggleUnderline"),
+              active: (ctx) =>
+                ctx
+                  .get(commandsCtx)
+                  .call(isMarkSelectedCommand.key, underlineSchema.type(ctx)),
+              onRun: (ctx) => {
+                ctx.get(commandsCtx).call(toggleUnderlineCommand.key);
+              },
+            });
+          },
+        },
+      },
     });
+    // 下線のマーク・コマンド・ショートカット・入力ルールを追加する
+    crepe.editor.use(underlinePlugin);
     crepeRef.current = crepe;
 
     // 文字修飾や要素挿入のショートカットを、変更または無効にする
