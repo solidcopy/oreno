@@ -17,6 +17,18 @@ URLのホスト名からの相対パスと、`ORENO_ROOT` からの相対パス�
 http://localhost:3000/docs/hello  →  /oreno/docs/hello.md
 ```
 
+## 拡張子付きURLの扱い
+
+URLの最後のセグメントにドットが含まれる場合（`/image.png` など）は、次の順で判定する。
+
+1. `ORENO_ROOT/image.png.md` があれば文書として表示する
+2. なければ `ORENO_ROOT/image.png` をそのまま返す
+3. どちらも無ければ文書の新規作成として扱う（保存すると `image.png.md` を作る）
+
+- 判定は `src/proxy.ts`（Proxy）が行う。2のときだけ、ファイルを返す Route Handler（`src/app/.oreno/files/[...path]/route.ts`）へ書き換える。1と3は通常の文書ページ（`[...slug]/page.tsx`）がそのまま処理する
+- ファイル用の検証は `resolveFilePath`（`docPath.ts`）が行う。`resolveDocPath` と同じ検証に加えて、`.` から始まるセグメント（`.git` など）も拒否する
+- `/page.md` は `page.md.md` が無ければ `page.md` というファイルそのものへのアクセスになる（`/page` へのリダイレクトはしない）
+
 ## ルートURLの扱い
 
 ルートURL（`http://localhost:3000/`）は対応するファイルパスを決められないため、`src/app/page.tsx` が `/index` へリダイレクトする（404にはしない）。

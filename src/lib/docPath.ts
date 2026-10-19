@@ -48,6 +48,29 @@ export function getRootDirName(): string {
  * 呼び出し側はこれを 404 扱いにすること
  */
 export function resolveDocPath(slug: string[]): string | null {
+  const resolved = resolveUnderRoot(slug);
+  return resolved && resolved + ".md";
+}
+
+/**
+ * URL の slug を、文書ルート以下にある任意のファイルの絶対パスに変換する
+ * 拡張子付きのURL（/image.png など）で、Markdown以外のファイルをそのまま返すために使う
+ *
+ * resolveDocPath と同じ検証に加えて、"." から始まるセグメント（.git など）も拒否する
+ * 不正な場合は null を返す
+ */
+export function resolveFilePath(slug: string[]): string | null {
+  if (slug.some((segment) => segment.startsWith("."))) {
+    return null;
+  }
+  return resolveUnderRoot(slug);
+}
+
+/**
+ * slug を検証し、文書ルート以下の絶対パス（拡張子なし）に変換する
+ * resolveDocPath と resolveFilePath に共通する検証をここに集約している
+ */
+function resolveUnderRoot(slug: string[]): string | null {
   if (slug.length === 0) {
     // ルートURL（"/"）は [...slug] にマッチしないため実際には呼ばれないが、
     // 念のため空配列もファイルパスを決められないものとして扱う
@@ -67,7 +90,7 @@ export function resolveDocPath(slug: string[]): string | null {
   }
 
   const root = getRootDir();
-  const filePath = path.join(root, ...slug) + ".md";
+  const filePath = path.join(root, ...slug);
 
   // path.join の時点で ".." は正規化されてしまうが、念のため
   // 「解決後のパスが root の外に出ていないか」を二重にチェックする
