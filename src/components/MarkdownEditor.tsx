@@ -8,6 +8,7 @@ import {
   blockquoteKeymap,
   bulletListKeymap,
   codeBlockKeymap,
+  hardbreakFilterNodes,
   headingKeymap,
   isMarkSelectedCommand,
   orderedListKeymap,
@@ -22,6 +23,7 @@ import {
   toggleSubscriptCommand,
   toggleSuperscriptCommand,
 } from "./scriptPlugin";
+import { tableBreakPlugin } from "./tableBreakPlugin";
 import {
   toggleUnderlineCommand,
   underlineKeymap,
@@ -242,6 +244,8 @@ export default function MarkdownEditor({
     crepe.editor.use(underlinePlugin);
     // 上付き・下付きのマーク・コマンドを追加する
     crepe.editor.use(scriptPlugin);
+    // 表のセル内の改行を <br> として読み書きできるようにする
+    crepe.editor.use(tableBreakPlugin);
     crepeRef.current = crepe;
 
     // 文字修飾や要素挿入のショートカットを、変更または無効にする
@@ -267,6 +271,12 @@ export default function MarkdownEditor({
       disableShortcuts(ctx, orderedListKeymap, ["WrapInOrderedList"]);
       disableShortcuts(ctx, blockquoteKeymap, ["WrapInBlockquote"]);
       disableShortcuts(ctx, codeBlockKeymap, ["CreateCodeBlock"]);
+      // 改行（Shift+Enter）を受け付けない要素から表を外す
+      // Milkdown は標準で表とコードブロックの中への改行を拒否しているが、
+      // 表のセル内の改行は <br> として扱うため、現在の一覧から表だけを取り除く
+      ctx.update(hardbreakFilterNodes.key, (nodes) =>
+        nodes.filter((name) => name !== "table"),
+      );
     });
 
     // 日本語入力などの変換中（未確定の文字がある間）かどうか

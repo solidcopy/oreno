@@ -327,4 +327,6 @@ html .milkdown .ProseMirror h6 {
 .markdown-body td {
   border: 1px solid var(--gray-alpha-200);
   padding: 0.4em 0.8em;
+  /* ブラウザ標準は中央揃え。編集モードに合わせて上揃えにする */
+  vertical-align: top;
 }

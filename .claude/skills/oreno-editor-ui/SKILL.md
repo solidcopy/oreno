@@ -70,3 +70,15 @@ Milkdown(Crepe)が標準で持つ数式(LaTeX)の機能は無効にしている�
 - `$テキスト$` と入力しても数式にならない
 - テキストを選択すると出るツールバーに、数式のボタンは表示しない
 - 実装は `src/components/MarkdownEditor.tsx` で、Crepeの `features` に `[CrepeFeature.Latex]: false` を指定している
+
+# 表のセル内改行
+
+編集モードでは、表のセルの中で改行できる。Markdownファイルの中ではHTMLの `<br>` として保存する(GFMの表はセル内に改行を書けないため)。
+
+- セル内ではShift+Enterで改行する(Enterは表から抜ける操作のまま)
+- 表のセル結合には対応していない(GFMの表の範囲で扱う)
+- 実装は `src/components/tableBreakPlugin.ts`。読み込み時にセル内の `<br>` `<br/>` `<br />` を改行ノードへ変換し、書き出し時にセル内の改行を `<br>` にする。セルの外の改行は標準の処理のまま
+- Milkdown標準の `remark-preserve-empty-line` が `<br>` をすべて取り除くため、読み込みの変換はremarkプラグインの並びの先頭に差し込んでいる(後ろだと `<br>` が消え、保存し直したときにファイルからも失われる)
+- Milkdown標準では表の中に改行を入れられないため、`MarkdownEditor.tsx` で `hardbreakFilterNodes` からtableを外している(コードブロックは従来どおり不可)
+- Milkdown標準のShift+Enterは、改行の直後にもう一度押すと改行を段落に置き換える。セルは段落を持てないため、表が分割されたりカーソルが表の外へ出たりする。そこでセルの中では、標準より優先するショートカットを `tableBreakPlugin.ts` に用意し、押した回数だけ改行を入れる(セルの外は標準のまま)
+- 表示モードでは `rehype-raw` で `<br>` を要素として解釈し、`rehype-sanitize` の既定で許可されているため、追加の設定なしで改行される
