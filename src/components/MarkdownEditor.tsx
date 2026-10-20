@@ -16,6 +16,13 @@ import type { Ctx, SliceType } from "@milkdown/kit/ctx";
 import type { KeymapConfig } from "@milkdown/kit/utils";
 import { strikethroughKeymap } from "@milkdown/kit/preset/gfm";
 import {
+  subscriptSchema,
+  superscriptSchema,
+  scriptPlugin,
+  toggleSubscriptCommand,
+  toggleSuperscriptCommand,
+} from "./scriptPlugin";
+import {
   toggleUnderlineCommand,
   underlineKeymap,
   underlinePlugin,
@@ -40,6 +47,34 @@ const underlineIcon = `
       d="M7.5 5h2v7.2c0 1.9 1 2.8 2.5 2.8s2.5-.9 2.5-2.8V5h2v7.2c0 3-1.8 4.8-4.5 4.8s-4.5-1.8-4.5-4.8z"
     />
     <rect x="6.5" y="18.5" width="11" height="1.6" />
+  </svg>
+`;
+
+// ツールバーに追加する上付き・下付きボタンのアイコン
+// 「x」の文字と、小さな「2」を右上または右下に置いた形を塗りつぶしの図形で描いている
+const superscriptIcon = `
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+  >
+    <path
+      d="M22 7h-2v1h3v1h-4V6h3V5h-3V4h4v3zM5.88 20h2.66l3.4-5.42h.12L15.47 20h2.65l-4.66-7.27L17.81 6h-2.68l-3.07 4.99h-.12L8.85 6H6.19l4.32 6.73L5.88 20z"
+    />
+  </svg>
+`;
+
+const subscriptIcon = `
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+  >
+    <path
+      d="M22 18h-2v1h3v1h-4v-3h3v-1h-3v-1h4v3zM5.88 18h2.66l3.4-5.42h.12L15.47 18h2.65l-4.66-7.27L17.81 4h-2.68l-3.07 4.99h-.12L8.85 4H6.19l4.32 6.73L5.88 18z"
+    />
   </svg>
 `;
 
@@ -156,7 +191,8 @@ export default function MarkdownEditor({
       root: containerRef.current,
       defaultValue,
       featureConfigs: {
-        // 既定の文字修飾（太字・斜体・取り消し線）の並びの最後に下線ボタンを足す
+        // 既定の文字修飾（太字・斜体・取り消し線）の並びの最後に
+        // 下線・上付き・下付きのボタンを足す
         [CrepeFeature.Toolbar]: {
           buildToolbar: (builder) => {
             builder.getGroup("formatting").addItem("underline", {
@@ -171,12 +207,36 @@ export default function MarkdownEditor({
                 ctx.get(commandsCtx).call(toggleUnderlineCommand.key);
               },
             });
+            builder.getGroup("formatting").addItem("superscript", {
+              icon: superscriptIcon,
+              label: "Superscript",
+              active: (ctx) =>
+                ctx
+                  .get(commandsCtx)
+                  .call(isMarkSelectedCommand.key, superscriptSchema.type(ctx)),
+              onRun: (ctx) => {
+                ctx.get(commandsCtx).call(toggleSuperscriptCommand.key);
+              },
+            });
+            builder.getGroup("formatting").addItem("subscript", {
+              icon: subscriptIcon,
+              label: "Subscript",
+              active: (ctx) =>
+                ctx
+                  .get(commandsCtx)
+                  .call(isMarkSelectedCommand.key, subscriptSchema.type(ctx)),
+              onRun: (ctx) => {
+                ctx.get(commandsCtx).call(toggleSubscriptCommand.key);
+              },
+            });
           },
         },
       },
     });
     // 下線のマーク・コマンド・ショートカット・入力ルールを追加する
     crepe.editor.use(underlinePlugin);
+    // 上付き・下付きのマーク・コマンドを追加する
+    crepe.editor.use(scriptPlugin);
     crepeRef.current = crepe;
 
     // 文字修飾や要素挿入のショートカットを、変更または無効にする

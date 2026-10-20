@@ -24,6 +24,7 @@ sanitizeSchema.attributes.code = [
   "className",
 ];
 // 下線の <u> を許可する（既定のスキーマには含まれていない）
+// 上付きの <sup>、下付きの <sub> は既定で許可されている
 sanitizeSchema.tagNames = [...(sanitizeSchema.tagNames ?? []), "u"];
 sanitizeSchema.attributes.span = [
   ...(sanitizeSchema.attributes.span ?? []),
