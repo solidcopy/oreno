@@ -62,3 +62,11 @@ description: 文書の表示・編集・保存・削除・新規作成に関す�
 - 上付き・下付きの直後に続けて入力した文字には、マークが付かない(修飾なしの文字になる)。太字や下線は、直後に入力した文字にも同じ修飾が付く
 - 実装は `src/components/scriptPlugin.ts`。下線(`underlinePlugin.ts`)と同じ仕組みで、対になる開きタグと閉じタグを1つのマークにまとめる
 - 表示モードでは、`<sup>` `<sub>` は `rehype-sanitize` の既定で許可されているため、追加の設定なしで表示される
+
+# 数式(LaTeX)の無効化
+
+Milkdown(Crepe)が標準で持つ数式(LaTeX)の機能は無効にしている。
+
+- `$テキスト$` と入力しても数式にならない
+- テキストを選択すると出るツールバーに、数式のボタンは表示しない
+- 実装は `src/components/MarkdownEditor.tsx` で、Crepeの `features` に `[CrepeFeature.Latex]: false` を指定している

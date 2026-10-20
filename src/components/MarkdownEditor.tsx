@@ -190,6 +190,11 @@ export default function MarkdownEditor({
     const crepe = new Crepe({
       root: containerRef.current,
       defaultValue,
+      features: {
+        // 数式（LaTeX）を無効にする
+        // $text$ の自動変換と、ツールバーの数式ボタンがなくなる
+        [CrepeFeature.Latex]: false,
+      },
       featureConfigs: {
         // 既定の文字修飾（太字・斜体・取り消し線）の並びの最後に
         // 下線・上付き・下付きのボタンを足す
