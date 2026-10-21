@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useImperativeHandle, useRef } from "react";
+import { useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Crepe, CrepeFeature } from "@milkdown/crepe";
 import { keymapRef } from "@milkdown/crepe/feature/toolbar";
-import { commandsCtx } from "@milkdown/kit/core";
+import { commandsCtx, editorViewCtx } from "@milkdown/kit/core";
 import {
   blockquoteKeymap,
   bulletListKeymap,
@@ -11,6 +11,7 @@ import {
   hardbreakFilterNodes,
   headingKeymap,
   isMarkSelectedCommand,
+  linkSchema,
   orderedListKeymap,
 } from "@milkdown/kit/preset/commonmark";
 import type { Ctx, SliceType } from "@milkdown/kit/ctx";
@@ -23,6 +24,8 @@ import {
   toggleSubscriptCommand,
   toggleSuperscriptCommand,
 } from "./scriptPlugin";
+import LinkDialog from "./LinkDialog";
+import { applyLink, getLinkTarget, type LinkTarget } from "./linkEdit";
 import { tableBreakPlugin } from "./tableBreakPlugin";
 import {
   toggleUnderlineCommand,
@@ -169,6 +172,11 @@ export default function MarkdownEditor({
   // Crepe のインスタンス自体を覚えておくための ref（再レンダーされても消えない）
   const crepeRef = useRef<Crepe | null>(null);
 
+  // リンク設定モーダルの表示状態
+  // null のときは閉じている。開いているときは、置き換える対象と初期値を持つ
+  // Crepe の外（React）で描画するモーダルなので、state で管理する
+  const [linkTarget, setLinkTarget] = useState<LinkTarget | null>(null);
+
   // onChange は最新の関数を ref に入れておき、Crepe には常にこの ref 経由で呼んでもらう
   // useEffect の中で onChange を直接渡すと、エディタを作った時点の関数が
   // 使われ続けてしまう（エディタは最初の1回しか作らないため）
@@ -189,6 +197,12 @@ export default function MarkdownEditor({
   useEffect(() => {
     if (!containerRef.current) return;
 
+    // リンク設定モーダルを開く
+    // 開いた時点の選択範囲から、置き換える対象とモーダルの初期値を求める
+    const openLinkDialog = (ctx: Ctx) => {
+      setLinkTarget(getLinkTarget(ctx.get(editorViewCtx), linkSchema.type(ctx)));
+    };
+
     const crepe = new Crepe({
       root: containerRef.current,
       defaultValue,
@@ -196,12 +210,21 @@ export default function MarkdownEditor({
         // 数式（LaTeX）を無効にする
         // $text$ の自動変換と、ツールバーの数式ボタンがなくなる
         [CrepeFeature.Latex]: false,
+        // リンク上にカーソルを置くと出る標準の小窓（編集・削除ボタン付き）を無効にする
+        // リンクの設定はリンク設定モーダルで行う
+        [CrepeFeature.LinkTooltip]: false,
       },
       featureConfigs: {
         // 既定の文字修飾（太字・斜体・取り消し線）の並びの最後に
         // 下線・上付き・下付きのボタンを足す
         [CrepeFeature.Toolbar]: {
           buildToolbar: (builder) => {
+            // 標準のリンクボタン（リンクの付け外しをする）の動作を、
+            // リンク設定モーダルを開く動作に差し替える
+            const linkItem = builder
+              .getGroup("function")
+              .group.items.find((item) => item.key === "link");
+            if (linkItem) linkItem.onRun = openLinkDialog;
             builder.getGroup("formatting").addItem("underline", {
               icon: underlineIcon,
               label: "Underline",
@@ -311,6 +334,19 @@ export default function MarkdownEditor({
     containerRef.current.addEventListener("compositionstart", handleCompositionStart);
     containerRef.current.addEventListener("compositionend", handleCompositionEnd);
 
+    // Mod+K でリンク設定モーダルを開く
+    // Mod は Mac では Cmd、それ以外では Ctrl
+    // 変換中のキー入力や、Shift・Alt が付いた組み合わせは対象外にする
+    const isMac = navigator.userAgent.includes("Mac");
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const mod = isMac ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey;
+      if (!mod || e.shiftKey || e.altKey || e.isComposing) return;
+      if (e.key.toLowerCase() !== "k") return;
+      e.preventDefault();
+      crepe.editor.action(openLinkDialog);
+    };
+    containerRef.current.addEventListener("keydown", handleKeyDown);
+
     let cancelled = false;
     // create() が終わって、内容を取り出せる状態になったかどうか
     let created = false;
@@ -360,6 +396,7 @@ export default function MarkdownEditor({
       clearTimeout(compositionEndTimer);
       container.removeEventListener("compositionstart", handleCompositionStart);
       container.removeEventListener("compositionend", handleCompositionEnd);
+      container.removeEventListener("keydown", handleKeyDown);
       observer.disconnect();
       crepeRef.current = null;
       void crepe.destroy();
@@ -369,15 +406,44 @@ export default function MarkdownEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const closeLinkDialog = () => {
+    setLinkTarget(null);
+    // 閉じたあとも続けて入力できるよう、エディタにフォーカスを戻す
+    crepeRef.current?.editor.action((ctx) => ctx.get(editorViewCtx).focus());
+  };
+
   // flex:1 で親(.editorArea)いっぱいに広がる
   // globals.css側で
   // Milkdownが実行時に生成する .milkdown / .ProseMirror にも同じ
   // flex:1 を連鎖させることで、編集領域が文書の短さに関わらず
   // 画面下端まで届くようにしている（末尾クリックでカーソル移動できるように）
   return (
-    <div
-      ref={containerRef}
-      style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}
-    />
+    <>
+      <div
+        ref={containerRef}
+        style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}
+      />
+      {/* モーダルは document.body の直下に描画されるため、ここに置いても
+          エディタの表示領域には影響しない */}
+      {linkTarget && (
+        <LinkDialog
+          initialUrl={linkTarget.url}
+          initialText={linkTarget.text}
+          onCancel={closeLinkDialog}
+          onSubmit={(url, text) => {
+            crepeRef.current?.editor.action((ctx) => {
+              applyLink(
+                ctx.get(editorViewCtx),
+                linkSchema.type(ctx),
+                linkTarget,
+                url,
+                text,
+              );
+            });
+            setLinkTarget(null);
+          }}
+        />
+      )}
+    </>
   );
 }
