@@ -160,6 +160,24 @@ html .milkdown .ProseMirror {
 }
 
 /*
+ * ツールバーのリンク解除ボタンは、選択範囲に解除できるリンクがないとき
+ * （active クラスが付いていないとき）、薄く表示して押せなくする。
+ * Crepeのツールバーのボタンには「押せない状態」がなく、active を
+ * 「解除できるリンクがある」の意味で使っているため、見た目の切り替えは
+ * ここで行う。解除できるリンクがあるときは、他のボタンと同じ色にする。
+ */
+html .milkdown .milkdown-toolbar .toolbar-item[data-toolbar-item="unlink"] svg {
+  color: var(--crepe-color-outline);
+  fill: var(--crepe-color-outline);
+}
+
+html .milkdown .milkdown-toolbar .toolbar-item[data-toolbar-item="unlink"]:not(.active) {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/*
  * 表示モードの見出し(.markdown-body h1〜h6)はブラウザ標準のサイズ・太さ
  * （em倍率2/1.5/1.17/1/0.83/0.67、太字）のまま使っている。Crepe側は
  * 独自の見出しスケールと通常太字(h6以外)を採用しており、見た目が

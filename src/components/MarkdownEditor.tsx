@@ -25,7 +25,15 @@ import {
   toggleSuperscriptCommand,
 } from "./scriptPlugin";
 import LinkDialog from "./LinkDialog";
-import { applyLink, getLinkTarget, type LinkTarget } from "./linkEdit";
+import {
+  applyLink,
+  canRemoveLink,
+  getLinkTarget,
+  removeLink,
+  type LinkTarget,
+} from "./linkEdit";
+import { unlinkButtonPlugin } from "./unlinkButtonPlugin";
+import { unlinkIcon } from "./unlinkIcon";
 import { tableBreakPlugin } from "./tableBreakPlugin";
 import {
   toggleUnderlineCommand,
@@ -197,6 +205,9 @@ export default function MarkdownEditor({
   useEffect(() => {
     if (!containerRef.current) return;
 
+    // Mod は Mac では Cmd、それ以外では Ctrl
+    const isMac = navigator.userAgent.includes("Mac");
+
     // リンク設定モーダルを開く
     // 開いた時点の選択範囲から、置き換える対象とモーダルの初期値を求める
     const openLinkDialog = (ctx: Ctx) => {
@@ -225,6 +236,20 @@ export default function MarkdownEditor({
               .getGroup("function")
               .group.items.find((item) => item.key === "link");
             if (linkItem) linkItem.onRun = openLinkDialog;
+            // リンクボタンの右隣に、リンク解除ボタンを足す
+            // ツールバーのボタンには「押せない状態」がないため、
+            // active を「解除できるリンクがある」の意味で使い、
+            // active でないときは globals.css で薄く表示して押せなくしている
+            builder.getGroup("function").addItem("unlink", {
+              icon: unlinkIcon,
+              label: "Unlink",
+              shortcut: isMac ? "⌘⌥K" : "Ctrl+Alt+K",
+              ariaKeyshortcuts: isMac ? "Meta+Alt+K" : "Control+Alt+K",
+              active: (ctx) =>
+                canRemoveLink(ctx.get(editorViewCtx), linkSchema.type(ctx)),
+              onRun: (ctx) =>
+                removeLink(ctx.get(editorViewCtx), linkSchema.type(ctx)),
+            });
             builder.getGroup("formatting").addItem("underline", {
               icon: underlineIcon,
               label: "Underline",
@@ -269,6 +294,8 @@ export default function MarkdownEditor({
     crepe.editor.use(scriptPlugin);
     // 表のセル内の改行を <br> として読み書きできるようにする
     crepe.editor.use(tableBreakPlugin);
+    // カーソルがリンク上にあるとき、リンクの真上に解除ボタンを出す
+    crepe.editor.use(unlinkButtonPlugin);
     crepeRef.current = crepe;
 
     // 文字修飾や要素挿入のショートカットを、変更または無効にする
@@ -334,16 +361,21 @@ export default function MarkdownEditor({
     containerRef.current.addEventListener("compositionstart", handleCompositionStart);
     containerRef.current.addEventListener("compositionend", handleCompositionEnd);
 
-    // Mod+K でリンク設定モーダルを開く
-    // Mod は Mac では Cmd、それ以外では Ctrl
-    // 変換中のキー入力や、Shift・Alt が付いた組み合わせは対象外にする
-    const isMac = navigator.userAgent.includes("Mac");
+    // Mod+K でリンク設定モーダルを開き、Mod+Alt+K でリンクを解除する
+    // 変換中のキー入力や、Shift が付いた組み合わせは対象外にする
+    // Mac では Option を押しながらだと e.key が別の文字（"˚" など）になるため、
+    // 押したキーそのものを表す e.code で判定する
     const handleKeyDown = (e: KeyboardEvent) => {
       const mod = isMac ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey;
-      if (!mod || e.shiftKey || e.altKey || e.isComposing) return;
-      if (e.key.toLowerCase() !== "k") return;
+      if (!mod || e.shiftKey || e.isComposing || e.code !== "KeyK") return;
       e.preventDefault();
-      crepe.editor.action(openLinkDialog);
+      if (e.altKey) {
+        crepe.editor.action((ctx) =>
+          removeLink(ctx.get(editorViewCtx), linkSchema.type(ctx)),
+        );
+      } else {
+        crepe.editor.action(openLinkDialog);
+      }
     };
     containerRef.current.addEventListener("keydown", handleKeyDown);
 

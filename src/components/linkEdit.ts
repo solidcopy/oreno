@@ -18,25 +18,18 @@ export type LinkTarget = {
 };
 
 /**
- * 現在の選択範囲から、リンク設定モーダルが置き換える対象と初期値を求める
- *
- * - カーソルがリンク上: そのリンク全体が対象。初期値はリンク先とリンクテキスト
- * - テキストを選択中: 選択範囲が対象。初期値は両方とも選択中のテキスト
- * - それ以外: カーソル位置への挿入。初期値は両方とも空欄
+ * カーソル（範囲選択なし）がリンク上にあるとき、そのリンク全体の範囲とリンク先を返す
+ * カーソルがリンク上にない、または範囲選択中のときは null を返す
  */
-export function getLinkTarget(view: EditorView, linkType: MarkType): LinkTarget {
-  const { state } = view;
-  const { from, to, empty, $from } = state.selection;
-
-  if (!empty) {
-    const text = state.doc.textBetween(from, to);
-    return { from, to, url: text, text };
-  }
+export function findLinkAtCursor(
+  view: EditorView,
+  linkType: MarkType,
+): { from: number; to: number; url: string } | null {
+  const { empty, from, to, $from } = view.state.selection;
+  if (!empty) return null;
 
   const linkMark = $from.marks().find((mark) => mark.type === linkType);
-  if (!linkMark) {
-    return { from, to, url: "", text: "" };
-  }
+  if (!linkMark) return null;
 
   // カーソルがある段落の中で、同じリンク先が続いている範囲を求める
   // 同じ href でも書式（太字など）が違う部分は別のテキストノードに分かれるため、
@@ -64,12 +57,57 @@ export function getLinkTarget(view: EditorView, linkType: MarkType): LinkTarget 
     }
   });
 
-  return {
-    from: linkFrom,
-    to: linkTo,
-    url: linkMark.attrs.href as string,
-    text: state.doc.textBetween(linkFrom, linkTo),
-  };
+  return { from: linkFrom, to: linkTo, url: linkMark.attrs.href as string };
+}
+
+/**
+ * 現在の選択範囲から、リンク設定モーダルが置き換える対象と初期値を求める
+ *
+ * - カーソルがリンク上: そのリンク全体が対象。初期値はリンク先とリンクテキスト
+ * - テキストを選択中: 選択範囲が対象。初期値は両方とも選択中のテキスト
+ * - それ以外: カーソル位置への挿入。初期値は両方とも空欄
+ */
+export function getLinkTarget(view: EditorView, linkType: MarkType): LinkTarget {
+  const { state } = view;
+  const { from, to, empty } = state.selection;
+
+  if (!empty) {
+    const text = state.doc.textBetween(from, to);
+    return { from, to, url: text, text };
+  }
+
+  const link = findLinkAtCursor(view, linkType);
+  if (!link) {
+    return { from, to, url: "", text: "" };
+  }
+  return { ...link, text: state.doc.textBetween(link.from, link.to) };
+}
+
+/**
+ * 解除できるリンクが、選択範囲またはカーソル位置にあるかどうか
+ * 範囲選択中は選択範囲の中にリンクがあるか、範囲選択がなければカーソルがリンク上にあるか
+ */
+export function canRemoveLink(view: EditorView, linkType: MarkType): boolean {
+  const { state } = view;
+  const { from, to, empty } = state.selection;
+  if (empty) return findLinkAtCursor(view, linkType) !== null;
+  return state.doc.rangeHasMark(from, to, linkType);
+}
+
+/**
+ * リンクを解除する
+ * 範囲選択中は選択した部分だけ、範囲選択がなければカーソルがあるリンク全体を解除する
+ * 解除するリンクがなければ何もしない
+ */
+export function removeLink(view: EditorView, linkType: MarkType) {
+  const { state } = view;
+  const { from, to, empty } = state.selection;
+
+  const range = empty ? findLinkAtCursor(view, linkType) : { from, to };
+  if (!range) return;
+
+  view.dispatch(state.tr.removeMark(range.from, range.to, linkType));
+  view.focus();
 }
 
 /**
