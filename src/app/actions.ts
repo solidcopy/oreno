@@ -16,7 +16,7 @@
  */
 
 import { revalidatePath } from "next/cache";
-import { writeFile, mkdir, unlink } from "node:fs/promises";
+import { writeFile, mkdir, unlink, rename } from "node:fs/promises";
 import path from "node:path";
 import { resolveDocPath, slugToUrlPath } from "@/lib/docPath";
 import { documentExists } from "@/lib/document";
@@ -24,6 +24,7 @@ import { listFolder, type FolderEntries } from "@/lib/folder";
 import { markdownToHtml } from "@/lib/markdown";
 import {
   addViewHistory,
+  renamePageInSettings,
   setPageStarred,
   setMode,
   type Mode,
@@ -76,6 +77,49 @@ export async function saveDocument(
  */
 export async function checkDocumentExists(slug: string[]): Promise<boolean> {
   return documentExists(slug);
+}
+
+/**
+ * from の文書ファイルを to へ移動（リネーム）する
+ * 移動先に同名のファイルがあるときは、上書きせずに失敗を返す
+ * 移動先のフォルダがまだ無い場合は作成する
+ */
+export async function moveDocument(
+  from: string[],
+  to: string[],
+): Promise<ActionResult> {
+  const fromPath = resolveDocPath(from);
+  const toPath = resolveDocPath(to);
+  if (!fromPath || !toPath) {
+    return { ok: false, message: "不正な移動先です。" };
+  }
+
+  if (await documentExists(to)) {
+    return { ok: false, message: "ファイルはすでに存在します。" };
+  }
+
+  try {
+    await mkdir(path.dirname(toPath), { recursive: true });
+    await rename(fromPath, toPath);
+  } catch (error) {
+    return { ok: false, message: `移動に失敗しました: ${String(error)}` };
+  }
+
+  // 閲覧履歴とスター付きのパスも移動先に付け替える
+  // 付け替えに失敗しても、ファイルの移動は済んでいるので移動自体は成功として扱う
+  try {
+    await renamePageInSettings(slugToUrlPath(from), slugToUrlPath(to));
+  } catch {
+    // 無視する
+  }
+
+  // 移動元のページはなくなり、移動先のページが増えるので、両方のキャッシュを破棄する
+  // サイドバーの「ページ」の一覧も変わるため、全ページ共通の表示も破棄する
+  revalidatePath(slugToUrlPath(from));
+  revalidatePath(slugToUrlPath(to));
+  revalidatePath("/", "layout");
+
+  return { ok: true };
 }
 
 /**

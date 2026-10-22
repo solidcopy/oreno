@@ -142,6 +142,30 @@ export function setPageStarred(
 }
 
 /**
+ * 閲覧履歴とスター付きページに記録されている fromUrlPath を toUrlPath に置き換える
+ * ページを移動したときに、履歴とスターが移動先のページを指すようにするために使う
+ * 移動先がすでに記録されていた場合は、重複しないよう先に現れた方だけを残す
+ * どちらにも fromUrlPath が無ければ何も書き込まない
+ */
+export function renamePageInSettings(
+  fromUrlPath: string,
+  toUrlPath: string,
+): Promise<void> {
+  return updateUserSettings((data) => {
+    let changed = false;
+    for (const key of ["view-histories", "starred-pages"]) {
+      const pages = toStringArray(data[key]);
+      if (!pages.includes(fromUrlPath)) continue;
+
+      const renamed = pages.map((p) => (p === fromUrlPath ? toUrlPath : p));
+      data[key] = renamed.filter((p, i) => renamed.indexOf(p) === i);
+      changed = true;
+    }
+    return changed;
+  });
+}
+
+/**
  * urlPath がスター付きかどうかを返す
  */
 export async function isPageStarred(urlPath: string): Promise<boolean> {

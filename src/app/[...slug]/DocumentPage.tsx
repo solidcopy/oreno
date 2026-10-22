@@ -21,7 +21,7 @@ import type { Mode, SidebarSettings } from "@/lib/userSettings";
 import { extractHeadings } from "@/lib/headings";
 import Sidebar from "./Sidebar/Sidebar";
 import Header, { type SaveStatus } from "./Header";
-import NewPageButton from "./NewPageButton";
+import PageLocationButton from "./PageLocationButton";
 import { useSavedToggle } from "./useSavedToggle";
 import {
   saveDocument,
@@ -336,15 +336,22 @@ export default function DocumentPage({
     }
   }
 
+  // 保存待ちの編集があれば、待たずに今すぐ保存する
+  // 保存できなかったときは false を返す
+  // （表示モードへの切り替えや移動で、編集が失われるのを防ぐために使う）
+  async function flushPendingEdit(): Promise<boolean> {
+    if (latestMarkdownRef.current !== savedMarkdownRef.current) {
+      await saveNow();
+    }
+    return latestMarkdownRef.current === savedMarkdownRef.current;
+  }
+
   // 表示モードに切り替える
   // 保存待ちの編集があれば、待たずに今すぐ保存してから切り替える
   // 保存に失敗したときは、編集が失われないよう編集モードのままにする
   async function handleSwitchToView() {
     setError(null);
-    if (latestMarkdownRef.current !== savedMarkdownRef.current) {
-      await saveNow();
-      if (latestMarkdownRef.current !== savedMarkdownRef.current) return;
-    }
+    if (!(await flushPendingEdit())) return;
     void changeMode("view");
   }
 
@@ -398,7 +405,7 @@ export default function DocumentPage({
         actions={
           mode === "view" ? (
             <>
-              <NewPageButton slug={slug} />
+              <PageLocationButton slug={slug} purpose="create" />
               <button
                 type="button"
                 className={styles.modeButton}
@@ -406,6 +413,7 @@ export default function DocumentPage({
               >
                 編集モードに切り替え
               </button>
+              <PageLocationButton slug={slug} purpose="move" />
               <button
                 type="button"
                 className={styles.buttonDanger}
@@ -417,7 +425,7 @@ export default function DocumentPage({
             </>
           ) : (
             <>
-              {exists && <NewPageButton slug={slug} />}
+              {exists && <PageLocationButton slug={slug} purpose="create" />}
               {exists && (
                 <button
                   type="button"
@@ -427,6 +435,13 @@ export default function DocumentPage({
                 >
                   表示モードに切り替え
                 </button>
+              )}
+              {exists && (
+                <PageLocationButton
+                  slug={slug}
+                  purpose="move"
+                  beforeMove={flushPendingEdit}
+                />
               )}
               {exists && (
                 <button

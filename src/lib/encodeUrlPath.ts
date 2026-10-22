@@ -5,7 +5,7 @@
  * "/" で区切るのは、セグメント自身に "/" が含まれることは無い（docPath.ts が弾く）ため
  *
  * docPath.ts と違い node:path に依存しないため、
- * Client Component（Sidebar, NewPageButton）からも安全にimportできる
+ * Client Component（Sidebar, PageLocationButton）からも安全にimportできる
  */
 export function encodeUrlPath(path: string): string {
   return path.split("/").map(encodeURIComponent).join("/");

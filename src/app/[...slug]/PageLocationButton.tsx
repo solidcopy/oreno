@@ -1,11 +1,9 @@
-"use client";
-
 import { useCallback, useRef, useState } from "react";
 import type { ChangeEvent, KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import docStyles from "./DocumentPage.module.css";
-import styles from "./NewPageButton.module.css";
-import { checkDocumentExists } from "../actions";
+import styles from "./PageLocationButton.module.css";
+import { checkDocumentExists, moveDocument } from "../actions";
 import { useClosePopoverOnOutsideClick } from "./useClosePopoverOnOutsideClick";
 import { APP_RESERVED_SEGMENT, isAppReservedPath } from "@/lib/appReservedPath";
 import { encodeUrlPath } from "@/lib/encodeUrlPath";
@@ -21,9 +19,20 @@ type Props = {
   // 新しいページのパスの初期値（現在表示中のページがあるフォルダ）を
   // 決めるために、今表示しているページの slug を受け取る
   slug: string[];
+  // "create" は新規作成、"move" は表示中のページの移動（リネーム）
+  // 入力されたパスの扱いやエラーメッセージは、どちらも同じ
+  purpose: "create" | "move";
+  // 移動の直前に呼ぶ関数（保存待ちの編集を保存するために使う）
+  // false を返すと移動を中止する
+  beforeMove?: () => Promise<boolean>;
 };
 
-export default function NewPageButton({ slug }: Props) {
+export default function PageLocationButton({
+  slug,
+  purpose,
+  beforeMove,
+}: Props) {
+  const isMove = purpose === "move";
   const router = useRouter();
 
   const [open, setOpen] = useState(false);
@@ -141,12 +150,24 @@ export default function NewPageButton({ slug }: Props) {
       return;
     }
 
+    if (isMove) {
+      if (beforeMove && !(await beforeMove())) {
+        setError("移動前の保存に失敗しました。");
+        return;
+      }
+      const result = await moveDocument(slug, segments);
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+    }
+
     handleClose();
     router.push(encodeUrlPath("/" + segments.join("/")));
   }
 
   return (
-    <div className={styles.newPageWrap} ref={wrapRef}>
+    <div className={styles.pageLocationWrap} ref={wrapRef}>
       <button
         type="button"
         className={docStyles.button}
@@ -154,21 +175,21 @@ export default function NewPageButton({ slug }: Props) {
         aria-haspopup="dialog"
         aria-expanded={open}
       >
-        新規作成
+        {isMove ? "移動" : "新規作成"}
       </button>
 
       {open && (
         <div
           className={styles.popover}
           role="dialog"
-          aria-label="新しいページのパスを入力"
+          aria-label={isMove ? "移動するページのパスを入力" : "新しいページのパスを入力"}
         >
-          <label htmlFor="newPagePath" className={styles.popoverLabel}>
-            新しいページのパス
+          <label htmlFor="pagePath" className={styles.popoverLabel}>
+            {isMove ? "移動するページのパス" : "新しいページのパス"}
           </label>
           <div className={styles.pathInputRow}>
             <input
-              id="newPagePath"
+              id="pagePath"
               ref={focusPathInput}
               type="text"
               className={
@@ -192,7 +213,7 @@ export default function NewPageButton({ slug }: Props) {
               className={docStyles.buttonPrimary}
               onClick={handleCreate}
             >
-              作成
+              {isMove ? "移動" : "作成"}
             </button>
           </div>
         </div>
