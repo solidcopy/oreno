@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import { isAppReservedPath } from "@/lib/appReservedPath";
 
@@ -19,16 +20,29 @@ const INVALID_SEGMENT_CHARS = /[*?[\]{}/\\:]/;
 
 /**
  * 環境変数 ORENO_ROOT からドキュメントのルートディレクトリを取得する
- * 未設定の場合はアプリの設定ミスなので、呼び出し側で catch させず例外を投げる
+ * 設定済みであることはサーバー起動時に assertRootDirExists で確認済みなので、ここでは確認しない
  */
 export function getRootDir(): string {
+  return path.resolve(process.env.ORENO_ROOT!);
+}
+
+/**
+ * ORENO_ROOT が設定済みで、指定されたフォルダが存在することを確かめる
+ * 満たしていなければ例外を投げる（サーバー起動時のチェックに使う）
+ */
+export function assertRootDirExists(): void {
   const root = process.env.ORENO_ROOT;
   if (!root) {
     throw new Error(
       "環境変数 ORENO_ROOT が設定されていません。文書ファイルのルートディレクトリを指定してください。",
     );
   }
-  return path.resolve(root);
+  const rootDir = path.resolve(root);
+  if (!fs.existsSync(rootDir) || !fs.statSync(rootDir).isDirectory()) {
+    throw new Error(
+      `環境変数 ORENO_ROOT で指定されたフォルダが存在しません: ${rootDir}`,
+    );
+  }
 }
 
 /**
