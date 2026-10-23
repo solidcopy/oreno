@@ -16,10 +16,16 @@
  */
 
 import { revalidatePath } from "next/cache";
-import { writeFile, mkdir, unlink, rename } from "node:fs/promises";
+import { writeFile, mkdir, unlink, rename, stat } from "node:fs/promises";
 import path from "node:path";
-import { resolveDocPath, slugToUrlPath } from "@/lib/docPath";
+import { resolveDocPath, resolveFilePath, slugToUrlPath } from "@/lib/docPath";
 import { documentExists } from "@/lib/document";
+import {
+  getFileIndex,
+  registerFile,
+  requestFileScan,
+  unregisterFile,
+} from "@/lib/fileIndex";
 import { listFolder, type FolderEntries } from "@/lib/folder";
 import { markdownToHtml } from "@/lib/markdown";
 import {
@@ -63,6 +69,8 @@ export async function saveDocument(
     return { ok: false, message: `保存に失敗しました: ${String(error)}` };
   }
 
+  registerFile(slug);
+
   // このパスに対して Next.js がキャッシュしているレンダリング結果を破棄する
   // これをしないと、次にこのURLへアクセスしたときに古い内容が表示されてしまう
   revalidatePath(slugToUrlPath(slug));
@@ -105,6 +113,9 @@ export async function moveDocument(
     return { ok: false, message: `移動に失敗しました: ${String(error)}` };
   }
 
+  unregisterFile(from);
+  registerFile(to);
+
   // 閲覧履歴とスター付きのパスも移動先に付け替える
   // 付け替えに失敗しても、ファイルの移動は済んでいるので移動自体は成功として扱う
   try {
@@ -140,6 +151,8 @@ export async function deleteDocument(slug: string[]): Promise<ActionResult> {
       return { ok: false, message: `削除に失敗しました: ${String(error)}` };
     }
   }
+
+  unregisterFile(slug);
 
   revalidatePath(slugToUrlPath(slug));
 
@@ -352,5 +365,40 @@ export async function loadFolderEntries(
     return { ok: true, entries: await listFolder(folder, order) };
   } catch (error) {
     return { ok: false, message: `一覧の取得に失敗しました: ${String(error)}` };
+  }
+}
+
+/**
+ * リンク先の候補にするファイルの一覧を返す
+ * 文書ルートからの相対パス（拡張子付き）の配列で、サーバーがその時点で保持している一覧をそのまま返す
+ * refresh が true のときは、一覧の更新（スキャン）も依頼する。すでにスキャン中なら何もしない
+ *
+ * ready が false のときは、最初のスキャンが終わっていない
+ * scanning が true のときは、files は更新前の一覧
+ * どちらも、呼び出し側でしばらくして再取得すると、更新後の一覧を受け取れる
+ */
+export async function getLinkCandidates(refresh: boolean): Promise<{
+  ready: boolean;
+  scanning: boolean;
+  files: string[];
+}> {
+  if (refresh) requestFileScan();
+  return getFileIndex();
+}
+
+/**
+ * リンク先として指定された slug に、対応するページまたはファイルが実際に存在するかどうかを調べる
+ * Markdown は拡張子なしの URL（/dir/page）で、それ以外のファイルは拡張子付きの URL（/dir/image.png）で指す
+ */
+export async function linkTargetExists(slug: string[]): Promise<boolean> {
+  if (await documentExists(slug)) return true;
+
+  const filePath = resolveFilePath(slug);
+  if (!filePath) return false;
+
+  try {
+    return (await stat(filePath)).isFile();
+  } catch {
+    return false;
   }
 }
