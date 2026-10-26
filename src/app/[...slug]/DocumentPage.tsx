@@ -166,8 +166,10 @@ export default function DocumentPage({
 
   // モードを切り替えて、ページを移動したりリロードしても変わらないよう保存する
   // 保存に失敗しても、画面のモードはそのままにしてエラーだけ表示する
+  // 保存の状態表示（保存済みなど）は、モードを切り替えたら消す
   async function changeMode(next: Mode) {
     setMode(next);
+    setSaveStatus("idle");
     const result = await setModeSetting(next);
     if (!result.ok) {
       setError(result.message);
