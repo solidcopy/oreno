@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { isAppReservedPath } from "@/lib/appReservedPath";
+import { hasDotSegment } from "@/lib/dotPath";
 
 /**
  * URL のパス部分（例: "/docs/hello" の "docs", "hello"）を
@@ -57,7 +57,7 @@ export function getRootDirName(): string {
  * URL の slug（catch-all セグメントの配列）を、対応するマークダウンファイルの
  * 絶対パスに変換する
  *
- * 不正な slug（空配列、"." や ".." を含む、特殊記号を含む、ルートディレクトリの外を指す等）
+ * 不正な slug（空配列、"." から始まるセグメントを含む、特殊記号を含む、ルートディレクトリの外を指す等）
  * の場合は null を返す
  * 呼び出し側はこれを 404 扱いにすること
  */
@@ -70,13 +70,10 @@ export function resolveDocPath(slug: string[]): string | null {
  * URL の slug を、文書ルート以下にある任意のファイルの絶対パスに変換する
  * 拡張子付きのURL（/image.png など）で、Markdown以外のファイルをそのまま返すために使う
  *
- * resolveDocPath と同じ検証に加えて、"." から始まるセグメント（.git など）も拒否する
+ * 検証は resolveDocPath と同じ
  * 不正な場合は null を返す
  */
 export function resolveFilePath(slug: string[]): string | null {
-  if (slug.some((segment) => segment.startsWith("."))) {
-    return null;
-  }
   return resolveUnderRoot(slug);
 }
 
@@ -91,15 +88,14 @@ function resolveUnderRoot(slug: string[]): string | null {
     return null;
   }
 
-  if (isAppReservedPath(slug)) {
-    // ".oreno" 配下はOreno自身の機能用に予約されたパスなので、
-    // 対応するファイルがあったとしても文書としては扱わない
+  if (hasDotSegment(slug)) {
+    // "." から始まるセグメントを含むパス（.git や、Oreno自身の機能用の .oreno など）は
+    // 対応するファイルがあったとしても存在しないものとして扱う
     return null;
   }
 
   for (const segment of slug) {
     if (segment.length === 0) return null;
-    if (segment === "." || segment === "..") return null;
     if (INVALID_SEGMENT_CHARS.test(segment)) return null;
   }
 

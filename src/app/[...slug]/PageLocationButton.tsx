@@ -5,10 +5,10 @@ import docStyles from "./DocumentPage.module.css";
 import styles from "./PageLocationButton.module.css";
 import { checkDocumentExists, moveDocument } from "../actions";
 import { useClosePopoverOnOutsideClick } from "./useClosePopoverOnOutsideClick";
-import { APP_RESERVED_SEGMENT, isAppReservedPath } from "@/lib/appReservedPath";
+import { hasDotSegment } from "@/lib/dotPath";
 import { encodeUrlPath } from "@/lib/encodeUrlPath";
 
-const RESERVED_PATH_ERROR = `"${APP_RESERVED_SEGMENT}" から始まるパスにはページを作成できません。`;
+const DOT_PATH_ERROR = "\".\" から始まる名前のフォルダやファイルにはページを作成できません。";
 
 // 入力が止まってからこの時間が経つまでは、既存ファイルとの重複チェックを行わない
 // キー入力のたびに毎回サーバーへ問い合わせると無駄なリクエストが増えるため、
@@ -107,8 +107,8 @@ export default function PageLocationButton({
     setError(null);
 
     const segments = value.trim().split("/").filter((segment) => segment.length > 0);
-    if (isAppReservedPath(segments)) {
-      setError(RESERVED_PATH_ERROR);
+    if (hasDotSegment(segments)) {
+      setError(DOT_PATH_ERROR);
       return;
     }
 
@@ -138,8 +138,8 @@ export default function PageLocationButton({
 
     const segments = trimmed.split("/").filter((segment) => segment.length > 0);
 
-    if (isAppReservedPath(segments)) {
-      setError(RESERVED_PATH_ERROR);
+    if (hasDotSegment(segments)) {
+      setError(DOT_PATH_ERROR);
       return;
     }
 

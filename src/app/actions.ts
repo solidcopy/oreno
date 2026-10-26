@@ -165,7 +165,7 @@ export async function deleteDocument(slug: string[]): Promise<ActionResult> {
  * 履歴の記録に失敗しても文書の表示には影響させたくないため、失敗は無視する
  */
 export async function recordViewHistory(slug: string[]): Promise<void> {
-  // 不正なパスや ".oreno" 配下は記録しない
+  // 不正なパスは記録しない
   if (!resolveDocPath(slug)) return;
 
   try {
