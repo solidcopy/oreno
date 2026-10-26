@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { truncateProjectNameForDisplay } from "@/lib/projectNameDisplay";
 import AppMenu from "./AppMenu";
 import styles from "./Header.module.css";
+import PageJumpBox from "./PageJumpBox";
 import SidebarToggleButton from "./SidebarToggleButton";
 
 // 文書の保存の状態
@@ -13,7 +14,8 @@ export type SaveStatus = "idle" | "saved" | "saving" | "failed" | "new";
 /**
  * 全画面共通のヘッダー
  * 左から、サイドバーのオンオフボタン、ルートへのリンク、画面の名前（pageTitle）、
- * 保存の状態（saveStatus）、画面ごとのボタン（actions）、アプリメニューの順に並べる
+ * 保存の状態（saveStatus）、ページ移動の入力欄（中央）、画面ごとのボタン（actions）、
+ * アプリメニューの順に並べる
  *
  * 状態は持たず、サイドバーの状態と切り替える関数は親から受け取る
  */
@@ -96,6 +98,8 @@ export default function Header({
       {saveStatus === "failed" && (
         <span className={styles.saveStatusFailed}>（保存失敗）</span>
       )}
+      <div className={styles.spacer} />
+      <PageJumpBox />
       <div className={styles.spacer} />
       {actions}
       <AppMenu />

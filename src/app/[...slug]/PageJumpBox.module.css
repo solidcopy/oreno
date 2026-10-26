@@ -1,0 +1,115 @@
+.box {
+  display: flex;
+  gap: 0.25rem;
+  align-items: stretch;
+  /* 幅が足りないときは入力欄を縮める */
+  width: 24rem;
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+/* 入力欄とドロップダウンをまとめる。ドロップダウンの位置の基準 */
+.control {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--gray-alpha-200);
+  background: transparent;
+  color: inherit;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+/* ドロップダウンにフォーカスがあるときも、入力欄にフォーカスがあるように見せる */
+.input:focus,
+.control:focus-within .input {
+  outline: 2px solid #2563eb;
+  outline-offset: -1px;
+}
+
+/* 入力欄の下にぴったり付ける */
+.dropdown {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  /* 一度に20件（1件32px）まで表示できる高さ。収まらない分はスクロールする */
+  max-height: calc(20 * 32px + 8px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  border: 1px solid var(--gray-alpha-200);
+  border-radius: 8px;
+  background: var(--background);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+/* フォーカスの有無で輪郭を変えないため、フォーカス時のブラウザ標準の輪郭は消す */
+.dropdown:focus {
+  outline: none;
+}
+
+.candidate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  /* 幅に収まらない部分は、省略記号なしで見切れる */
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.candidateName {
+  flex-shrink: 0;
+}
+
+/* フォルダのパスはファイル名より目立たないよう薄くする */
+.candidateDir {
+  font-size: 0.8rem;
+  opacity: 0.6;
+}
+
+.candidateActive {
+  background: rgba(37, 99, 235, 0.2);
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px;
+  font-size: 0.9rem;
+  opacity: 0.6;
+}
+
+/* 高さを入力欄と揃える */
+.button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.4rem;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  border: 1px solid var(--gray-alpha-200);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.button:hover {
+  background: var(--gray-alpha-100);
+}
