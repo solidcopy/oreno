@@ -57,6 +57,14 @@ export default function AppMenu() {
           >
             すべてのページ
           </Link>
+          <Link
+            href="/.oreno/link_broken_check"
+            role="menuitem"
+            className={styles.menuItem}
+            onClick={handleClose}
+          >
+            リンク切れチェック
+          </Link>
           <div className={styles.divider} />
           <Link
             href="/.oreno/project_settings"
