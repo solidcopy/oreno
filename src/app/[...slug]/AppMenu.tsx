@@ -65,6 +65,14 @@ export default function AppMenu() {
           >
             リンク切れチェック
           </Link>
+          <Link
+            href="/.oreno/orphaned_pages_check"
+            role="menuitem"
+            className={styles.menuItem}
+            onClick={handleClose}
+          >
+            孤立ページチェック
+          </Link>
           <div className={styles.divider} />
           <Link
             href="/.oreno/project_settings"

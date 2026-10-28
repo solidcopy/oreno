@@ -43,7 +43,7 @@ description: Orenoのリンク切れチェック画面(/.oreno/link_broken_check
 
 ## 存在判定のルール
 
-実装は `src/lib/linkBrokenCheck.ts` の `isBroken`。
+リンク先の解決は `src/lib/pageLinks.ts` の `resolveLinkTarget`(孤立ページチェックと共通)、存在の判定は `src/lib/linkBrokenCheck.ts` の `isBroken`。
 
 - 外部URL(`https://` や `mailto:` などスキーム付き、`//` 始まり)は調べない
 - `#見出し` と `?クエリ` は取り除き、パス部分だけで判定する。取り除いた結果が空(`#見出し` だけなど、同じページ内を指すリンク)なら調べない。見出しが実際にあるかは見ない
@@ -57,6 +57,6 @@ description: Orenoのリンク切れチェック画面(/.oreno/link_broken_check
 ## 実装の仕組み
 
 - 画面(`page.tsx` と `LinkBrokenCheckPage.tsx`)はチェックを実行しない。画面が開いてから、`useEffect` で Route Handler(`check/route.ts`)へ `fetch` する
-- Server Actionにしないのは、実行中のServer Actionは途中で中断できないため。Route Handlerなら、画面を離れたときの `AbortController.abort()` でブラウザがリクエストを打ち切り、サーバー側の `request.signal` に伝わる。調査は、フォルダを辿る `walkPages` の冒頭の `signal.throwIfAborted()` で止まる
+- Server Actionにしないのは、実行中のServer Actionは途中で中断できないため。Route Handlerなら、画面を離れたときの `AbortController.abort()` でブラウザがリクエストを打ち切り、サーバー側の `request.signal` に伝わる。調査は、フォルダを辿る `walkPages`(`src/lib/walkPages.ts`、孤立ページチェックと共通)の冒頭の `signal.throwIfAborted()` で止まる
 - ファイル一覧(ファイルインデックス、oreno-file-index スキル)は使わない。インデックスは10分周期のスキャンで最新でないことがあるため、画面を開いたときに独自にフォルダを辿る
 - チェック中に文書が編集・作成・削除されても、結果に反映されるかどうかは決めていない(実装が簡潔な方でよい)。今は、各ページを読んだ時点の内容で検査する
