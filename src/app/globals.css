@@ -110,6 +110,19 @@ html .milkdown {
 html .milkdown .ProseMirror {
   flex: 1;
   min-height: 0;
+  /*
+   * Crepeは上に60pxの余白を取るが、表示モード(DocumentPage.module.cssの
+   * .content)は1.5rem
+   * 先頭の段落の余白(表示モードはmargin 0.75rem、編集モードはpadding 0.375rem)の
+   * 差を含めて、モードを切り替えても文書の表示位置が変わらないよう、上だけ揃える
+   */
+  padding-top: 1.875rem;
+  /*
+   * Crepeは左に120pxの余白を取る
+   * ブロックのハンドル(+と6つの点のアイコン)と編集領域の左端の間が
+   * 広すぎるため、その余白が約半分になるよう20px減らす
+   */
+  padding-left: 100px;
 }
 
 /*
@@ -192,6 +205,32 @@ html .milkdown .ProseMirror h6 {
   font-weight: 700;
 }
 
+/*
+ * 見出しの余白と行の高さも表示モード(.markdown-body h1〜h6)に合わせる
+ * 表示モードでは見出しと段落の余白(margin)が重なって大きい方だけになるが、
+ * 編集モードの段落はmarginではなくpaddingなので重ならず足し算になる
+ * そのため、段落のpadding(0.375rem)の分を見出しの余白から引いている
+ * （見出しの上下で文書の行間がモードによって変わらないようにする）
+ */
+html .milkdown .ProseMirror h1,
+html .milkdown .ProseMirror h2,
+html .milkdown .ProseMirror h3,
+html .milkdown .ProseMirror h4,
+html .milkdown .ProseMirror h5,
+html .milkdown .ProseMirror h6 {
+  margin: calc(1.5em - 0.375rem) 0 calc(max(0.5em, 0.75rem) - 0.375rem);
+  padding: 0;
+  line-height: 1.3;
+}
+
+/*
+ * 見出しが続くときは、見出し同士のmarginが編集モードでも重なるため、
+ * 上で引いた分を戻す
+ */
+html .milkdown .ProseMirror :is(h1, h2, h3, h4, h5, h6) + :is(h1, h2, h3, h4, h5, h6) {
+  margin-top: 1.5em;
+}
+
 html .milkdown .ProseMirror h1 {
   font-size: 2em;
 }
@@ -229,6 +268,8 @@ html .milkdown .ProseMirror h6 {
  */
 html .milkdown .ProseMirror p {
   padding: 0.375em 0;
+  /* 行間も表示モード(.markdown-body p)と同じにする */
+  line-height: 1.7;
 }
 
 /*

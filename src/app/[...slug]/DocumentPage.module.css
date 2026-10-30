@@ -70,6 +70,8 @@
   /* 編集モード(Milkdown)は中央揃えではなく左寄せなので、
      表示モードもそれに合わせて左寄せにしている。 */
   padding: 1.5rem;
+  /* 編集モード(globals.cssの.ProseMirrorのpadding-left)と左端の位置を揃える */
+  padding-left: 100px;
   /* 右上に固定したスターボタンと文章が重ならないようにする */
   padding-right: 4rem;
 }
