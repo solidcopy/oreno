@@ -2,6 +2,8 @@
 
 import { useRef, useState } from "react";
 import styles from "./ProjectSettingsPage.module.css";
+import frame from "@/components/PageFrame.module.css";
+import form from "@/components/SettingsForm.module.css";
 import Header from "@/app/[...slug]/Header";
 import Sidebar from "@/app/[...slug]/Sidebar/Sidebar";
 import { useSavedToggle } from "@/app/[...slug]/useSavedToggle";
@@ -66,7 +68,7 @@ export default function ProjectSettingsPage({
   }
 
   return (
-    <div className={styles.page}>
+    <div className={frame.page}>
       <Header
         projectName={savedProjectName}
         rootDirName={rootDirName}
@@ -75,24 +77,24 @@ export default function ProjectSettingsPage({
         pageTitle="プロジェクト設定"
       />
 
-      <div className={styles.body}>
+      <div className={frame.body}>
         {sidebarVisible && (
           <Sidebar
             {...sidebar}
           />
         )}
-        <div className={styles.main}>
+        <div className={frame.main}>
           {showNotice && (
-            <div className={styles.notice}>設定を保存しました。</div>
+            <div className={form.notice}>設定を保存しました。</div>
           )}
-          {error && <p className={styles.error}>{error}</p>}
+          {error && <p className={frame.error}>{error}</p>}
 
           <div className={styles.content}>
-            <label className={styles.field}>
-              <span className={styles.label}>プロジェクト名</span>
+            <label className={form.field}>
+              <span className={form.label}>プロジェクト名</span>
               <input
                 type="text"
-                className={styles.input}
+                className={form.input}
                 value={projectName}
                 onChange={(event) => setProjectName(event.target.value)}
               />
@@ -100,7 +102,7 @@ export default function ProjectSettingsPage({
 
             <button
               type="button"
-              className={styles.saveButton}
+              className={form.saveButton}
               onClick={handleSave}
               disabled={saving}
             >

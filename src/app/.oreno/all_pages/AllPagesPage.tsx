@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import styles from "./AllPagesPage.module.css";
+import frame from "@/components/PageFrame.module.css";
 import Header from "@/app/[...slug]/Header";
 import { FolderEntryIcon, PageEntryIcon } from "@/app/[...slug]/Sidebar/icons";
 import Sidebar from "@/app/[...slug]/Sidebar/Sidebar";
@@ -67,7 +68,7 @@ export default function AllPagesPage({
   );
 
   return (
-    <div className={styles.page}>
+    <div className={frame.page}>
       <Header
         projectName={projectName}
         rootDirName={rootDirName}
@@ -76,14 +77,14 @@ export default function AllPagesPage({
         pageTitle="すべてのページ"
       />
 
-      <div className={styles.body}>
+      <div className={frame.body}>
         {sidebarVisible && (
           <Sidebar
             {...sidebar}
           />
         )}
-        <div className={styles.main}>
-          {error && <p className={styles.error}>{error}</p>}
+        <div className={frame.main}>
+          {error && <p className={frame.error}>{error}</p>}
           <div className={styles.content}>
             {tree.length === 0 ? (
               <p className={styles.empty}>ページがありません。</p>

@@ -2,6 +2,8 @@
 
 import { useRef, useState } from "react";
 import styles from "./UserSettingsPage.module.css";
+import frame from "@/components/PageFrame.module.css";
+import form from "@/components/SettingsForm.module.css";
 import Header from "@/app/[...slug]/Header";
 import Sidebar from "@/app/[...slug]/Sidebar/Sidebar";
 import { useSavedToggle } from "@/app/[...slug]/useSavedToggle";
@@ -69,7 +71,7 @@ export default function UserSettingsPage({
   }
 
   return (
-    <div className={styles.page}>
+    <div className={frame.page}>
       <Header
         projectName={projectName}
         rootDirName={rootDirName}
@@ -78,21 +80,21 @@ export default function UserSettingsPage({
         pageTitle="ユーザー設定"
       />
 
-      <div className={styles.body}>
+      <div className={frame.body}>
         {sidebarVisible && (
           <Sidebar
             {...sidebar}
           />
         )}
-        <div className={styles.main}>
+        <div className={frame.main}>
           {showNotice && (
-            <div className={styles.notice}>設定を保存しました。</div>
+            <div className={form.notice}>設定を保存しました。</div>
           )}
-          {error && <p className={styles.error}>{error}</p>}
+          {error && <p className={frame.error}>{error}</p>}
 
           <div className={styles.content}>
             <fieldset className={styles.fieldset}>
-              <legend className={styles.label}>フォルダ/ページの並び順</legend>
+              <legend className={form.label}>フォルダ/ページの並び順</legend>
               {ORDER_OPTIONS.map((option) => (
                 <label key={option.value} className={styles.radio}>
                   <input
@@ -109,7 +111,7 @@ export default function UserSettingsPage({
 
             <button
               type="button"
-              className={styles.saveButton}
+              className={form.saveButton}
               onClick={handleSave}
               disabled={saving}
             >

@@ -1,28 +1,3 @@
-.page {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-}
-
-/* ヘッダーの下の領域。左にサイドバー、右に本文(main)を並べる */
-.body {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-}
-
-.main {
-  flex: 1;
-  min-width: 0;
-}
-
-.error {
-  padding: 0.5rem 1rem;
-  color: #c1121f;
-  font-size: 0.9rem;
-}
-
 .content {
   padding: 1.5rem 1rem 3rem;
   max-width: 760px;
@@ -160,6 +135,10 @@
   white-space: pre-wrap;
   word-break: break-all;
 }
+
+  .pageLink {
+    color: #8ab4f8;
+  }
 
 @media (prefers-color-scheme: dark) {
   .okIcon {

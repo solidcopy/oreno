@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import styles from "./LinkBrokenCheckPage.module.css";
+import frame from "@/components/PageFrame.module.css";
+import result from "@/components/CheckResult.module.css";
 import Header from "@/app/[...slug]/Header";
 import Sidebar from "@/app/[...slug]/Sidebar/Sidebar";
 import { useSavedToggle } from "@/app/[...slug]/useSavedToggle";
@@ -67,7 +69,7 @@ export default function LinkBrokenCheckPage({
   }, []);
 
   return (
-    <div className={styles.page}>
+    <div className={frame.page}>
       <Header
         projectName={projectName}
         rootDirName={rootDirName}
@@ -76,28 +78,28 @@ export default function LinkBrokenCheckPage({
         pageTitle="リンク切れチェック"
       />
 
-      <div className={styles.body}>
+      <div className={frame.body}>
         {sidebarVisible && (
           <Sidebar
             {...sidebar}
           />
         )}
-        <div className={styles.main}>
-          {error && <p className={styles.error}>{error}</p>}
-          <div className={styles.content}>
-            <h1 className={styles.title}>リンク切れチェック</h1>
+        <div className={frame.main}>
+          {error && <p className={frame.error}>{error}</p>}
+          <div className={result.content}>
+            <h1 className={result.title}>リンク切れチェック</h1>
 
             {check.status === "checking" && (
-              <div className={styles.status} role="status" aria-live="polite">
+              <div className={result.status} role="status" aria-live="polite">
                 {/* 動画のバッファリング中のように、3つの点が順に跳ねる */}
-                <div className={styles.dots} aria-hidden="true">
-                  <span className={styles.dot} />
-                  <span className={styles.dot} />
-                  <span className={styles.dot} />
+                <div className={result.dots} aria-hidden="true">
+                  <span className={result.dot} />
+                  <span className={result.dot} />
+                  <span className={result.dot} />
                 </div>
-                <div className={styles.statusText}>
-                  <span className={styles.statusTitle}>リンクチェック中です…</span>
-                  <span className={styles.statusSub}>
+                <div className={result.statusText}>
+                  <span className={result.statusTitle}>リンクチェック中です…</span>
+                  <span className={result.statusSub}>
                     リンクの整合性を調べています。完了すると結果が表示されます。
                   </span>
                 </div>
@@ -105,13 +107,13 @@ export default function LinkBrokenCheckPage({
             )}
 
             {check.status === "failed" && (
-              <p className={styles.error}>チェックに失敗しました。</p>
+              <p className={frame.error}>チェックに失敗しました。</p>
             )}
 
             {check.status === "done" && check.brokenLinks.length === 0 && (
-              <div className={styles.status} role="status">
+              <div className={result.status} role="status">
                 <svg
-                  className={styles.okIcon}
+                  className={result.okIcon}
                   width="28"
                   height="28"
                   viewBox="0 0 24 24"
@@ -125,7 +127,7 @@ export default function LinkBrokenCheckPage({
                   <circle cx="12" cy="12" r="9" />
                   <path d="M8 12.5l3 3 5-6" />
                 </svg>
-                <span className={styles.statusTitle}>
+                <span className={result.statusTitle}>
                   エラーは見付かりませんでした
                 </span>
               </div>
@@ -133,7 +135,7 @@ export default function LinkBrokenCheckPage({
 
             {check.status === "done" && check.brokenLinks.length > 0 && (
               <>
-                <p className={styles.summary}>
+                <p className={result.summary}>
                   チェック完了: {check.brokenLinks.length}件のエラーが見付かりました
                 </p>
                 {check.brokenLinks.map((brokenLink, index) => (
@@ -172,15 +174,15 @@ function BrokenLinkCard({ brokenLink }: { brokenLink: BrokenLink }) {
   }
 
   return (
-    <div className={styles.card}>
-      <Link href={encodeUrlPath(pagePath)} className={styles.pageLink}>
+    <div className={result.card}>
+      <Link href={encodeUrlPath(pagePath)} className={result.pageLink}>
         {pagePath}
       </Link>
-      <div className={styles.excerpt}>
+      <div className={result.excerpt}>
         {rows.map((row) => (
-          <div key={row.lineNumber} className={styles.row}>
-            <span className={styles.lineNumber}>{row.lineNumber}</span>
-            <span className={styles.lineText}>
+          <div key={row.lineNumber} className={result.row}>
+            <span className={result.lineNumber}>{row.lineNumber}</span>
+            <span className={result.lineText}>
               {row.before}
               {row.link && <mark className={styles.mark}>{row.link}</mark>}
               {row.after}

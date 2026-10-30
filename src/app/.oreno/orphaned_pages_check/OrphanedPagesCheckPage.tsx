@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import styles from "./OrphanedPagesCheckPage.module.css";
+// この画面に固有のスタイルは無く、共通のCSSだけで足りるため、専用のCSSファイルは作っていない
+import frame from "@/components/PageFrame.module.css";
+import result from "@/components/CheckResult.module.css";
 import Header from "@/app/[...slug]/Header";
 import Sidebar from "@/app/[...slug]/Sidebar/Sidebar";
 import { useSavedToggle } from "@/app/[...slug]/useSavedToggle";
@@ -67,7 +69,7 @@ export default function OrphanedPagesCheckPage({
   }, []);
 
   return (
-    <div className={styles.page}>
+    <div className={frame.page}>
       <Header
         projectName={projectName}
         rootDirName={rootDirName}
@@ -76,30 +78,30 @@ export default function OrphanedPagesCheckPage({
         pageTitle="孤立ページチェック"
       />
 
-      <div className={styles.body}>
+      <div className={frame.body}>
         {sidebarVisible && (
           <Sidebar
             {...sidebar}
           />
         )}
-        <div className={styles.main}>
-          {error && <p className={styles.error}>{error}</p>}
-          <div className={styles.content}>
-            <h1 className={styles.title}>孤立ページチェック</h1>
+        <div className={frame.main}>
+          {error && <p className={frame.error}>{error}</p>}
+          <div className={result.content}>
+            <h1 className={result.title}>孤立ページチェック</h1>
 
             {check.status === "checking" && (
-              <div className={styles.status} role="status" aria-live="polite">
+              <div className={result.status} role="status" aria-live="polite">
                 {/* 動画のバッファリング中のように、3つの点が順に跳ねる */}
-                <div className={styles.dots} aria-hidden="true">
-                  <span className={styles.dot} />
-                  <span className={styles.dot} />
-                  <span className={styles.dot} />
+                <div className={result.dots} aria-hidden="true">
+                  <span className={result.dot} />
+                  <span className={result.dot} />
+                  <span className={result.dot} />
                 </div>
-                <div className={styles.statusText}>
-                  <span className={styles.statusTitle}>
+                <div className={result.statusText}>
+                  <span className={result.statusTitle}>
                     孤立ページチェック中です…
                   </span>
-                  <span className={styles.statusSub}>
+                  <span className={result.statusSub}>
                     /indexからリンクで辿り着けないページがないか調べています。完了すると結果が表示されます。
                   </span>
                 </div>
@@ -107,13 +109,13 @@ export default function OrphanedPagesCheckPage({
             )}
 
             {check.status === "failed" && (
-              <p className={styles.error}>チェックに失敗しました。</p>
+              <p className={frame.error}>チェックに失敗しました。</p>
             )}
 
             {check.status === "done" && check.orphanedPages.length === 0 && (
-              <div className={styles.status} role="status">
+              <div className={result.status} role="status">
                 <svg
-                  className={styles.okIcon}
+                  className={result.okIcon}
                   width="28"
                   height="28"
                   viewBox="0 0 24 24"
@@ -127,7 +129,7 @@ export default function OrphanedPagesCheckPage({
                   <circle cx="12" cy="12" r="9" />
                   <path d="M8 12.5l3 3 5-6" />
                 </svg>
-                <span className={styles.statusTitle}>
+                <span className={result.statusTitle}>
                   孤立ページは見付かりませんでした
                 </span>
               </div>
@@ -135,7 +137,7 @@ export default function OrphanedPagesCheckPage({
 
             {check.status === "done" && check.orphanedPages.length > 0 && (
               <>
-                <p className={styles.summary}>
+                <p className={result.summary}>
                   チェック完了: {check.orphanedPages.length}件の孤立ページが見付かりました
                 </p>
                 {check.orphanedPages.map((orphanedPage) => (
@@ -159,17 +161,17 @@ function OrphanedPageCard({ orphanedPage }: { orphanedPage: OrphanedPage }) {
   const { pagePath, lines } = orphanedPage;
 
   return (
-    <div className={styles.card}>
-      <Link href={encodeUrlPath(pagePath)} className={styles.pageLink}>
+    <div className={result.card}>
+      <Link href={encodeUrlPath(pagePath)} className={result.pageLink}>
         {pagePath}
       </Link>
       {/* 空のページは行が無いので、行番号の欄ごと出さない */}
       {lines.length > 0 && (
-        <div className={styles.excerpt}>
+        <div className={result.excerpt}>
           {lines.map((line, index) => (
-            <div key={index} className={styles.row}>
-              <span className={styles.lineNumber}>{index + 1}</span>
-              <span className={styles.lineText}>{line}</span>
+            <div key={index} className={result.row}>
+              <span className={result.lineNumber}>{index + 1}</span>
+              <span className={result.lineText}>{line}</span>
             </div>
           ))}
         </div>
