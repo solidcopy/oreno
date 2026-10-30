@@ -7,15 +7,13 @@ import Sidebar from "@/app/[...slug]/Sidebar/Sidebar";
 import { useSavedToggle } from "@/app/[...slug]/useSavedToggle";
 import { setShowSidebarSetting } from "@/app/actions";
 import { saveUserSettingsAction } from "./actions";
-import type { OrderSetting, SidebarSettings } from "@/lib/userSettings";
+import type { OrderSetting, SidebarData } from "@/lib/userSettings";
 
 type Props = {
   rootDirName: string;
   projectName: string;
   initialOrder: OrderSetting;
-  sidebarSettings: SidebarSettings;
-  starredPages: string[];
-  histories: string[];
+  sidebar: SidebarData;
 };
 
 // ラジオボタンの選択肢（保存する値と表示名）
@@ -32,9 +30,7 @@ export default function UserSettingsPage({
   rootDirName,
   projectName,
   initialOrder,
-  sidebarSettings,
-  starredPages,
-  histories,
+  sidebar,
 }: Props) {
   // ラジオボタンで選択中の並び順
   const [order, setOrder] = useState(initialOrder);
@@ -43,7 +39,7 @@ export default function UserSettingsPage({
   const [showNotice, setShowNotice] = useState(false);
 
   const [sidebarVisible, handleToggleSidebar] = useSavedToggle(
-    sidebarSettings.show,
+    sidebar.settings.show,
     setShowSidebarSetting,
     setError,
   );
@@ -85,9 +81,7 @@ export default function UserSettingsPage({
       <div className={styles.body}>
         {sidebarVisible && (
           <Sidebar
-            settings={sidebarSettings}
-            starredPages={starredPages}
-            histories={histories}
+            {...sidebar}
           />
         )}
         <div className={styles.main}>

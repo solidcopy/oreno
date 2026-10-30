@@ -8,7 +8,7 @@ import { FolderEntryIcon, PageEntryIcon } from "@/app/[...slug]/Sidebar/icons";
 import Sidebar from "@/app/[...slug]/Sidebar/Sidebar";
 import { useSavedToggle } from "@/app/[...slug]/useSavedToggle";
 import { setShowSidebarSetting } from "@/app/actions";
-import type { SidebarSettings } from "@/lib/userSettings";
+import type { SidebarData } from "@/lib/userSettings";
 import { encodeUrlPath } from "@/lib/encodeUrlPath";
 import type { TreeNode } from "@/lib/folder";
 
@@ -16,9 +16,7 @@ type Props = {
   rootDirName: string;
   projectName: string;
   tree: TreeNode[];
-  sidebarSettings: SidebarSettings;
-  starredPages: string[];
-  histories: string[];
+  sidebar: SidebarData;
 };
 
 // ツリーの1階層分（ul）を描く
@@ -56,16 +54,14 @@ export default function AllPagesPage({
   rootDirName,
   projectName,
   tree,
-  sidebarSettings,
-  starredPages,
-  histories,
+  sidebar,
 }: Props) {
   // サイドバーのオンオフを保存できなかったときのエラーメッセージ
   const [error, setError] = useState<string | null>(null);
 
   // サイドバーを表示するかどうかと、それを切り替える関数（全ページ共通の設定として保存する）
   const [sidebarVisible, handleToggleSidebar] = useSavedToggle(
-    sidebarSettings.show,
+    sidebar.settings.show,
     setShowSidebarSetting,
     setError,
   );
@@ -83,9 +79,7 @@ export default function AllPagesPage({
       <div className={styles.body}>
         {sidebarVisible && (
           <Sidebar
-            settings={sidebarSettings}
-            starredPages={starredPages}
-            histories={histories}
+            {...sidebar}
           />
         )}
         <div className={styles.main}>

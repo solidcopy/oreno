@@ -17,7 +17,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import styles from "./DocumentPage.module.css";
 import type { FolderEntries } from "@/lib/folder";
-import type { Mode, SidebarSettings } from "@/lib/userSettings";
+import type { Mode, SidebarData } from "@/lib/userSettings";
 import { extractHeadings } from "@/lib/headings";
 import Sidebar from "./Sidebar/Sidebar";
 import Header, { type SaveStatus } from "./Header";
@@ -63,9 +63,7 @@ type Props = {
   // 保存済みのモード
   initialMode: Mode;
   // サイドバーの表示・開閉の保存済みの設定
-  sidebarSettings: SidebarSettings;
-  starredPages: string[];
-  histories: string[];
+  sidebar: SidebarData;
   folderEntries: FolderEntries;
 };
 
@@ -78,9 +76,7 @@ export default function DocumentPage({
   initialExists,
   initialStarred,
   initialMode,
-  sidebarSettings,
-  starredPages,
-  histories,
+  sidebar,
   folderEntries,
 }: Props) {
   const router = useRouter();
@@ -143,7 +139,7 @@ export default function DocumentPage({
   // サイドバーを表示するかどうかと、それを切り替える関数（全ページ共通の設定として保存する）
   // スターと同じく、先に画面の状態を変えてから保存し、失敗したら元に戻す
   const [sidebarVisible, handleToggleSidebar] = useSavedToggle(
-    sidebarSettings.show,
+    sidebar.settings.show,
     setShowSidebarSetting,
     setError,
   );
@@ -463,9 +459,7 @@ export default function DocumentPage({
       <div className={styles.body}>
         {sidebarVisible && (
           <Sidebar
-            settings={sidebarSettings}
-            starredPages={starredPages}
-            histories={histories}
+            {...sidebar}
             pages={{ slug, folderEntries }}
             toc={{ headings, onSelectHeading: handleSelectHeading }}
           />

@@ -7,14 +7,12 @@ import Sidebar from "@/app/[...slug]/Sidebar/Sidebar";
 import { useSavedToggle } from "@/app/[...slug]/useSavedToggle";
 import { setShowSidebarSetting } from "@/app/actions";
 import { saveProjectSettingsAction } from "./actions";
-import type { SidebarSettings } from "@/lib/userSettings";
+import type { SidebarData } from "@/lib/userSettings";
 
 type Props = {
   rootDirName: string;
   initialProjectName: string;
-  sidebarSettings: SidebarSettings;
-  starredPages: string[];
-  histories: string[];
+  sidebar: SidebarData;
 };
 
 // 保存通知を表示しておく時間
@@ -23,9 +21,7 @@ const NOTICE_DISPLAY_MS = 3000;
 export default function ProjectSettingsPage({
   rootDirName,
   initialProjectName,
-  sidebarSettings,
-  starredPages,
-  histories,
+  sidebar,
 }: Props) {
   const [projectName, setProjectName] = useState(initialProjectName);
   // ヘッダーのリンクには「保存済みの」プロジェクト名を表示したいので、
@@ -37,7 +33,7 @@ export default function ProjectSettingsPage({
 
   // サイドバーを表示するかどうかと、それを切り替える関数（全ページ共通の設定として保存する）
   const [sidebarVisible, handleToggleSidebar] = useSavedToggle(
-    sidebarSettings.show,
+    sidebar.settings.show,
     setShowSidebarSetting,
     setError,
   );
@@ -82,9 +78,7 @@ export default function ProjectSettingsPage({
       <div className={styles.body}>
         {sidebarVisible && (
           <Sidebar
-            settings={sidebarSettings}
-            starredPages={starredPages}
-            histories={histories}
+            {...sidebar}
           />
         )}
         <div className={styles.main}>

@@ -3,9 +3,7 @@ import { getRootDirName } from "@/lib/docPath";
 import { loadProjectSettings } from "@/lib/projectSettings";
 import {
   loadOrderSetting,
-  loadSidebarSettings,
-  loadStarredPages,
-  loadViewHistories,
+  loadSidebarData,
 } from "@/lib/userSettings";
 import UserSettingsPage from "./UserSettingsPage";
 
@@ -18,18 +16,14 @@ export default async function UserSettingsRoute() {
   const { projectName } = await loadProjectSettings();
   const order = await loadOrderSetting();
 
-  const sidebarSettings = await loadSidebarSettings();
-  const starredPages = await loadStarredPages();
-  const histories = await loadViewHistories();
+  const sidebar = await loadSidebarData();
 
   return (
     <UserSettingsPage
       rootDirName={getRootDirName()}
       projectName={projectName}
       initialOrder={order}
-      sidebarSettings={sidebarSettings}
-      starredPages={starredPages}
-      histories={histories}
+      sidebar={sidebar}
     />
   );
 }

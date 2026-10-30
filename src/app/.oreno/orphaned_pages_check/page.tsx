@@ -1,11 +1,7 @@
 import { connection } from "next/server";
 import { getRootDirName } from "@/lib/docPath";
 import { loadProjectSettings } from "@/lib/projectSettings";
-import {
-  loadSidebarSettings,
-  loadStarredPages,
-  loadViewHistories,
-} from "@/lib/userSettings";
+import { loadSidebarData } from "@/lib/userSettings";
 import OrphanedPagesCheckPage from "./OrphanedPagesCheckPage";
 
 // "/.oreno/orphaned_pages_check" は静的なセグメントなので、
@@ -16,17 +12,13 @@ export default async function OrphanedPagesCheckRoute() {
 
   const { projectName } = await loadProjectSettings();
 
-  const sidebarSettings = await loadSidebarSettings();
-  const starredPages = await loadStarredPages();
-  const histories = await loadViewHistories();
+  const sidebar = await loadSidebarData();
 
   return (
     <OrphanedPagesCheckPage
       rootDirName={getRootDirName()}
       projectName={projectName}
-      sidebarSettings={sidebarSettings}
-      starredPages={starredPages}
-      histories={histories}
+      sidebar={sidebar}
     />
   );
 }

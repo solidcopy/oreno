@@ -1,11 +1,7 @@
 import { connection } from "next/server";
 import { getRootDirName } from "@/lib/docPath";
 import { loadProjectSettings } from "@/lib/projectSettings";
-import {
-  loadSidebarSettings,
-  loadStarredPages,
-  loadViewHistories,
-} from "@/lib/userSettings";
+import { loadSidebarData } from "@/lib/userSettings";
 import ProjectSettingsPage from "./ProjectSettingsPage";
 
 // "/.oreno/project_settings" は静的なセグメントなので、
@@ -17,17 +13,13 @@ export default async function ProjectSettingsRoute() {
 
   const settings = await loadProjectSettings();
 
-  const sidebarSettings = await loadSidebarSettings();
-  const starredPages = await loadStarredPages();
-  const histories = await loadViewHistories();
+  const sidebar = await loadSidebarData();
 
   return (
     <ProjectSettingsPage
       rootDirName={getRootDirName()}
       initialProjectName={settings.projectName}
-      sidebarSettings={sidebarSettings}
-      starredPages={starredPages}
-      histories={histories}
+      sidebar={sidebar}
     />
   );
 }

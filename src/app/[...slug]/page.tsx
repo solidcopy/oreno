@@ -16,9 +16,7 @@ import { markdownToHtml } from "@/lib/markdown";
 import { loadProjectSettings } from "@/lib/projectSettings";
 import {
   isPageStarred,
-  loadSidebarSettings,
-  loadStarredPages,
-  loadViewHistories,
+  loadSidebarData,
   loadOrderSetting,
   loadMode,
 } from "@/lib/userSettings";
@@ -71,9 +69,7 @@ export default async function DocumentRoute(props: PageProps<"/[...slug]">) {
   const { projectName } = await loadProjectSettings();
   const starred = await isPageStarred(slugToUrlPath(slug));
   const mode = await loadMode();
-  const sidebarSettings = await loadSidebarSettings();
-  const starredPages = await loadStarredPages();
-  const histories = await loadViewHistories();
+  const sidebar = await loadSidebarData();
   // サイドバーの「ページ」に最初に表示する、表示中のページがあるフォルダの中身
   const folderEntries = await listFolder(slug.slice(0, -1), await loadOrderSetting());
 
@@ -90,9 +86,7 @@ export default async function DocumentRoute(props: PageProps<"/[...slug]">) {
       initialExists={exists}
       initialStarred={starred}
       initialMode={mode}
-      sidebarSettings={sidebarSettings}
-      starredPages={starredPages}
-      histories={histories}
+      sidebar={sidebar}
       folderEntries={folderEntries}
     />
   );

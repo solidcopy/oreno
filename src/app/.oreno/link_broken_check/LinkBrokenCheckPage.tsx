@@ -7,16 +7,14 @@ import Header from "@/app/[...slug]/Header";
 import Sidebar from "@/app/[...slug]/Sidebar/Sidebar";
 import { useSavedToggle } from "@/app/[...slug]/useSavedToggle";
 import { setShowSidebarSetting } from "@/app/actions";
-import type { SidebarSettings } from "@/lib/userSettings";
+import type { SidebarData } from "@/lib/userSettings";
 import { encodeUrlPath } from "@/lib/encodeUrlPath";
 import type { BrokenLink } from "@/lib/linkBrokenCheck";
 
 type Props = {
   rootDirName: string;
   projectName: string;
-  sidebarSettings: SidebarSettings;
-  starredPages: string[];
-  histories: string[];
+  sidebar: SidebarData;
 };
 
 // チェックの状態
@@ -29,16 +27,14 @@ type CheckState =
 export default function LinkBrokenCheckPage({
   rootDirName,
   projectName,
-  sidebarSettings,
-  starredPages,
-  histories,
+  sidebar,
 }: Props) {
   // サイドバーのオンオフを保存できなかったときのエラーメッセージ
   const [error, setError] = useState<string | null>(null);
   const [check, setCheck] = useState<CheckState>({ status: "checking" });
 
   const [sidebarVisible, handleToggleSidebar] = useSavedToggle(
-    sidebarSettings.show,
+    sidebar.settings.show,
     setShowSidebarSetting,
     setError,
   );
@@ -83,9 +79,7 @@ export default function LinkBrokenCheckPage({
       <div className={styles.body}>
         {sidebarVisible && (
           <Sidebar
-            settings={sidebarSettings}
-            starredPages={starredPages}
-            histories={histories}
+            {...sidebar}
           />
         )}
         <div className={styles.main}>

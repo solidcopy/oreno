@@ -192,6 +192,20 @@ export type SidebarSettings = {
 };
 
 /**
+ * サイドバーの表示に必要な、ファイルから読み込む値をまとめたもの
+ * 文書以外の画面も含め、サイドバーを出す画面はこれを props で受け取り、
+ * そのまま Sidebar に渡す
+ */
+export type SidebarData = {
+  // 各一覧を開いているかどうかなどの保存済みの設定
+  settings: SidebarSettings;
+  // スター付きページのURLパス
+  starredPages: string[];
+  // 履歴のURLパス（新しい順）
+  histories: string[];
+};
+
+/**
  * 保存済みのサイドバーの設定を返す
  * 未設定の項目は、どちらも「表示する・開いている」状態にする
  */
@@ -358,4 +372,15 @@ export function setMode(mode: Mode): Promise<void> {
     data["mode"] = mode;
     return true;
   });
+}
+
+/**
+ * サイドバーの表示に必要な値をまとめて読み込んで返す
+ */
+export async function loadSidebarData(): Promise<SidebarData> {
+  return {
+    settings: await loadSidebarSettings(),
+    starredPages: await loadStarredPages(),
+    histories: await loadViewHistories(),
+  };
 }

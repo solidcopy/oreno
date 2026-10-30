@@ -4,9 +4,7 @@ import { listAllPages } from "@/lib/folder";
 import { loadProjectSettings } from "@/lib/projectSettings";
 import {
   loadOrderSetting,
-  loadSidebarSettings,
-  loadStarredPages,
-  loadViewHistories,
+  loadSidebarData,
 } from "@/lib/userSettings";
 import AllPagesPage from "./AllPagesPage";
 
@@ -19,18 +17,14 @@ export default async function AllPagesRoute() {
   const { projectName } = await loadProjectSettings();
   const tree = await listAllPages(await loadOrderSetting());
 
-  const sidebarSettings = await loadSidebarSettings();
-  const starredPages = await loadStarredPages();
-  const histories = await loadViewHistories();
+  const sidebar = await loadSidebarData();
 
   return (
     <AllPagesPage
       rootDirName={getRootDirName()}
       projectName={projectName}
       tree={tree}
-      sidebarSettings={sidebarSettings}
-      starredPages={starredPages}
-      histories={histories}
+      sidebar={sidebar}
     />
   );
 }
