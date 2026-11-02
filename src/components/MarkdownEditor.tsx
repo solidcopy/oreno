@@ -8,8 +8,10 @@ import {
   blockquoteKeymap,
   bulletListKeymap,
   codeBlockKeymap,
+  clearTextInCurrentBlockCommand,
   hardbreakFilterNodes,
   headingKeymap,
+  insertImageCommand,
   isMarkSelectedCommand,
   linkSchema,
   orderedListKeymap,
@@ -24,6 +26,7 @@ import {
   toggleSubscriptCommand,
   toggleSuperscriptCommand,
 } from "./scriptPlugin";
+import ImageDialog from "./ImageDialog";
 import LinkDialog from "./LinkDialog";
 import {
   applyLink,
@@ -87,6 +90,20 @@ const subscriptIcon = `
   >
     <path
       d="M22 18h-2v1h3v1h-4v-3h3v-1h-3v-1h4v3zM5.88 18h2.66l3.4-5.42h.12L15.47 18h2.65l-4.66-7.27L17.81 4h-2.68l-3.07 4.99h-.12L8.85 4H6.19l4.32 6.73L5.88 18z"
+    />
+  </svg>
+`;
+
+// スラッシュメニューの画像項目のアイコン
+const imageIcon = `
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+  >
+    <path
+      d="M19 5v14H5V5h14m0-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-4.86 8.86-3 3.87L9 13.14 6 17h12l-3.86-5.14z"
     />
   </svg>
 `;
@@ -185,6 +202,9 @@ export default function MarkdownEditor({
   // Crepe の外（React）で描画するモーダルなので、state で管理する
   const [linkTarget, setLinkTarget] = useState<LinkTarget | null>(null);
 
+  // 画像挿入モーダルを開いているか
+  const [imageDialogOpen, setImageDialogOpen] = useState(false);
+
   // onChange は最新の関数を ref に入れておき、Crepe には常にこの ref 経由で呼んでもらう
   // useEffect の中で onChange を直接渡すと、エディタを作った時点の関数が
   // 使われ続けてしまう（エディタは最初の1回しか作らないため）
@@ -224,8 +244,33 @@ export default function MarkdownEditor({
         // リンク上にカーソルを置くと出る標準の小窓（編集・削除ボタン付き）を無効にする
         // リンクの設定はリンク設定モーダルで行う
         [CrepeFeature.LinkTooltip]: false,
+        // 標準の画像機能（ImageBlock）を無効にする
+        // 有効だと画像がブロック画像として読み込まれ、保存時に代替テキストが
+        // サイズ倍率（"1.00" など）に置き換えられてしまう
+        // 無効にすると画像は標準の image ノードになり、![代替テキスト](パス "タイトル")
+        // がそのまま保存される。リサイズとキャプションの機能もなくなる
+        // スラッシュメニューの標準の Image 項目も消えるので、下の buildMenu で自作の項目を足す
+        [CrepeFeature.ImageBlock]: false,
       },
       featureConfigs: {
+        // スラッシュメニュー（行頭の＋アイコンで開くメニュー）の先頭に
+        // 画像挿入モーダルを開く項目を足す
+        [CrepeFeature.BlockEdit]: {
+          buildMenu: (builder) => {
+            builder.getGroup("advanced").group.items.unshift({
+              key: "image",
+              label: "Image",
+              icon: imageIcon,
+              onRun: (ctx) => {
+                // メニューを開くために入力した "/" などを消してから、モーダルを開く
+                // モーダルを開いている間もカーソル位置は保たれるので、
+                // 挿入はモーダルの確定時にその位置へ行う
+                ctx.get(commandsCtx).call(clearTextInCurrentBlockCommand.key);
+                setImageDialogOpen(true);
+              },
+            });
+          },
+        },
         // 既定の文字修飾（太字・斜体・取り消し線）の並びの最後に
         // 下線・上付き・下付きのボタンを足す
         [CrepeFeature.Toolbar]: {
@@ -444,6 +489,11 @@ export default function MarkdownEditor({
     crepeRef.current?.editor.action((ctx) => ctx.get(editorViewCtx).focus());
   };
 
+  const closeImageDialog = () => {
+    setImageDialogOpen(false);
+    crepeRef.current?.editor.action((ctx) => ctx.get(editorViewCtx).focus());
+  };
+
   // flex:1 で親(.editorArea)いっぱいに広がる
   // globals.css側で
   // Milkdownが実行時に生成する .milkdown / .ProseMirror にも同じ
@@ -473,6 +523,19 @@ export default function MarkdownEditor({
               );
             });
             setLinkTarget(null);
+          }}
+        />
+      )}
+      {imageDialogOpen && (
+        <ImageDialog
+          onCancel={closeImageDialog}
+          onSubmit={(src, title, alt) => {
+            // 現在のカーソル位置に画像を挿入する
+            // 段落の途中にも挿入でき、その場合は文の中の画像（インライン画像）になる
+            crepeRef.current?.editor.action((ctx) => {
+              ctx.get(commandsCtx).call(insertImageCommand.key, { src, alt, title });
+            });
+            closeImageDialog();
           }}
         />
       )}

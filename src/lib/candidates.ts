@@ -3,7 +3,7 @@
  * サーバーから受け取ったファイルの一覧を、入力中のリンク先で絞り込んで並べ替える
  */
 
-export type LinkCandidate = {
+export type Candidate = {
   /** 文書ルートからの相対パス（拡張子付き。例: "docs/guide.md"） */
   path: string;
   /** ファイル名（拡張子付き。例: "guide.md"） */
@@ -30,14 +30,14 @@ type Rank = 0 | 1 | 2;
  * リンク先は "/" から始まる絶対形式で入力されることが多いので、
  * 相対パスとの比較（条件1、2）では先頭の "/" を1つ取り除いた入力を使う
  */
-export function searchLinkCandidates(
+export function searchCandidates(
   files: string[],
   input: string,
-): LinkCandidate[] {
+): Candidate[] {
   const query = input.toLowerCase();
   const pathQuery = query.startsWith("/") ? query.slice(1) : query;
 
-  const matched: { candidate: LinkCandidate; rank: Rank }[] = [];
+  const matched: { candidate: Candidate; rank: Rank }[] = [];
   for (const file of files) {
     const lower = file.toLowerCase();
     const slash = file.lastIndexOf("/");

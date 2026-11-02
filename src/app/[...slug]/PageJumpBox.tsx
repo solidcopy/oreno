@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getLinkCandidates } from "../actions";
-import { searchLinkCandidates, type LinkCandidate } from "@/lib/linkCandidates";
+import { getCandidates } from "../actions";
+import { searchCandidates, type Candidate } from "@/lib/candidates";
 import { encodeUrlPath } from "@/lib/encodeUrlPath";
 import styles from "./PageJumpBox.module.css";
 
@@ -12,7 +12,7 @@ const RETRY_MS = 1000;
  * ヘッダー中央に置く、ページ名を入力してそのページへ移動するための入力欄と移動ボタン
  *
  * 入力中は、文書にあるページやファイルを候補としてドロップダウンに表示する
- * 候補の絞り込みと並び順は、リンク設定モーダルのリンク先と同じ（searchLinkCandidates）
+ * 候補の絞り込みと並び順は、リンク設定モーダルのリンク先と同じ（searchCandidates）
  * 候補を選ぶ（クリック、キーボードでの選択、移動ボタン、Enter）と、そのページへ移動する
  */
 export default function PageJumpBox() {
@@ -57,7 +57,7 @@ export default function PageJumpBox() {
     const token = ++loadToken.current;
     if (retryTimer.current) clearTimeout(retryTimer.current);
 
-    getLinkCandidates(refresh)
+    getCandidates(refresh)
       .then((result) => {
         if (token !== loadToken.current) return;
         if (result.ready) {
@@ -75,7 +75,7 @@ export default function PageJumpBox() {
   }
 
   const candidates = useMemo(
-    () => searchLinkCandidates(files, query),
+    () => searchCandidates(files, query),
     [files, query],
   );
 
@@ -101,7 +101,7 @@ export default function PageJumpBox() {
     setDismissed(false);
   }
 
-  function moveTo(candidate: LinkCandidate) {
+  function moveTo(candidate: Candidate) {
     setInput("");
     setQuery("");
     setActiveIndex(-1);

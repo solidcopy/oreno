@@ -54,7 +54,7 @@ description: Orenoがサーバーのメモリに保持している「文書ル�
 - `getFileIndex()` が、`ready`(最初のスキャンが完了したか)、`scanning`(スキャン中か)、`files`(一覧)を返す
 - `scanning` が true のとき、`files` はスキャン前の一覧
 - `ready` が false のとき、`files` は空。利用する側は、一覧がまだないことを利用者に示して、しばらくして取り直す
-- クライアントには、Server Action `getLinkCandidates(refresh)` で渡す。`refresh` が true のときは、更新(スキャン)の依頼も同時に行う。結果の受け取りは、サーバーからの通知(WebSocketやSSE)ではなく、クライアントのポーリング(1秒ごとの再取得)で行う。通知が必要なのはモーダルを開いている短い間だけで、実装の規模に見合わないため
+- クライアントには、Server Action `getCandidates(refresh)` で渡す。`refresh` が true のときは、更新(スキャン)の依頼も同時に行う。結果の受け取りは、サーバーからの通知(WebSocketやSSE)ではなく、クライアントのポーリング(1秒ごとの再取得)で行う。通知が必要なのはモーダルを開いている短い間だけで、実装の規模に見合わないため
 - リンク設定モーダルでの使い方(候補の表示条件や並び順)は、`oreno-editor-ui` のSKILLの「リンクの設定」を参照
 
 ## 他の機能との関係

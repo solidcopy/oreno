@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { getLinkCandidates, linkTargetExists } from "@/app/actions";
-import { searchLinkCandidates, type LinkCandidate } from "@/lib/linkCandidates";
+import { getCandidates, linkTargetExists } from "@/app/actions";
+import { searchCandidates, type Candidate } from "@/lib/candidates";
 import styles from "./LinkDialog.module.css";
 
 type Props = {
@@ -92,7 +92,7 @@ export default function LinkDialog({
 
     const load = async (refresh: boolean) => {
       try {
-        const result = await getLinkCandidates(refresh);
+        const result = await getCandidates(refresh);
         if (cancelled) return;
         if (result.ready) {
           setFiles(result.files);
@@ -132,7 +132,7 @@ export default function LinkDialog({
   }, [query]);
 
   const candidates = useMemo(
-    () => searchLinkCandidates(files, query),
+    () => searchCandidates(files, query),
     [files, query],
   );
 
@@ -159,7 +159,7 @@ export default function LinkDialog({
     setDismissed(false);
   };
 
-  const selectCandidate = (candidate: LinkCandidate) => {
+  const selectCandidate = (candidate: Candidate) => {
     setUrl(candidate.link);
     setQuery(candidate.link);
     setActiveIndex(-1);

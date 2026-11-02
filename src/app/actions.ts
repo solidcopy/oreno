@@ -377,7 +377,7 @@ export async function loadFolderEntries(
  * scanning が true のときは、files は更新前の一覧
  * どちらも、呼び出し側でしばらくして再取得すると、更新後の一覧を受け取れる
  */
-export async function getLinkCandidates(refresh: boolean): Promise<{
+export async function getCandidates(refresh: boolean): Promise<{
   ready: boolean;
   scanning: boolean;
   files: string[];
