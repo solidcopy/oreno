@@ -407,19 +407,27 @@ export default function MarkdownEditor({
     containerRef.current.addEventListener("compositionend", handleCompositionEnd);
 
     // Mod+K でリンク設定モーダルを開き、Mod+Alt+K でリンクを解除する
+    // Mod+P で画像挿入モーダルを開く（ブラウザの印刷より優先する）
     // 変換中のキー入力や、Shift が付いた組み合わせは対象外にする
     // Mac では Option を押しながらだと e.key が別の文字（"˚" など）になるため、
     // 押したキーそのものを表す e.code で判定する
     const handleKeyDown = (e: KeyboardEvent) => {
       const mod = isMac ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey;
-      if (!mod || e.shiftKey || e.isComposing || e.code !== "KeyK") return;
-      e.preventDefault();
-      if (e.altKey) {
-        crepe.editor.action((ctx) =>
-          removeLink(ctx.get(editorViewCtx), linkSchema.type(ctx)),
-        );
-      } else {
-        crepe.editor.action(openLinkDialog);
+      if (!mod || e.shiftKey || e.isComposing) return;
+      if (e.code === "KeyP" && !e.altKey) {
+        e.preventDefault();
+        setImageDialogOpen(true);
+        return;
+      }
+      if (e.code === "KeyK") {
+        e.preventDefault();
+        if (e.altKey) {
+          crepe.editor.action((ctx) =>
+            removeLink(ctx.get(editorViewCtx), linkSchema.type(ctx)),
+          );
+        } else {
+          crepe.editor.action(openLinkDialog);
+        }
       }
     };
     containerRef.current.addEventListener("keydown", handleKeyDown);
