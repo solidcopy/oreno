@@ -11,11 +11,14 @@ import {
   clearTextInCurrentBlockCommand,
   hardbreakFilterNodes,
   headingKeymap,
+  imageSchema,
   insertImageCommand,
   isMarkSelectedCommand,
   linkSchema,
   orderedListKeymap,
+  updateImageCommand,
 } from "@milkdown/kit/preset/commonmark";
+import { NodeSelection } from "@milkdown/kit/prose/state";
 import type { Ctx, SliceType } from "@milkdown/kit/ctx";
 import type { KeymapConfig } from "@milkdown/kit/utils";
 import { strikethroughKeymap } from "@milkdown/kit/preset/gfm";
@@ -26,7 +29,7 @@ import {
   toggleSubscriptCommand,
   toggleSuperscriptCommand,
 } from "./scriptPlugin";
-import ImageDialog from "./ImageDialog";
+import ImageDialog, { type ImageValues } from "./ImageDialog";
 import LinkDialog from "./LinkDialog";
 import {
   applyLink,
@@ -202,8 +205,12 @@ export default function MarkdownEditor({
   // Crepe の外（React）で描画するモーダルなので、state で管理する
   const [linkTarget, setLinkTarget] = useState<LinkTarget | null>(null);
 
-  // 画像挿入モーダルを開いているか
-  const [imageDialogOpen, setImageDialogOpen] = useState(false);
+  // 画像挿入モーダルの表示状態
+  // null のときは閉じている。開いているときの initial は、
+  // 選択中の画像を変更するときだけ持つ入力欄の初期値（挿入のときは null）
+  const [imageDialog, setImageDialog] = useState<{
+    initial: ImageValues | null;
+  } | null>(null);
 
   // onChange は最新の関数を ref に入れておき、Crepe には常にこの ref 経由で呼んでもらう
   // useEffect の中で onChange を直接渡すと、エディタを作った時点の関数が
@@ -266,7 +273,7 @@ export default function MarkdownEditor({
                 // モーダルを開いている間もカーソル位置は保たれるので、
                 // 挿入はモーダルの確定時にその位置へ行う
                 ctx.get(commandsCtx).call(clearTextInCurrentBlockCommand.key);
-                setImageDialogOpen(true);
+                setImageDialog({ initial: null });
               },
             });
           },
@@ -416,7 +423,22 @@ export default function MarkdownEditor({
       if (!mod || e.shiftKey || e.isComposing) return;
       if (e.code === "KeyP" && !e.altKey) {
         e.preventDefault();
-        setImageDialogOpen(true);
+        // 画像を選択しているときは、その画像を変更するモーダルを開く
+        crepe.editor.action((ctx) => {
+          const { selection } = ctx.get(editorViewCtx).state;
+          const selected =
+            selection instanceof NodeSelection &&
+            selection.node.type === imageSchema.type(ctx);
+          setImageDialog({
+            initial: selected
+              ? {
+                  src: selection.node.attrs.src as string,
+                  title: selection.node.attrs.title as string,
+                  alt: selection.node.attrs.alt as string,
+                }
+              : null,
+          });
+        });
         return;
       }
       if (e.code === "KeyK") {
@@ -498,7 +520,7 @@ export default function MarkdownEditor({
   };
 
   const closeImageDialog = () => {
-    setImageDialogOpen(false);
+    setImageDialog(null);
     crepeRef.current?.editor.action((ctx) => ctx.get(editorViewCtx).focus());
   };
 
@@ -534,14 +556,20 @@ export default function MarkdownEditor({
           }}
         />
       )}
-      {imageDialogOpen && (
+      {imageDialog && (
         <ImageDialog
+          initial={imageDialog.initial ?? undefined}
           onCancel={closeImageDialog}
           onSubmit={(src, title, alt) => {
+            // 画像を変更するときは選択中の画像を置き換え、そうでなければ
             // 現在のカーソル位置に画像を挿入する
             // 段落の途中にも挿入でき、その場合は文の中の画像（インライン画像）になる
+            // モーダルを開いている間も画像の選択は保たれている
             crepeRef.current?.editor.action((ctx) => {
-              ctx.get(commandsCtx).call(insertImageCommand.key, { src, alt, title });
+              const command = imageDialog.initial
+                ? updateImageCommand
+                : insertImageCommand;
+              ctx.get(commandsCtx).call(command.key, { src, alt, title });
             });
             closeImageDialog();
           }}

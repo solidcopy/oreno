@@ -5,8 +5,20 @@ import { searchCandidates, type Candidate } from "@/lib/candidates";
 // リンク設定モーダルと同じ見た目なので、CSSを共用する
 import styles from "./LinkDialog.module.css";
 
+/** モーダルの入力欄の値 */
+export type ImageValues = {
+  src: string;
+  title: string;
+  alt: string;
+};
+
 type Props = {
-  /** 「画像を挿入」を押す（またはEnterを押す）と、入力された値を渡して呼ばれる */
+  /**
+   * 既存の画像を変更するときの、入力欄の初期値
+   * 指定したときは「画像を変更」になり、省略したときは空欄から始まる「画像を挿入」になる
+   */
+  initial?: ImageValues;
+  /** 「画像を挿入」「画像を変更」を押す（またはEnterを押す）と、入力された値を渡して呼ばれる */
   onSubmit: (src: string, title: string, alt: string) => void;
   /** 「キャンセル」、モーダルの外のクリック、Escキーで呼ばれる */
   onCancel: () => void;
@@ -57,18 +69,19 @@ function toSlug(input: string): string[] | null {
  *
  * 作りはリンク設定モーダル（LinkDialog）と同じ
  * 入力欄は <form> に入れ、「画像を挿入」を submit ボタンにしている
- * 表示中だけマウントされる前提で、開くたびに入力値は空から始まる
+ * 表示中だけマウントされる前提で、入力値は初期値（省略時は空）から始まる state として持つ
+ * 開くたびに作り直されるので、前回の入力が残ることはない
  *
  * 画像パスを入力している間は、文書にある画像ファイルを候補としてドロップダウンに表示する
  */
-export default function ImageDialog({ onSubmit, onCancel }: Props) {
-  const [src, setSrc] = useState("");
-  const [title, setTitle] = useState("");
-  const [alt, setAlt] = useState("");
+export default function ImageDialog({ initial, onSubmit, onCancel }: Props) {
+  const [src, setSrc] = useState(initial?.src ?? "");
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [alt, setAlt] = useState(initial?.alt ?? "");
 
   // 候補の絞り込みに使う、確定済みの画像パス
   // 日本語入力の変換中（未確定）の文字列は含めないため、src とは別に持つ
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initial?.src ?? "");
 
   // サーバーから取得したファイルの一覧と、取得が終わったかどうか
   const [files, setFiles] = useState<string[]>([]);
@@ -77,7 +90,9 @@ export default function ImageDialog({ onSubmit, onCancel }: Props) {
   // 入力欄またはドロップダウンにフォーカスがあるか
   const [focused, setFocused] = useState(false);
   // Escキーや選択でドロップダウンを閉じたか（次に画像パスを入力するまで表示しない）
-  const [dismissed, setDismissed] = useState(false);
+  // 画像を変更するときは、初期値の画像パスに対する存在の確認が終わる前に
+  // ドロップダウンが一瞬出ないよう、最初から閉じておく
+  const [dismissed, setDismissed] = useState(initial !== undefined);
   // キーボードで選択している候補の位置（選択していないときは -1）
   const [activeIndex, setActiveIndex] = useState(-1);
   // 実際にファイルが存在することを確認できた query
@@ -200,7 +215,7 @@ export default function ImageDialog({ onSubmit, onCancel }: Props) {
         }}
       >
         <h2 id="image-dialog-title" className={styles.title}>
-          画像を挿入
+          {initial ? "画像を変更" : "画像を挿入"}
         </h2>
         <div className={styles.field}>
           <label htmlFor="image-dialog-src" className={styles.label}>
@@ -351,7 +366,7 @@ export default function ImageDialog({ onSubmit, onCancel }: Props) {
             キャンセル
           </button>
           <button type="submit" className={styles.submit} disabled={!canSubmit}>
-            画像を挿入
+            {initial ? "画像を変更" : "画像を挿入"}
           </button>
         </div>
       </form>
