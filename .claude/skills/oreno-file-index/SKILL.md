@@ -35,10 +35,11 @@ description: Orenoがサーバーのメモリに保持している「文書ル�
 
 ページの保存(作成を含む)・移動・削除は、Server Action(`src/app/actions.ts`)から、次の関数で一覧にすぐ反映する。
 
-- `registerFile(slug)`: 保存、移動先
-- `unregisterFile(slug)`: 削除、移動元
+- `registerMarkdownFile(slug)`: 保存、移動先
+- `unregisterMarkdownFile(slug)`: 削除、移動元
+- `registerAttachmentFile(slug)`: エディタにドロップした画像の保存(Route Handler `src/app/.oreno/upload_images/route.ts` から呼ぶ。slug は拡張子付きのファイルのパス)
 
-- 対象はページ(`.md`)だけ。画像など他のファイルは、アプリから作成・削除する機能がないので、スキャンだけで更新される
+- 上の2つの対象はページ(`.md`)だけ。画像は、ドロップによる保存だけを `registerAttachmentFile` で反映する。画像の削除など、他の操作で作成・削除されたファイルは、スキャンだけで更新される
 - スキャン中に呼ばれた変更は、すぐには反映せず、保留して順番に覚えておく。スキャンの完了時に、スキャン結果に対して順に適用する。そうしないと、スキャンが変更の前に読んだ古い結果で、変更が上書きされて消えてしまう
 - 保存はページの更新のたびに呼ばれるので、すでに一覧にあるときは何も変わらない(登録は重複しない)
 

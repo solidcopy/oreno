@@ -184,7 +184,8 @@ export default function DocumentPage({
   // 保存の途中で使う値は、変わっても画面を描き直す必要がないので
   // useState ではなく useRef に入れている（ref は書き換えても再レンダーされない）
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
-  const [showSaveFailedNotice, setShowSaveFailedNotice] = useState(false);
+  // 画面上部に表示している通知のメッセージ（表示していないときは null）
+  const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
 
   // エディタの最新の内容
   const latestMarkdownRef = useRef(initialMarkdown);
@@ -246,14 +247,18 @@ export default function DocumentPage({
     }
   }
 
-  function showSaveFailedMessage() {
+  function showNotice(message: string) {
     if (noticeTimerRef.current) {
       clearTimeout(noticeTimerRef.current);
     }
-    setShowSaveFailedNotice(true);
+    setNoticeMessage(message);
     noticeTimerRef.current = setTimeout(() => {
-      setShowSaveFailedNotice(false);
+      setNoticeMessage(null);
     }, NOTICE_DISPLAY_MS);
+  }
+
+  function showSaveFailedMessage() {
+    showNotice("文書の保存に失敗しました。");
   }
 
   // エディタの内容が変わるたびに呼ばれる
@@ -465,9 +470,9 @@ export default function DocumentPage({
           />
         )}
         <div className={styles.main} ref={mainRef}>
-          {showSaveFailedNotice && (
+          {noticeMessage && (
             <div className={styles.noticeAnchor}>
-              <div className={styles.errorNotice}>文書の保存に失敗しました。</div>
+              <div className={styles.errorNotice}>{noticeMessage}</div>
             </div>
           )}
           {error && <p className={styles.error}>{error}</p>}
@@ -497,9 +502,11 @@ export default function DocumentPage({
               <MarkdownEditor
                 key={editorInstanceKey}
                 ref={editorRef}
+                slug={slug}
                 defaultValue={markdown}
                 onChange={handleEditorChange}
                 onUnmount={handleEditorUnmount}
+                onImageSaveFailed={() => showNotice("画像の保存に失敗しました。")}
               />
             </div>
           )}

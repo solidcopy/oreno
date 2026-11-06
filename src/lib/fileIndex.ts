@@ -10,7 +10,7 @@ import { getRootDir, resolveDocPath, resolveFilePath } from "@/lib/docPath";
  * Dockerのバインドマウントではファイルの変更を監視できないことが多いため、監視は使わない
  * 利用する側は、その時点で保持している一覧をそのまま使う（利用のたびに再取得はしない）
  *
- * アプリの操作でページを作成・移動・削除したときは、registerFile / unregisterFile で
+ * アプリの操作でページを作成・移動・削除したときは、registerMarkdownFile / unregisterMarkdownFile で
  * 一覧にすぐ反映する
  * スキャン中に呼ばれた場合は、古いスキャン結果で上書きされないよう、
  * スキャンの完了を待ってから反映する
@@ -103,14 +103,22 @@ export function getFileIndex(): {
  * ページの作成・保存を一覧に反映する
  * slug は resolveDocPath で検証済みのものを渡すこと
  */
-export function registerFile(slug: string[]): void {
+export function registerMarkdownFile(slug: string[]): void {
   applyChange({ kind: "add", file: slugToFile(slug) });
+}
+
+/**
+ * ページ以外のファイル（アップロードした画像など）の保存を一覧に反映する
+ * slug は resolveFilePath で検証済みのものを渡すこと
+ */
+export function registerAttachmentFile(slug: string[]): void {
+  applyChange({ kind: "add", file: slug.join("/") });
 }
 
 /**
  * ページの削除・移動元を一覧に反映する
  */
-export function unregisterFile(slug: string[]): void {
+export function unregisterMarkdownFile(slug: string[]): void {
   applyChange({ kind: "remove", file: slugToFile(slug) });
 }
 

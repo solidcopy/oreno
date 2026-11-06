@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { getCandidates, linkTargetExists } from "@/app/actions";
+import { isImageFile } from "@/lib/imageFile";
 import { searchCandidates, type Candidate } from "@/lib/candidates";
 // リンク設定モーダルと同じ見た目なので、CSSを共用する
 import styles from "./LinkDialog.module.css";
@@ -26,24 +27,6 @@ type Props = {
 
 // ファイル一覧の更新が終わっていないときに、取得し直すまでの待ち時間
 const RETRY_MS = 1000;
-
-// 候補にする画像ファイルの拡張子
-const IMAGE_EXTENSIONS = [
-  ".png",
-  ".jpg",
-  ".jpeg",
-  ".gif",
-  ".webp",
-  ".svg",
-  ".avif",
-  ".bmp",
-  ".ico",
-];
-
-function isImageFile(path: string): boolean {
-  const lower = path.toLowerCase();
-  return IMAGE_EXTENSIONS.some((extension) => lower.endsWith(extension));
-}
 
 /**
  * 画像パスの入力を、サーバーに存在を問い合わせるための slug に変換する

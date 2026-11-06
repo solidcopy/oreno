@@ -29,6 +29,7 @@ import {
   toggleSubscriptCommand,
   toggleSuperscriptCommand,
 } from "./scriptPlugin";
+import { isImageFile } from "@/lib/imageFile";
 import ImageDialog, { type ImageValues } from "./ImageDialog";
 import LinkDialog from "./LinkDialog";
 import {
@@ -148,6 +149,8 @@ function disableShortcuts<K extends string>(
 }
 
 type Props = {
+  /** 編集中のページの slug。ドロップされた画像を、ページと同じフォルダに保存するために使う */
+  slug: string[];
   /** 編集を開始する時点でのマークダウン文字列 */
   defaultValue: string;
   /**
@@ -160,6 +163,8 @@ type Props = {
    * onChange は編集から少し遅れて呼ばれるため、直前の編集を取りこぼさないために使う
    */
   onUnmount?: (markdown: string) => void;
+  /** ドロップされた画像の保存に失敗したときに呼ばれる */
+  onImageSaveFailed?: () => void;
 };
 
 /** 親コンポーネントが ref 経由で呼び出せる操作 */
@@ -191,9 +196,11 @@ export type MarkdownEditorHandle = {
  */
 export default function MarkdownEditor({
   ref,
+  slug,
   defaultValue,
   onChange,
   onUnmount,
+  onImageSaveFailed,
 }: Props & { ref?: React.Ref<MarkdownEditorHandle> }) {
   // 実際に Crepe を描画する対象の <div> を指すための ref
   const containerRef = useRef<HTMLDivElement>(null);
@@ -217,9 +224,14 @@ export default function MarkdownEditor({
   // 使われ続けてしまう（エディタは最初の1回しか作らないため）
   const onChangeRef = useRef(onChange);
   const onUnmountRef = useRef(onUnmount);
+  const onImageSaveFailedRef = useRef(onImageSaveFailed);
+  // slug も同じ理由で ref 経由にする（画像のドロップ時に最新のページを参照するため）
+  const slugRef = useRef(slug);
   useEffect(() => {
     onChangeRef.current = onChange;
     onUnmountRef.current = onUnmount;
+    onImageSaveFailedRef.current = onImageSaveFailed;
+    slugRef.current = slug;
   });
 
   // 親コンポーネント（DocumentPage）が ref.current.getMarkdown() を
@@ -454,6 +466,86 @@ export default function MarkdownEditor({
     };
     containerRef.current.addEventListener("keydown", handleKeyDown);
 
+    // ファイラーなどからドロップされた画像ファイルを、ページと同じフォルダに保存して、
+    // ドロップした位置に画像として挿入する
+    // ドロップできるのは単一の画像ファイルだけ
+    // ProseMirror より先に処理するため、キャプチャ段階で受け取る
+    const hasFiles = (e: DragEvent) => e.dataTransfer?.types.includes("Files");
+    const handleDragOver = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      // これがないと、ブラウザがファイルを開いてしまいドロップを受け取れない
+      e.preventDefault();
+      // ドラッグ中はファイル名が分からないので、MIME タイプで画像かどうかを見分ける
+      // OS によっては MIME タイプが空になる（.ico など）ため、空のときは許可して、
+      // ドロップ時に拡張子で判定する
+      const items = [...(e.dataTransfer?.items ?? [])];
+      const droppable =
+        items.length === 1 &&
+        (items[0].type === "" || items[0].type.startsWith("image/"));
+      if (!droppable) {
+        // マウスポインタが禁止マークになり、ドロップもできなくなる
+        // ドロップ位置の水平線（ドロップカーソル）も出さないよう、エディタ本体には渡さない
+        e.dataTransfer!.dropEffect = "none";
+        e.stopPropagation();
+      }
+    };
+    const handleDrop = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      // ドロップ位置を示す水平線（ドロップカーソル）は、エディタ本体が drop を受け取って消す
+      // ここで止めてしまうと消えずに残るため、同じ後始末をする dragend を代わりに送る
+      crepe.editor.ctx.get(editorViewCtx).dom.dispatchEvent(new DragEvent("dragend"));
+      // 単一の画像ファイル以外は無視する
+      const files = e.dataTransfer?.files;
+      if (files?.length !== 1 || !isImageFile(files[0].name)) return;
+
+      // 保存の完了を待つ間にカーソルなどが動いても挿入位置がずれないよう、
+      // ドロップした座標から求めた位置を先に控えておく
+      const view = crepe.editor.ctx.get(editorViewCtx);
+      const dropPos = view.posAtCoords({ left: e.clientX, top: e.clientY })?.pos;
+      void insertDroppedImage(files[0], dropPos);
+    };
+    const insertDroppedImage = async (file: File, dropPos?: number) => {
+      const formData = new FormData();
+      formData.append("slug", JSON.stringify(slugRef.current));
+      formData.append("file", file);
+
+      let src: string;
+      try {
+        const response = await fetch("/.oreno/upload_images", {
+          method: "POST",
+          body: formData,
+        });
+        if (!response.ok) throw new Error(String(response.status));
+        ({ path: src } = await response.json());
+      } catch (error) {
+        console.error(error);
+        onImageSaveFailedRef.current?.();
+        return;
+      }
+
+      crepe.editor.action((ctx) => {
+        const view = ctx.get(editorViewCtx);
+        const imageType = imageSchema.type(ctx);
+        // 保存を待つ間にドキュメントが変わっていても範囲外にならないようにする
+        const pos = Math.min(dropPos ?? view.state.selection.from, view.state.doc.content.size);
+        const image = imageType.create({ src, alt: "", title: "" });
+        // 段落の中なら文中の画像として挿入する（既存の画像挿入と同じ）
+        // 段落と段落の間のように文を置けない位置なら、画像だけの段落にする
+        const node = view.state.doc.resolve(pos).parent.inlineContent
+          ? image
+          : view.state.schema.nodes.paragraph.create(null, image);
+        view.dispatch(view.state.tr.insert(pos, node));
+        view.focus();
+      });
+    };
+    // ポインタの種類はドラッグがエディタに入った時点（dragenter）でも決まるため、
+    // dragover と同じ処理を dragenter にも付ける
+    containerRef.current.addEventListener("dragenter", handleDragOver, true);
+    containerRef.current.addEventListener("dragover", handleDragOver, true);
+    containerRef.current.addEventListener("drop", handleDrop, true);
+
     let cancelled = false;
     // create() が終わって、内容を取り出せる状態になったかどうか
     let created = false;
@@ -504,6 +596,9 @@ export default function MarkdownEditor({
       container.removeEventListener("compositionstart", handleCompositionStart);
       container.removeEventListener("compositionend", handleCompositionEnd);
       container.removeEventListener("keydown", handleKeyDown);
+      container.removeEventListener("dragenter", handleDragOver, true);
+      container.removeEventListener("dragover", handleDragOver, true);
+      container.removeEventListener("drop", handleDrop, true);
       observer.disconnect();
       crepeRef.current = null;
       void crepe.destroy();

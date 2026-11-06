@@ -22,9 +22,9 @@ import { resolveDocPath, resolveFilePath, slugToUrlPath } from "@/lib/docPath";
 import { documentExists } from "@/lib/document";
 import {
   getFileIndex,
-  registerFile,
+  registerMarkdownFile,
   requestFileScan,
-  unregisterFile,
+  unregisterMarkdownFile,
 } from "@/lib/fileIndex";
 import { listFolder, type FolderEntries } from "@/lib/folder";
 import { markdownToHtml } from "@/lib/markdown";
@@ -69,7 +69,7 @@ export async function saveDocument(
     return { ok: false, message: `保存に失敗しました: ${String(error)}` };
   }
 
-  registerFile(slug);
+  registerMarkdownFile(slug);
 
   // このパスに対して Next.js がキャッシュしているレンダリング結果を破棄する
   // これをしないと、次にこのURLへアクセスしたときに古い内容が表示されてしまう
@@ -113,8 +113,8 @@ export async function moveDocument(
     return { ok: false, message: `移動に失敗しました: ${String(error)}` };
   }
 
-  unregisterFile(from);
-  registerFile(to);
+  unregisterMarkdownFile(from);
+  registerMarkdownFile(to);
 
   // 閲覧履歴とスター付きのパスも移動先に付け替える
   // 付け替えに失敗しても、ファイルの移動は済んでいるので移動自体は成功として扱う
@@ -152,7 +152,7 @@ export async function deleteDocument(slug: string[]): Promise<ActionResult> {
     }
   }
 
-  unregisterFile(slug);
+  unregisterMarkdownFile(slug);
 
   revalidatePath(slugToUrlPath(slug));
 
