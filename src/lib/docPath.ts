@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { hasDotSegment } from "@/lib/dotPath";
+import { INVALID_SEGMENT_CHARS } from "@/lib/folderPath";
 
 /**
  * URL のパス部分（例: "/docs/hello" の "docs", "hello"）を
@@ -10,13 +11,6 @@ import { hasDotSegment } from "@/lib/dotPath";
  * ページ表示・保存・削除のすべてがこの関数を通るようにする
  * こうしておくと、パスの安全性チェック（あとで説明する）を一箇所にまとめられる
  */
-
-/**
- * URL の1セグメントとして許可しない文字
- * README にある「ファイルパスの指定で特別な意味のある記号」に相当する
- * さらに Windows でも安全なように : \ も禁止している
- */
-const INVALID_SEGMENT_CHARS = /[*?[\]{}/\\:]/;
 
 /**
  * 環境変数 ORENO_ROOT からドキュメントのルートディレクトリを取得する

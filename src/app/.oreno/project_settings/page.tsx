@@ -19,6 +19,7 @@ export default async function ProjectSettingsRoute() {
     <ProjectSettingsPage
       rootDirName={getRootDirName()}
       initialProjectName={settings.projectName}
+      initialImageFolders={settings.imageFolders}
       sidebar={sidebar}
     />
   );

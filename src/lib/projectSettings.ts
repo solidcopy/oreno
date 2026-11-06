@@ -10,11 +10,16 @@ import { getRootDir } from "@/lib/docPath";
  */
 export type ProjectSettings = {
   projectName: string;
+  /** 画像をインポートするときにコピー先として選べるフォルダ（"/images" のような絶対形式） */
+  imageFolders: string[];
 };
 
-const EMPTY_SETTINGS: ProjectSettings = { projectName: "" };
+const EMPTY_SETTINGS: ProjectSettings = { projectName: "", imageFolders: [] };
 
-type ProjectSettingsFile = { "project-name"?: unknown };
+type ProjectSettingsFile = {
+  "project-name"?: unknown;
+  "image-folders"?: unknown;
+};
 
 function getProjectSettingsPath(): string {
   return path.join(getRootDir(), ".oreno", "project-settings.json");
@@ -45,7 +50,14 @@ export async function loadProjectSettings(): Promise<ProjectSettings> {
   }
 
   const projectName = data["project-name"];
-  return { projectName: typeof projectName === "string" ? projectName : "" };
+  const imageFolders = data["image-folders"];
+  return {
+    projectName: typeof projectName === "string" ? projectName : "",
+    // 配列でないときは未設定扱いにし、文字列以外の要素は無視する
+    imageFolders: Array.isArray(imageFolders)
+      ? imageFolders.filter((folder) => typeof folder === "string")
+      : [],
+  };
 }
 
 /**
@@ -56,7 +68,10 @@ export async function saveProjectSettings(
   settings: ProjectSettings,
 ): Promise<void> {
   const filePath = getProjectSettingsPath();
-  const data: ProjectSettingsFile = { "project-name": settings.projectName };
+  const data: ProjectSettingsFile = {
+    "project-name": settings.projectName,
+    "image-folders": settings.imageFolders,
+  };
 
   await mkdir(path.dirname(filePath), { recursive: true });
   await writeFile(filePath, JSON.stringify(data, null, 2), "utf-8");
