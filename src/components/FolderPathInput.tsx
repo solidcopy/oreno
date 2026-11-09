@@ -11,6 +11,7 @@ type Props = {
   /** 入力欄に付けるクラス名（見た目は使う画面に合わせる） */
   inputClassName?: string;
   placeholder?: string;
+  disabled?: boolean;
   "aria-label"?: string;
 };
 
@@ -27,6 +28,7 @@ export default function FolderPathInput({
   onChange,
   inputClassName,
   placeholder,
+  disabled,
   "aria-label": ariaLabel,
 }: Props) {
   // 候補の絞り込みに使う、確定済みの入力
@@ -136,6 +138,7 @@ export default function FolderPathInput({
         type="text"
         value={value}
         placeholder={placeholder}
+        disabled={disabled}
         aria-label={ariaLabel}
         role="combobox"
         aria-expanded={open}

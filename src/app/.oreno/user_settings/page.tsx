@@ -2,6 +2,7 @@ import { connection } from "next/server";
 import { getRootDirName } from "@/lib/docPath";
 import { loadProjectSettings } from "@/lib/projectSettings";
 import {
+  loadImageImportSettings,
   loadOrderSetting,
   loadSidebarData,
 } from "@/lib/userSettings";
@@ -15,6 +16,7 @@ export default async function UserSettingsRoute() {
 
   const { projectName } = await loadProjectSettings();
   const order = await loadOrderSetting();
+  const imageImport = await loadImageImportSettings();
 
   const sidebar = await loadSidebarData();
 
@@ -23,6 +25,7 @@ export default async function UserSettingsRoute() {
       rootDirName={getRootDirName()}
       projectName={projectName}
       initialOrder={order}
+      initialImageImport={imageImport}
       sidebar={sidebar}
     />
   );

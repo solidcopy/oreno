@@ -28,3 +28,63 @@
   font-size: 0.95rem;
   cursor: pointer;
 }
+
+/* 画像インポートの設定をまとめる枠 */
+.groupBox {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+  margin: 0;
+  padding: 1rem 1.4rem 1.4rem;
+  border: 1px solid var(--gray-alpha-200);
+  border-radius: 8px;
+}
+
+.groupBox > legend {
+  padding: 0 0.5rem;
+}
+
+/* ラジオボタンと、その右の入力欄を横に並べる */
+.inlineRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.folderInput {
+  width: 320px;
+  max-width: 100%;
+}
+
+.folderInput input {
+  width: 100%;
+}
+
+.folderInput input:disabled {
+  opacity: 0.5;
+}
+
+.folderError {
+  font-size: 0.8rem;
+  color: #c1121f;
+}
+
+/* チェックボックスとその下の注意書きを、近づけてひとまとまりにする */
+.checkboxItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.note {
+  /* チェックボックスの幅と間隔の分だけ字下げして、ラベルの文字に揃える */
+  padding-left: 1.5rem;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: #6b7280;
+}
+
+/* 枠の冒頭の説明 */
+.groupDescription {
+  font-size: 0.9rem;
+}

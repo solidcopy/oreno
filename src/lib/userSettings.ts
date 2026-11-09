@@ -340,6 +340,90 @@ export function setOrderSetting(order: OrderSetting): Promise<void> {
 }
 
 /**
+ * 画像インポート（image-import）の設定
+ * useModal: ドロップした画像を、モーダルで設定してからインポートするか
+ * defaultFolder: 画像パスの初期入力に使うフォルダ（"/images" のような絶対形式）。空文字はページと同じフォルダ
+ * handleSameFilename: 画像パスの初期入力と同じ名前のファイルがあるときの扱い
+ *   overwrite: そのまま（何もしない）、append-timestamp: ファイル名の後ろにタイムスタンプを付ける
+ */
+export type HandleSameFilename = "overwrite" | "append-timestamp";
+
+export type ImageImportSettings = {
+  useModal: boolean;
+  defaultFolder: string;
+  handleSameFilename: HandleSameFilename;
+};
+
+const IMAGE_IMPORT_DEFAULT: ImageImportSettings = {
+  useModal: true,
+  defaultFolder: "",
+  handleSameFilename: "overwrite",
+};
+
+export function isHandleSameFilename(
+  value: unknown,
+): value is HandleSameFilename {
+  return value === "overwrite" || value === "append-timestamp";
+}
+
+/**
+ * 保存済みの画像インポートの設定を返す
+ * 未設定、または不正な値の項目は、その項目だけ既定の値にする
+ */
+export async function loadImageImportSettings(): Promise<ImageImportSettings> {
+  const data = await readUserSettingsFile();
+  const current = data["image-import"];
+  const values =
+    typeof current === "object" && current !== null
+      ? (current as Record<string, unknown>)
+      : {};
+  const useModal = values["use-modal"];
+  const defaultFolder = values["default-folder"];
+  const handleSameFilename = values["handle-same-filename"];
+  return {
+    useModal:
+      typeof useModal === "boolean" ? useModal : IMAGE_IMPORT_DEFAULT.useModal,
+    defaultFolder:
+      typeof defaultFolder === "string"
+        ? defaultFolder
+        : IMAGE_IMPORT_DEFAULT.defaultFolder,
+    handleSameFilename: isHandleSameFilename(handleSameFilename)
+      ? handleSameFilename
+      : IMAGE_IMPORT_DEFAULT.handleSameFilename,
+  };
+}
+
+/**
+ * 画像インポートの設定を保存する
+ * image-import の中の他のキーは残す
+ * すでに同じ値であれば何も書き込まない
+ */
+export function setImageImportSettings(
+  settings: ImageImportSettings,
+): Promise<void> {
+  return updateUserSettings((data) => {
+    const current = data["image-import"];
+    const imageImport: Record<string, unknown> =
+      typeof current === "object" && current !== null && !Array.isArray(current)
+        ? { ...(current as Record<string, unknown>) }
+        : {};
+    if (
+      imageImport["use-modal"] === settings.useModal &&
+      imageImport["default-folder"] === settings.defaultFolder &&
+      imageImport["handle-same-filename"] === settings.handleSameFilename
+    ) {
+      return false;
+    }
+
+    imageImport["use-modal"] = settings.useModal;
+    imageImport["default-folder"] = settings.defaultFolder;
+    imageImport["handle-same-filename"] = settings.handleSameFilename;
+    data["image-import"] = imageImport;
+    return true;
+  });
+}
+
+/**
  * 文書の表示モード（mode）
  * ページを移動したりリロードしても、表示モードと編集モードが変わらないように保存する
  * view: 表示モード、edit: 編集モード
