@@ -45,3 +45,24 @@ export function handleCandidateInputKeyDown(
     listRef.current?.focus();
   }
 }
+
+/**
+ * リンク先や画像パスの入力を、サーバーに存在を問い合わせるための slug に変換する
+ * 現在のページのURLを基準に解決するので、"../" を含む入力も扱える
+ * 別のサイトのURLなど、このアプリのページやファイルを指さない入力は null を返す
+ *
+ * window.location を使うため、ブラウザ（Client Component）でだけ呼べる
+ */
+export function toSlug(input: string): string[] | null {
+  try {
+    const url = new URL(input, window.location.href);
+    if (url.origin !== window.location.origin) return null;
+    const slug = url.pathname
+      .split("/")
+      .filter((segment) => segment !== "")
+      .map(decodeURIComponent);
+    return slug.length > 0 ? slug : null;
+  } catch {
+    return null;
+  }
+}
