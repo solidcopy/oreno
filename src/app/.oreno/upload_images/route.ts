@@ -2,16 +2,19 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { resolveDocPath, resolveFilePath } from "@/lib/docPath";
 import { registerAttachmentFile } from "@/lib/fileIndex";
-import { isImageFile } from "@/lib/imageFile";
+import { encodeImageSrc, resolveImagePath } from "@/lib/imagePath";
 
 // 文書ルートフォルダの内容は実行時に変わるため、ビルド時に固定されないようにする
 export const dynamic = "force-dynamic";
 
-// エディタにドロップされた画像ファイルを、ページと同じフォルダに保存する Route Handler
+// エディタにドロップされた画像ファイルを、指定された画像パスに保存する Route Handler
 // Server Action ではなくこちらを使うのは、Server Action にはボディサイズの上限
 // （next.config.ts の bodySizeLimit）があり、画像のサイズに上限を設けないため
-// 同名のファイルがすでにあるときは、確認せずに上書きする
-// リクエストは multipart/form-data で、slug（ページの slug の JSON）と file（画像ファイル1つ）を持つ
+// 同名のファイルがすでにあるときは、上書きする（上書きの確認は、呼び出し側が済ませている）
+// リクエストは multipart/form-data で、次のフィールドを持つ
+//   slug: 画像を挿入するページの slug の JSON（相対パスの基準になるページのフォルダを求める）
+//   file: 画像ファイル1つ
+//   path: 保存先の画像パス（絶対形式、またはページのフォルダからの相対）
 // 保存できたら、Markdownに書く画像パスを返す
 export async function POST(request: Request) {
   const formData = await request.formData();
@@ -30,20 +33,24 @@ export async function POST(request: Request) {
     return new Response("Bad Request", { status: 400 });
   }
 
-  // ブラウザから直接送られた値は信用せず、画像ファイルだけを対象にする
   const file = formData.get("file");
-  if (file === null || typeof file === "string" || !isImageFile(file.name)) {
+  const input = formData.get("path");
+  if (file === null || typeof file === "string" || typeof input !== "string") {
     return new Response("Bad Request", { status: 400 });
   }
 
-  // ページが保存されるフォルダ（ページがまだ保存されていなくても決まる）
-  const fileSlug = [...slug.slice(0, -1), file.name];
-  const filePath = resolveFilePath(fileSlug);
+  // ブラウザから直接送られた値は信用せず、画像ファイルの保存先として使えるパスかを確かめる
+  const resolved = resolveImagePath(slug, input);
+  if (!resolved.ok) {
+    return new Response(resolved.message, { status: 400 });
+  }
+  const filePath = resolveFilePath(resolved.slug);
   if (!filePath) {
     return new Response("Bad Request", { status: 400 });
   }
 
   try {
+    // 保存先のフォルダがまだ無い場合に備えて作成しておく
     await mkdir(path.dirname(filePath), { recursive: true });
     await writeFile(filePath, Buffer.from(await file.arrayBuffer()));
   } catch (error) {
@@ -51,19 +58,7 @@ export async function POST(request: Request) {
     return new Response("Internal Server Error", { status: 500 });
   }
 
-  registerAttachmentFile(fileSlug);
+  registerAttachmentFile(resolved.slug);
 
-  // ファイル名はそのまま保存し、パスの中ではURLエンコードする
-  // encodeURIComponent は ( ) をエンコードしないが、Markdownの記法と紛らわしいので足す
-  const imagePath =
-    "/" +
-    fileSlug
-      .map((segment) =>
-        encodeURIComponent(segment).replace(
-          /[()]/g,
-          (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase(),
-        ),
-      )
-      .join("/");
-  return Response.json({ path: imagePath });
+  return Response.json({ path: encodeImageSrc(input) });
 }

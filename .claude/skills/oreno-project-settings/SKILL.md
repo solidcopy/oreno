@@ -54,4 +54,4 @@ description: Orenoのプロジェクト設定(文書ルート/.oreno/project-set
 
 ### 画像インポートでの使い道
 
-一覧のフォルダは、画像インポートモーダルの画像フォルダ選択ボタンの選択肢になる(「（ページのフォルダ）」の次に、一覧の順に並べる)。この機能は未実装で、画像のドロップは現在、確認なしでページと同じフォルダへコピーしている(oreno-editor-ui スキルの `references/image.md`)。
+一覧のフォルダは、画像インポートモーダルの画像フォルダ選択ボタンの選択肢になる(「（ページのフォルダ）」の次に、一覧の順に並べる)。ドロップのたびに `prepareImageImport`(`src/lib/imageImport.ts`)が読み込んで、モーダルに渡す。詳しい動作は oreno-editor-ui スキルの `references/image.md` を参照。

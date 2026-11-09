@@ -29,8 +29,11 @@ import {
   toggleSubscriptCommand,
   toggleSuperscriptCommand,
 } from "./scriptPlugin";
+import { getImageImportContext } from "@/app/actions";
 import { isImageFile } from "@/lib/imageFile";
+import type { ImageImportContext } from "@/lib/imageImport";
 import ImageDialog, { type ImageValues } from "./ImageDialog";
+import ImageImportDialog from "./ImageImportDialog";
 import LinkDialog from "./LinkDialog";
 import {
   applyLink,
@@ -219,12 +222,26 @@ export default function MarkdownEditor({
     initial: ImageValues | null;
   } | null>(null);
 
+  // 画像インポートモーダルの表示状態
+  // null のときは閉じている。開いているときは、ドロップされた画像ファイルと、
+  // そのドロップ位置、モーダルの初期値などを持つ
+  const [importDialog, setImportDialog] = useState<{
+    file: File;
+    dropPos?: number;
+    context: ImageImportContext;
+  } | null>(null);
+
   // onChange は最新の関数を ref に入れておき、Crepe には常にこの ref 経由で呼んでもらう
   // useEffect の中で onChange を直接渡すと、エディタを作った時点の関数が
   // 使われ続けてしまう（エディタは最初の1回しか作らないため）
   const onChangeRef = useRef(onChange);
   const onUnmountRef = useRef(onUnmount);
   const onImageSaveFailedRef = useRef(onImageSaveFailed);
+  // ドロップされた画像のインポートを始める関数
+  // ドロップを受け取る関数は useEffect の中で一度だけ作られるため、この ref 経由で呼ぶ
+  const startImportRef = useRef<(file: File, dropPos?: number) => void>(
+    () => {},
+  );
   // slug も同じ理由で ref 経由にする（画像のドロップ時に最新のページを参照するため）
   const slugRef = useRef(slug);
   useEffect(() => {
@@ -504,41 +521,7 @@ export default function MarkdownEditor({
       // ドロップした座標から求めた位置を先に控えておく
       const view = crepe.editor.ctx.get(editorViewCtx);
       const dropPos = view.posAtCoords({ left: e.clientX, top: e.clientY })?.pos;
-      void insertDroppedImage(files[0], dropPos);
-    };
-    const insertDroppedImage = async (file: File, dropPos?: number) => {
-      const formData = new FormData();
-      formData.append("slug", JSON.stringify(slugRef.current));
-      formData.append("file", file);
-
-      let src: string;
-      try {
-        const response = await fetch("/.oreno/upload_images", {
-          method: "POST",
-          body: formData,
-        });
-        if (!response.ok) throw new Error(String(response.status));
-        ({ path: src } = await response.json());
-      } catch (error) {
-        console.error(error);
-        onImageSaveFailedRef.current?.();
-        return;
-      }
-
-      crepe.editor.action((ctx) => {
-        const view = ctx.get(editorViewCtx);
-        const imageType = imageSchema.type(ctx);
-        // 保存を待つ間にドキュメントが変わっていても範囲外にならないようにする
-        const pos = Math.min(dropPos ?? view.state.selection.from, view.state.doc.content.size);
-        const image = imageType.create({ src, alt: "", title: "" });
-        // 段落の中なら文中の画像として挿入する（既存の画像挿入と同じ）
-        // 段落と段落の間のように文を置けない位置なら、画像だけの段落にする
-        const node = view.state.doc.resolve(pos).parent.inlineContent
-          ? image
-          : view.state.schema.nodes.paragraph.create(null, image);
-        view.dispatch(view.state.tr.insert(pos, node));
-        view.focus();
-      });
+      startImportRef.current(files[0], dropPos);
     };
     // ポインタの種類はドラッグがエディタに入った時点（dragenter）でも決まるため、
     // dragover と同じ処理を dragenter にも付ける
@@ -608,6 +591,83 @@ export default function MarkdownEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ドロップされた画像のインポートを始める
+  // 画像パスの初期入力などをサーバーに問い合わせてから、設定に応じて、
+  // 画像インポートモーダルを開くか、確認なしでそのままコピーして埋め込む
+  // 問い合わせが終わるまでモーダルは開かないので、初期入力が後から書き換わることはない
+  const startImport = async (file: File, dropPos?: number) => {
+    let context: ImageImportContext;
+    try {
+      context = await getImageImportContext(slugRef.current, file.name);
+    } catch (error) {
+      console.error(error);
+      onImageSaveFailedRef.current?.();
+      return;
+    }
+
+    if (context.useModal) {
+      setImportDialog({ file, dropPos, context });
+    } else {
+      await importImage(file, context.initialPath, "", "", dropPos);
+    }
+  };
+
+  // 画像ファイルを path に保存（コピー）して、ドロップした位置に画像として埋め込む
+  // 保存に失敗したときは、通知を出して埋め込まない
+  const importImage = async (
+    file: File,
+    path: string,
+    title: string,
+    alt: string,
+    dropPos?: number,
+  ) => {
+    const formData = new FormData();
+    formData.append("slug", JSON.stringify(slugRef.current));
+    formData.append("file", file);
+    formData.append("path", path);
+
+    let src: string;
+    try {
+      const response = await fetch("/.oreno/upload_images", {
+        method: "POST",
+        body: formData,
+      });
+      if (!response.ok) throw new Error(String(response.status));
+      ({ path: src } = await response.json());
+    } catch (error) {
+      console.error(error);
+      onImageSaveFailedRef.current?.();
+      return;
+    }
+
+    crepeRef.current?.editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      const imageType = imageSchema.type(ctx);
+      // 保存を待つ間にドキュメントが変わっていても範囲外にならないようにする
+      const pos = Math.min(
+        dropPos ?? view.state.selection.from,
+        view.state.doc.content.size,
+      );
+      const image = imageType.create({ src, alt, title });
+      // 段落の中なら文中の画像として挿入する（既存の画像挿入と同じ）
+      // 段落と段落の間のように文を置けない位置なら、画像だけの段落にする
+      const node = view.state.doc.resolve(pos).parent.inlineContent
+        ? image
+        : view.state.schema.nodes.paragraph.create(null, image);
+      view.dispatch(view.state.tr.insert(pos, node));
+      view.focus();
+    });
+  };
+
+  useEffect(() => {
+    startImportRef.current = startImport;
+  });
+
+  const closeImportDialog = () => {
+    setImportDialog(null);
+    crepeRef.current?.editor.action((ctx) => ctx.get(editorViewCtx).focus());
+  };
+
   const closeLinkDialog = () => {
     setLinkTarget(null);
     // 閉じたあとも続けて入力できるよう、エディタにフォーカスを戻す
@@ -648,6 +708,25 @@ export default function MarkdownEditor({
               );
             });
             setLinkTarget(null);
+          }}
+        />
+      )}
+      {importDialog && (
+        <ImageImportDialog
+          slug={slug}
+          initialPath={importDialog.context.initialPath}
+          pageFolder={importDialog.context.pageFolder}
+          imageFolders={importDialog.context.imageFolders}
+          onCancel={closeImportDialog}
+          onSubmit={async (path, title, alt) => {
+            await importImage(
+              importDialog.file,
+              path,
+              title,
+              alt,
+              importDialog.dropPos,
+            );
+            setImportDialog(null);
           }}
         />
       )}

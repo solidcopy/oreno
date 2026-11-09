@@ -12,6 +12,15 @@ type Props = {
   inputClassName?: string;
   placeholder?: string;
   disabled?: boolean;
+  /** 入力欄の id（ラベルの htmlFor と対応させる） */
+  id?: string;
+  /** 表示されたときに入力欄にフォーカスするか */
+  autoFocus?: boolean;
+  /**
+   * 入力がファイル名つきのパス（例: "/images/photo.png"）のとき true にする
+   * 最後の "/" より前をフォルダとみなして候補を出し、候補を選ぶと、そのフォルダ部分だけを置き換える
+   */
+  withFileName?: boolean;
   "aria-label"?: string;
 };
 
@@ -29,6 +38,9 @@ export default function FolderPathInput({
   inputClassName,
   placeholder,
   disabled,
+  id: inputId,
+  autoFocus,
+  withFileName,
   "aria-label": ariaLabel,
 }: Props) {
   // 候補の絞り込みに使う、確定済みの入力
@@ -82,20 +94,28 @@ export default function FolderPathInput({
     };
   }, []);
 
+  // 候補の絞り込みに使うフォルダのパス
+  // ファイル名つきの入力では、最後の "/" より前（"/" がなければ、まだフォルダを入力していないので空）
+  const folderQuery = withFileName
+    ? query.includes("/")
+      ? query.slice(0, query.lastIndexOf("/"))
+      : ""
+    : query;
+
   // フォルダのパスを「ファイル」として渡すと、ファイルの候補と同じ規則で絞り込める
   const candidates = useMemo(
-    () => searchCandidates(folders, query),
-    [folders, query],
+    () => searchCandidates(folders, folderQuery),
+    [folders, folderQuery],
   );
 
   // 入力がすでにフォルダのパスと一致しているときは、選択済みとみなして閉じる
   const open =
-    query.length > 0 &&
+    folderQuery.length > 0 &&
     focused &&
     !dismissed &&
     foldersReady &&
     candidates.length > 0 &&
-    !candidates.some((candidate) => candidate.link === query);
+    !candidates.some((candidate) => candidate.link === folderQuery);
 
   // キーボードで選択した候補が、スクロールで隠れないようにする
   useEffect(() => {
@@ -113,8 +133,12 @@ export default function FolderPathInput({
   };
 
   const selectCandidate = (candidate: Candidate) => {
-    onChange(candidate.link);
-    setQuery(candidate.link);
+    // ファイル名つきの入力では、ファイル名の部分は残して、フォルダ部分だけを置き換える
+    const next = withFileName
+      ? `${candidate.link}/${value.slice(value.lastIndexOf("/") + 1)}`
+      : candidate.link;
+    onChange(next);
+    setQuery(next);
     setActiveIndex(-1);
     setDismissed(true);
     inputRef.current?.focus();
@@ -134,6 +158,8 @@ export default function FolderPathInput({
     >
       <input
         ref={inputRef}
+        id={inputId}
+        autoFocus={autoFocus}
         className={inputClassName}
         type="text"
         value={value}

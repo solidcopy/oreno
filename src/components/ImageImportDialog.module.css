@@ -1,0 +1,143 @@
+/* 画像インポートモーダルだけで使うスタイル
+   モーダル全体の見た目は、画像挿入モーダルと共用する LinkDialog.module.css にある */
+
+/* 画像パスの入力欄と、画像フォルダ選択ボタンを横に並べる */
+.pathRow {
+  display: flex;
+  gap: 8px;
+}
+
+.pathInput {
+  flex: 1;
+  min-width: 0;
+}
+
+.pathInput input {
+  width: 100%;
+}
+
+.menuAnchor {
+  position: relative;
+  flex: none;
+}
+
+.folderButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid #9ca3af;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #374151;
+  cursor: pointer;
+}
+
+.folderButton[aria-expanded="true"] {
+  border-color: #2563eb;
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.folderButton:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+/* ボタンの下に開くフォルダの一覧 */
+.menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 2;
+  min-width: 220px;
+  max-width: 320px;
+  max-height: calc(10 * 32px + 8px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  border: 1px solid #9ca3af;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.menuItem {
+  display: block;
+  width: 100%;
+  height: 32px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: #1f2937;
+  font-family: inherit;
+  font-size: 14px;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.menuItem:hover,
+.menuItem:focus-visible {
+  background: #dbeafe;
+  outline: none;
+}
+
+.warning,
+.error {
+  margin: 0;
+  font-size: 13px;
+}
+
+.warning {
+  color: #92400e;
+}
+
+.error {
+  color: #b91c1c;
+}
+
+@media (prefers-color-scheme: dark) {
+  .folderButton {
+    border-color: #6b7280;
+    background: transparent;
+    color: #e5e7eb;
+  }
+
+  .folderButton[aria-expanded="true"] {
+    border-color: #60a5fa;
+    background: #1e3a8a;
+    color: #dbeafe;
+  }
+
+  .folderButton:focus-visible {
+    outline-color: #60a5fa;
+  }
+
+  .menu {
+    border-color: #6b7280;
+    background: #111827;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  }
+
+  .menuItem {
+    color: #f3f4f6;
+  }
+
+  .menuItem:hover,
+  .menuItem:focus-visible {
+    background: #1e3a8a;
+  }
+
+  .warning {
+    color: #fbbf24;
+  }
+
+  .error {
+    color: #f87171;
+  }
+}

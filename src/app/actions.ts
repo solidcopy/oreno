@@ -27,6 +27,11 @@ import {
   unregisterMarkdownFile,
 } from "@/lib/fileIndex";
 import { listFolder, type FolderEntries } from "@/lib/folder";
+import {
+  imageFileExists,
+  prepareImageImport,
+  type ImageImportContext,
+} from "@/lib/imageImport";
 import { markdownToHtml } from "@/lib/markdown";
 import {
   addViewHistory,
@@ -401,4 +406,29 @@ export async function linkTargetExists(slug: string[]): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/**
+ * ドロップされた画像のインポートを始めるために必要な情報を返す
+ * 渡された slug を信用せず、ここで検証し直す
+ */
+export async function getImageImportContext(
+  slug: string[],
+  fileName: string,
+): Promise<ImageImportContext> {
+  if (!resolveDocPath(slug)) {
+    throw new Error("不正なページです。");
+  }
+  return prepareImageImport(slug, fileName);
+}
+
+/**
+ * 画像インポートモーダルで入力された画像パスに、すでにファイルがあるかどうかを調べる
+ */
+export async function checkImageFileExists(
+  slug: string[],
+  input: string,
+): Promise<boolean> {
+  if (!resolveDocPath(slug)) return false;
+  return imageFileExists(slug, input);
 }
