@@ -64,7 +64,8 @@ export function resolveImagePath(
 
 /**
  * Markdownに書く画像パスを作る
- * 入力された画像パスの、ファイル名などの各セグメントをURLエンコードする
+ * 入力された画像パスの、ファイル名などの各セグメントのうち、ASCIIの記号だけをURLエンコードする
+ * 日本語などのASCII以外の文字はエンコードしない
  * "." と ".."、パスの区切りの "/" はそのまま残す
  */
 export function encodeImageSrc(input: string): string {
@@ -74,11 +75,16 @@ export function encodeImageSrc(input: string): string {
     .map((segment) =>
       segment === "" || segment === "." || segment === ".."
         ? segment
-        : // encodeURIComponent は ( ) をエンコードしないが、Markdownの記法と紛らわしいので足す
-          encodeURIComponent(segment).replace(
-            /[()]/g,
-            (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase(),
-          ),
+        : // Array.from でコードポイントごとに分けて、ASCII以外はそのまま残す
+          Array.from(segment, (c) =>
+            c.charCodeAt(0) > 0x7f
+              ? c
+              : // encodeURIComponent は ( ) をエンコードしないが、Markdownの記法と紛らわしいので足す
+                encodeURIComponent(c).replace(
+                  /[()]/g,
+                  (p) => "%" + p.charCodeAt(0).toString(16).toUpperCase(),
+                ),
+          ).join(""),
     )
     .join("/");
 }
