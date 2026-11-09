@@ -4,6 +4,7 @@ import { getCandidates, linkTargetExists } from "@/app/actions";
 import { searchCandidates, type Candidate } from "@/lib/candidates";
 import styles from "./LinkDialog.module.css";
 import { handleCandidateInputKeyDown } from "./candidateInputKeyDown";
+import { handleDialogKeyDown } from "./dialogKeyDown";
 
 type Props = {
   /** リンク先の初期値 */
@@ -178,12 +179,7 @@ export default function LinkDialog({
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onCancel();
       }}
-      onKeyDown={(e) => {
-        if (e.key === "Escape") {
-          e.preventDefault();
-          onCancel();
-        }
-      }}
+      onKeyDown={(e) => handleDialogKeyDown(e, onCancel)}
     >
       <form
         className={styles.dialog}

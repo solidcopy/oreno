@@ -6,6 +6,7 @@ import { searchCandidates, type Candidate } from "@/lib/candidates";
 // リンク設定モーダルと同じ見た目なので、CSSを共用する
 import styles from "./LinkDialog.module.css";
 import { handleCandidateInputKeyDown } from "./candidateInputKeyDown";
+import { handleDialogKeyDown } from "./dialogKeyDown";
 
 /** モーダルの入力欄の値 */
 export type ImageValues = {
@@ -181,12 +182,7 @@ export default function ImageDialog({ initial, onSubmit, onCancel }: Props) {
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onCancel();
       }}
-      onKeyDown={(e) => {
-        if (e.key === "Escape") {
-          e.preventDefault();
-          onCancel();
-        }
-      }}
+      onKeyDown={(e) => handleDialogKeyDown(e, onCancel)}
     >
       <form
         className={styles.dialog}

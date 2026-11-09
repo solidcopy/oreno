@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { checkImageFileExists } from "@/app/actions";
 import { resolveImagePath } from "@/lib/imagePath";
 import FolderPathInput from "./FolderPathInput";
+import { handleDialogKeyDown } from "./dialogKeyDown";
 // 画像挿入モーダルと同じ見た目なので、CSSを共用する
 import styles from "./LinkDialog.module.css";
 import importStyles from "./ImageImportDialog.module.css";
@@ -121,12 +122,7 @@ export default function ImageImportDialog({
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onCancel();
       }}
-      onKeyDown={(e) => {
-        if (e.key === "Escape") {
-          e.preventDefault();
-          onCancel();
-        }
-      }}
+      onKeyDown={(e) => handleDialogKeyDown(e, onCancel)}
     >
       <form
         className={styles.dialog}
