@@ -1,6 +1,21 @@
 import type { KeyboardEvent, RefObject } from "react";
 
-type Options = {
+/**
+ * モーダルのオーバーレイの onKeyDown で呼ぶ
+ * Escキーでモーダルを閉じる
+ * 日本語入力の変換中のEscは変換を取り消すためのキーなので、モーダルは閉じない
+ */
+export function handleDialogKeyDown(
+  e: KeyboardEvent<HTMLElement>,
+  onCancel: () => void,
+) {
+  if (e.key === "Escape" && !e.nativeEvent.isComposing) {
+    e.preventDefault();
+    onCancel();
+  }
+}
+
+type CandidateInputOptions = {
   /** 候補のドロップダウンが開いているか */
   open: boolean;
   /** 候補の数 */
@@ -17,7 +32,7 @@ type Options = {
  */
 export function handleCandidateInputKeyDown(
   e: KeyboardEvent<HTMLInputElement>,
-  { open, candidateCount, setActiveIndex, listRef }: Options,
+  { open, candidateCount, setActiveIndex, listRef }: CandidateInputOptions,
 ) {
   if (
     e.key === "ArrowDown" &&

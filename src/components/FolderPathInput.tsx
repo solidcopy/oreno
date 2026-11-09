@@ -4,7 +4,7 @@ import { searchCandidates, type Candidate } from "@/lib/candidates";
 import { listFolders } from "@/lib/folderPath";
 // リンク設定モーダルと同じ見た目の候補ドロップダウンなので、CSSを共用する
 import styles from "./LinkDialog.module.css";
-import { handleCandidateInputKeyDown } from "./candidateInputKeyDown";
+import { handleCandidateInputKeyDown } from "./dialogBehavior";
 
 type Props = {
   value: string;

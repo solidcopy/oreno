@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { checkImageFileExists } from "@/app/actions";
 import { resolveImagePath } from "@/lib/imagePath";
 import FolderPathInput from "./FolderPathInput";
-import { handleDialogKeyDown } from "./dialogKeyDown";
+import { handleDialogKeyDown } from "./dialogBehavior";
 // 画像挿入モーダルと同じ見た目なので、CSSを共用する
 import styles from "./LinkDialog.module.css";
 import importStyles from "./ImageImportDialog.module.css";

@@ -3,8 +3,10 @@ import { createPortal } from "react-dom";
 import { getCandidates, linkTargetExists } from "@/app/actions";
 import { searchCandidates, type Candidate } from "@/lib/candidates";
 import styles from "./LinkDialog.module.css";
-import { handleCandidateInputKeyDown } from "./candidateInputKeyDown";
-import { handleDialogKeyDown } from "./dialogKeyDown";
+import {
+  handleCandidateInputKeyDown,
+  handleDialogKeyDown,
+} from "./dialogBehavior";
 
 type Props = {
   /** リンク先の初期値 */

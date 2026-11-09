@@ -5,8 +5,10 @@ import { isImageFile } from "@/lib/imageFile";
 import { searchCandidates, type Candidate } from "@/lib/candidates";
 // リンク設定モーダルと同じ見た目なので、CSSを共用する
 import styles from "./LinkDialog.module.css";
-import { handleCandidateInputKeyDown } from "./candidateInputKeyDown";
-import { handleDialogKeyDown } from "./dialogKeyDown";
+import {
+  handleCandidateInputKeyDown,
+  handleDialogKeyDown,
+} from "./dialogBehavior";
 
 /** モーダルの入力欄の値 */
 export type ImageValues = {
