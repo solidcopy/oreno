@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { getCandidates, linkTargetExists } from "@/app/actions";
 import { searchCandidates, type Candidate } from "@/lib/candidates";
 import styles from "./LinkDialog.module.css";
+import { handleCandidateInputKeyDown } from "./candidateInputKeyDown";
 
 type Props = {
   /** リンク先の初期値 */
@@ -235,19 +236,14 @@ export default function LinkDialog({
                 }
               }}
               onCompositionEnd={(e) => changeQuery(e.currentTarget.value)}
-              onKeyDown={(e) => {
-                // 下キーで、ドロップダウンの先頭の候補を選択する
-                if (
-                  e.key === "ArrowDown" &&
-                  !e.nativeEvent.isComposing &&
-                  open &&
-                  candidates.length > 0
-                ) {
-                  e.preventDefault();
-                  setActiveIndex(0);
-                  listRef.current?.focus();
-                }
-              }}
+              onKeyDown={(e) =>
+                handleCandidateInputKeyDown(e, {
+                  open,
+                  candidateCount: candidates.length,
+                  setActiveIndex,
+                  listRef,
+                })
+              }
             />
             {open && !filesReady && (
               <div className={styles.dropdown} role="status">

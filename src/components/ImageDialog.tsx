@@ -5,6 +5,7 @@ import { isImageFile } from "@/lib/imageFile";
 import { searchCandidates, type Candidate } from "@/lib/candidates";
 // リンク設定モーダルと同じ見た目なので、CSSを共用する
 import styles from "./LinkDialog.module.css";
+import { handleCandidateInputKeyDown } from "./candidateInputKeyDown";
 
 /** モーダルの入力欄の値 */
 export type ImageValues = {
@@ -238,19 +239,14 @@ export default function ImageDialog({ initial, onSubmit, onCancel }: Props) {
                 }
               }}
               onCompositionEnd={(e) => changeQuery(e.currentTarget.value)}
-              onKeyDown={(e) => {
-                // 下キーで、ドロップダウンの先頭の候補を選択する
-                if (
-                  e.key === "ArrowDown" &&
-                  !e.nativeEvent.isComposing &&
-                  open &&
-                  candidates.length > 0
-                ) {
-                  e.preventDefault();
-                  setActiveIndex(0);
-                  listRef.current?.focus();
-                }
-              }}
+              onKeyDown={(e) =>
+                handleCandidateInputKeyDown(e, {
+                  open,
+                  candidateCount: candidates.length,
+                  setActiveIndex,
+                  listRef,
+                })
+              }
             />
             {open && !filesReady && (
               <div className={styles.dropdown} role="status">

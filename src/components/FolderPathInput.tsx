@@ -4,6 +4,7 @@ import { searchCandidates, type Candidate } from "@/lib/candidates";
 import { listFolders } from "@/lib/folderPath";
 // リンク設定モーダルと同じ見た目の候補ドロップダウンなので、CSSを共用する
 import styles from "./LinkDialog.module.css";
+import { handleCandidateInputKeyDown } from "./candidateInputKeyDown";
 
 type Props = {
   value: string;
@@ -178,18 +179,14 @@ export default function FolderPathInput({
           }
         }}
         onCompositionEnd={(e) => changeQuery(e.currentTarget.value)}
-        onKeyDown={(e) => {
-          // 下キーで、ドロップダウンの先頭の候補を選択する
-          if (
-            e.key === "ArrowDown" &&
-            !e.nativeEvent.isComposing &&
-            open
-          ) {
-            e.preventDefault();
-            setActiveIndex(0);
-            listRef.current?.focus();
-          }
-        }}
+        onKeyDown={(e) =>
+          handleCandidateInputKeyDown(e, {
+            open,
+            candidateCount: candidates.length,
+            setActiveIndex,
+            listRef,
+          })
+        }
       />
       {open && (
         <ul
