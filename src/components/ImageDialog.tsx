@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { getCandidates, linkTargetExists } from "@/app/actions";
+import { linkTargetExists } from "@/app/actions";
 import { isImageFile } from "@/lib/imageFile";
 import { searchCandidates, type Candidate } from "@/lib/candidates";
 // リンク設定モーダルと同じ見た目なので、CSSを共用する
@@ -10,6 +10,7 @@ import {
   handleDialogKeyDown,
   toSlug,
 } from "./dialogBehavior";
+import { useCandidateFiles } from "./useCandidateFiles";
 
 /** モーダルの入力欄の値 */
 export type ImageValues = {
@@ -30,8 +31,10 @@ type Props = {
   onCancel: () => void;
 };
 
-// ファイル一覧の更新が終わっていないときに、取得し直すまでの待ち時間
-const RETRY_MS = 1000;
+// 取得したファイルの一覧から、画像ファイルだけを候補にする
+// useCandidateFiles は渡された関数が変わると一覧を取得し直すため、
+// 描画のたびに作り直されないようコンポーネントの外で定義する
+const selectImages = (files: string[]) => files.filter(isImageFile);
 
 /**
  * 画像パス・タイトル・代替テキストを入力するモーダル
@@ -52,9 +55,8 @@ export default function ImageDialog({ initial, onSubmit, onCancel }: Props) {
   // 日本語入力の変換中（未確定）の文字列は含めないため、src とは別に持つ
   const [query, setQuery] = useState(initial?.src ?? "");
 
-  // サーバーから取得したファイルの一覧と、取得が終わったかどうか
-  const [files, setFiles] = useState<string[]>([]);
-  const [filesReady, setFilesReady] = useState(false);
+  // サーバーから取得した画像ファイルの一覧と、取得が終わったかどうか
+  const { files, ready: filesReady } = useCandidateFiles(selectImages);
 
   // 入力欄またはドロップダウンにフォーカスがあるか
   const [focused, setFocused] = useState(false);
@@ -71,37 +73,6 @@ export default function ImageDialog({ initial, onSubmit, onCancel }: Props) {
   const listRef = useRef<HTMLUListElement>(null);
 
   const canSubmit = src.trim() !== "";
-
-  // ファイルの一覧を取得する
-  // 開いたときにサーバーへ一覧の更新を依頼するが、更新の完了は待たない
-  // 更新が終わるまで取得し直して、終わったら新しい一覧に差し替える
-  useEffect(() => {
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout>;
-
-    const load = async (refresh: boolean) => {
-      try {
-        const result = await getCandidates(refresh);
-        if (cancelled) return;
-        if (result.ready) {
-          setFiles(result.files.filter(isImageFile));
-          setFilesReady(true);
-        }
-        if (!result.ready || result.scanning) {
-          timer = setTimeout(() => load(false), RETRY_MS);
-        }
-      } catch {
-        // 取得に失敗したときは、候補が空のものとして扱う
-        setFilesReady(true);
-      }
-    };
-    void load(true);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, []);
 
   // 入力された画像パスに、対応するファイルが実際にあるかを調べる
   // あれば選択済みとみなして、ドロップダウンを閉じる

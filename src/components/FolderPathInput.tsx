@@ -1,10 +1,10 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { getCandidates } from "@/app/actions";
 import { searchCandidates, type Candidate } from "@/lib/candidates";
 import { listFolders } from "@/lib/folderPath";
 // リンク設定モーダルと同じ見た目の候補ドロップダウンなので、CSSを共用する
 import styles from "./LinkDialog.module.css";
 import { handleCandidateInputKeyDown } from "./dialogBehavior";
+import { useCandidateFiles } from "./useCandidateFiles";
 
 type Props = {
   value: string;
@@ -24,9 +24,6 @@ type Props = {
   withFileName?: boolean;
   "aria-label"?: string;
 };
-
-// ファイル一覧の更新が終わっていないときに、取得し直すまでの待ち時間
-const RETRY_MS = 1000;
 
 /**
  * フォルダのパスを入力する欄
@@ -49,8 +46,7 @@ export default function FolderPathInput({
   const [query, setQuery] = useState(value);
 
   // サーバーから取得したフォルダの一覧と、取得が終わったかどうか
-  const [folders, setFolders] = useState<string[]>([]);
-  const [foldersReady, setFoldersReady] = useState(false);
+  const { files: folders, ready: foldersReady } = useCandidateFiles(listFolders);
 
   // 入力欄またはドロップダウンにフォーカスがあるか
   const [focused, setFocused] = useState(false);
@@ -63,37 +59,6 @@ export default function FolderPathInput({
   const listRef = useRef<HTMLUListElement>(null);
   // 要素の id は画面に複数置いても重複しないよう、useId で作る
   const id = useId();
-
-  // フォルダの一覧を取得する
-  // 開いたときにサーバーへファイル一覧の更新を依頼するが、更新の完了は待たない
-  // 更新が終わるまで取得し直して、終わったら新しい一覧に差し替える
-  useEffect(() => {
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout>;
-
-    const load = async (refresh: boolean) => {
-      try {
-        const result = await getCandidates(refresh);
-        if (cancelled) return;
-        if (result.ready) {
-          setFolders(listFolders(result.files));
-          setFoldersReady(true);
-        }
-        if (!result.ready || result.scanning) {
-          timer = setTimeout(() => load(false), RETRY_MS);
-        }
-      } catch {
-        // 取得に失敗したときは、候補が空のものとして扱う
-        setFoldersReady(true);
-      }
-    };
-    void load(true);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, []);
 
   // 候補の絞り込みに使うフォルダのパス
   // ファイル名つきの入力では、最後の "/" より前（"/" がなければ、まだフォルダを入力していないので空）

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { getCandidates, linkTargetExists } from "@/app/actions";
+import { linkTargetExists } from "@/app/actions";
 import { searchCandidates, type Candidate } from "@/lib/candidates";
 import styles from "./LinkDialog.module.css";
 import {
@@ -8,6 +8,7 @@ import {
   handleDialogKeyDown,
   toSlug,
 } from "./dialogBehavior";
+import { useCandidateFiles } from "./useCandidateFiles";
 
 type Props = {
   /** リンク先の初期値 */
@@ -19,9 +20,6 @@ type Props = {
   /** 「キャンセル」、モーダルの外のクリック、Escキーで呼ばれる */
   onCancel: () => void;
 };
-
-// ファイル一覧の更新が終わっていないときに、取得し直すまでの待ち時間
-const RETRY_MS = 1000;
 
 /**
  * リンク先とリンクテキストを入力するモーダル
@@ -51,8 +49,7 @@ export default function LinkDialog({
   const [query, setQuery] = useState(initialUrl);
 
   // サーバーから取得したファイルの一覧と、取得が終わったかどうか
-  const [files, setFiles] = useState<string[]>([]);
-  const [filesReady, setFilesReady] = useState(false);
+  const { files, ready: filesReady } = useCandidateFiles();
 
   // 入力欄またはドロップダウンにフォーカスがあるか
   const [focused, setFocused] = useState(false);
@@ -67,38 +64,6 @@ export default function LinkDialog({
   const listRef = useRef<HTMLUListElement>(null);
 
   const canSubmit = url.trim() !== "";
-
-  // ファイルの一覧を取得する
-  // 開いたときにサーバーへ一覧の更新を依頼するが、更新の完了は待たない
-  // 更新中は、更新前の一覧をそのまま使う（最初のスキャンが終わっていないときは一覧がない）
-  // 更新が終わるまで取得し直して、終わったら新しい一覧に差し替える
-  useEffect(() => {
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout>;
-
-    const load = async (refresh: boolean) => {
-      try {
-        const result = await getCandidates(refresh);
-        if (cancelled) return;
-        if (result.ready) {
-          setFiles(result.files);
-          setFilesReady(true);
-        }
-        if (!result.ready || result.scanning) {
-          timer = setTimeout(() => load(false), RETRY_MS);
-        }
-      } catch {
-        // 取得に失敗したときは、候補が空のものとして扱う
-        setFilesReady(true);
-      }
-    };
-    void load(true);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, []);
 
   // 入力されたリンク先に、対応するページまたはファイルが実際にあるかを調べる
   // あれば選択済みとみなして、ドロップダウンを閉じる
