@@ -1,4 +1,5 @@
-import type { KeyboardEvent, RefObject } from "react";
+import type { Dispatch, KeyboardEvent, RefObject, SetStateAction } from "react";
+import type { Candidate } from "@/lib/candidates";
 
 /**
  * モーダルのオーバーレイの onKeyDown で呼ぶ
@@ -43,6 +44,61 @@ export function handleCandidateInputKeyDown(
     e.preventDefault();
     setActiveIndex(0);
     listRef.current?.focus();
+  }
+}
+
+type CandidateListOptions = {
+  /** 表示している候補 */
+  candidates: Candidate[];
+  /** キーボードで選択している候補の位置（選択していないときは -1） */
+  activeIndex: number;
+  setActiveIndex: Dispatch<SetStateAction<number>>;
+  /** Escキーでドロップダウンを閉じたことにする */
+  setDismissed: (dismissed: boolean) => void;
+  /** 候補のリストから戻る先の入力欄 */
+  inputRef: RefObject<HTMLInputElement | null>;
+  /** Enterキーまたはスペースキーで、選択中の候補を確定する */
+  onSelect: (candidate: Candidate) => void;
+};
+
+/**
+ * 候補のリスト（<ul>）の onKeyDown で呼ぶ
+ * 上下キーで選択を移し、Enter・スペースで確定する
+ * Escキーでは、モーダルは閉じず、ドロップダウンだけを閉じて入力欄に戻る
+ */
+export function handleCandidateListKeyDown(
+  e: KeyboardEvent<HTMLUListElement>,
+  {
+    candidates,
+    activeIndex,
+    setActiveIndex,
+    setDismissed,
+    inputRef,
+    onSelect,
+  }: CandidateListOptions,
+) {
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    setActiveIndex((i) => Math.min(i + 1, candidates.length - 1));
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault();
+    // 先頭で上キーを押したら、入力欄にフォーカスを戻す
+    if (activeIndex <= 0) {
+      setActiveIndex(-1);
+      inputRef.current?.focus();
+    } else {
+      setActiveIndex(activeIndex - 1);
+    }
+  } else if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    if (activeIndex >= 0) onSelect(candidates[activeIndex]);
+  } else if (e.key === "Escape") {
+    // オーバーレイのEsc処理に届かないよう止める
+    e.preventDefault();
+    e.stopPropagation();
+    setDismissed(true);
+    setActiveIndex(-1);
+    inputRef.current?.focus();
   }
 }
 

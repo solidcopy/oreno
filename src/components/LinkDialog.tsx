@@ -5,6 +5,7 @@ import { searchCandidates, type Candidate } from "@/lib/candidates";
 import styles from "./LinkDialog.module.css";
 import {
   handleCandidateInputKeyDown,
+  handleCandidateListKeyDown,
   handleDialogKeyDown,
   toSlug,
 } from "./dialogBehavior";
@@ -207,31 +208,16 @@ export default function LinkDialog({
                 }
                 // Tabキーの移動では止まらず、下キーのときだけフォーカスを受ける
                 tabIndex={-1}
-                onKeyDown={(e) => {
-                  if (e.key === "ArrowDown") {
-                    e.preventDefault();
-                    setActiveIndex((i) => Math.min(i + 1, candidates.length - 1));
-                  } else if (e.key === "ArrowUp") {
-                    e.preventDefault();
-                    // 先頭で上キーを押したら、入力欄にフォーカスを戻す
-                    if (activeIndex <= 0) {
-                      setActiveIndex(-1);
-                      inputRef.current?.focus();
-                    } else {
-                      setActiveIndex(activeIndex - 1);
-                    }
-                  } else if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    if (activeIndex >= 0) selectCandidate(candidates[activeIndex]);
-                  } else if (e.key === "Escape") {
-                    // モーダルは閉じず、ドロップダウンだけを閉じて入力欄に戻る
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setDismissed(true);
-                    setActiveIndex(-1);
-                    inputRef.current?.focus();
-                  }
-                }}
+                onKeyDown={(e) =>
+                  handleCandidateListKeyDown(e, {
+                    candidates,
+                    activeIndex,
+                    setActiveIndex,
+                    setDismissed,
+                    inputRef,
+                    onSelect: selectCandidate,
+                  })
+                }
               >
                 {candidates.map((candidate, i) => (
                   <li
