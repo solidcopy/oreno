@@ -2,7 +2,11 @@
   "permissions": {
     "deny": [
       "Bash(git push)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(rm -rf)",
+      "Bash(rm -rf *)",
+      "Bash(rm -fr)",
+      "Bash(rm -fr *)"
     ]
   },
   "hooks": {
@@ -10,7 +14,8 @@
       {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-git-push.sh" }
+          { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-git-push.sh" },
+          { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-rm-rf.sh" }
         ]
       }
     ]
