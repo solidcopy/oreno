@@ -1,6 +1,7 @@
 ---
 name: forbid-operation
 description: Claudeに実行させたくない操作(例:git push、rm -rf、特定ファイルの編集)を禁止するための設定一式を作るスキルです。「〜を禁止して」「〜をClaudeにやらせないで」「〜できないようにして」「勝手に〜しないようにして」と言われたときは、必ずこのスキルを使ってください。禁止の意思を、(1)文書への明記、(2)パーミッションのdeny、(3)PreToolUseフックによる実行阻止の3層で設定します。
+disable-model-invocation: true
 ---
 
 # 操作の禁止
